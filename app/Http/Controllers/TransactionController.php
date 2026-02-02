@@ -1,0 +1,157 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Http\Requests\StoreTransactionRequest;
+use App\Http\Requests\UpdateTransactionRequest;
+use App\Models\Account;
+use App\Models\Category;
+use App\Models\Transaction;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+use Carbon\Carbon;
+
+class TransactionController extends Controller
+{
+    public function index(Request $request)
+    {
+        $userId = $request->user()->id;
+
+        $month = $request->query('month', now()->format('Y-m'));
+        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $end   = (clone $start)->endOfMonth();
+
+        $query = Transaction::query()
+            ->where('user_id', $userId)
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->with(['category:id,name', 'account:id,name'])
+            ->orderByDesc('date')
+            ->orderByDesc('id');
+
+        if ($request->filled('type')) {
+            $query->where('type', $request->string('type'));
+        }
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->integer('category_id'));
+        }
+        if ($request->filled('account_id')) {
+            $query->where('account_id', $request->integer('account_id'));
+        }
+        if ($request->filled('q')) {
+            $q = $request->string('q');
+            $query->where('description', 'like', "%{$q}%");
+        }
+
+        $transactions = $query->paginate(15)->withQueryString();
+
+        $categories = Category::query()
+            ->where('user_id', $userId)
+            ->orderBy('type')->orderBy('name')
+            ->get(['id','name','type']);
+
+        $accounts = Account::query()
+            ->where('user_id', $userId)
+            ->orderBy('name')
+            ->get(['id','name']);
+
+        return Inertia::render('Transactions/Index', [
+            'filters' => [
+                'month' => $month,
+                'type' => $request->query('type'),
+                'category_id' => $request->query('category_id'),
+                'account_id' => $request->query('account_id'),
+                'q' => $request->query('q'),
+            ],
+            'transactions' => $transactions,
+            'categories' => $categories,
+            'accounts' => $accounts,
+        ]);
+    }
+
+    public function create(Request $request)
+    {
+        $userId = $request->user()->id;
+
+        return Inertia::render('Transactions/Form', [
+            'mode' => 'create',
+            'transaction' => null,
+            'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
+            'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name']),
+        ]);
+    }
+
+    public function store(StoreTransactionRequest $request)
+    {
+        $userId = $request->user()->id;
+
+        $categoryOk = Category::where('id', $request->integer('category_id'))->where('user_id', $userId)->exists();
+        $accountOk  = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->exists();
+        abort_unless($categoryOk && $accountOk, 422);
+
+        Transaction::create([
+            'user_id' => $userId,
+            'type' => $request->string('type'),
+            'amount' => $request->input('amount'),
+            'date' => $request->date('date')->format('Y-m-d'),
+            'description' => $request->input('description'),
+            'category_id' => $request->integer('category_id'),
+            'account_id' => $request->integer('account_id'),
+            'payment_method' => $request->input('payment_method'),
+        ]);
+
+        return redirect()->route('transactions.index', ['month' => now()->format('Y-m')]);
+    }
+
+    public function edit(Transaction $transaction, Request $request)
+    {
+        abort_unless($transaction->user_id === $request->user()->id, 403);
+
+        $userId = $request->user()->id;
+
+        return Inertia::render('Transactions/Form', [
+            'mode' => 'edit',
+            'transaction' => [
+                'id' => $transaction->id,
+                'type' => $transaction->type,
+                'amount' => (float)$transaction->amount,
+                'date' => $transaction->date->format('Y-m-d'),
+                'description' => $transaction->description,
+                'category_id' => $transaction->category_id,
+                'account_id' => $transaction->account_id,
+                'payment_method' => $transaction->payment_method,
+            ],
+            'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
+            'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name']),
+        ]);
+    }
+
+    public function update(UpdateTransactionRequest $request, Transaction $transaction)
+    {
+        $userId = $request->user()->id;
+        abort_unless($transaction->user_id === $userId, 403);
+
+        $categoryOk = Category::where('id', $request->integer('category_id'))->where('user_id', $userId)->exists();
+        $accountOk  = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->exists();
+        abort_unless($categoryOk && $accountOk, 422);
+
+        $transaction->update([
+            'type' => $request->string('type'),
+            'amount' => $request->input('amount'),
+            'date' => $request->date('date')->format('Y-m-d'),
+            'description' => $request->input('description'),
+            'category_id' => $request->integer('category_id'),
+            'account_id' => $request->integer('account_id'),
+            'payment_method' => $request->input('payment_method'),
+        ]);
+
+        return redirect()->route('transactions.index');
+    }
+
+    public function destroy(Transaction $transaction, Request $request)
+    {
+        abort_unless($transaction->user_id === $request->user()->id, 403);
+        $transaction->delete();
+
+        return redirect()->route('transactions.index');
+    }
+}
