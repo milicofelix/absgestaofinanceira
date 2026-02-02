@@ -1,18 +1,29 @@
-import ApplicationLogo from '@/Components/ApplicationLogo';
 import { Link } from '@inertiajs/react';
 
 export default function GuestLayout({ children }) {
-    return (
-        <div className="flex min-h-screen flex-col items-center bg-gray-100 pt-6 sm:justify-center sm:pt-0">
-            <div>
-                <Link href="/">
-                    <ApplicationLogo className="h-20 w-20 fill-current text-gray-500" />
-                </Link>
-            </div>
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-white via-white to-gray-50">
+      <div className="flex min-h-screen flex-col items-center justify-center px-6">
+        <div className="w-full max-w-md">
+          <div className="mb-6 flex justify-center">
+            <Link href="/" className="inline-flex items-center">
+              <img
+                src="/images/abs_logo.png"
+                alt="ABS Gestão Financeira"
+                className="h-20 w-auto drop-shadow-sm"
+              />
+            </Link>
+          </div>
 
-            <div className="mt-6 w-full overflow-hidden bg-white px-6 py-4 shadow-md sm:max-w-md sm:rounded-lg">
-                {children}
-            </div>
+          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+            {children}
+          </div>
+
+          <div className="mt-6 text-center text-xs text-gray-400">
+            © {new Date().getFullYear()} ABS Gestão Financeira
+          </div>
         </div>
-    );
+      </div>
+    </div>
+  );
 }

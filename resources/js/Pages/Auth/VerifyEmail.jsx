@@ -16,23 +16,22 @@ export default function VerifyEmail({ status }) {
             <Head title="Email Verification" />
 
             <div className="mb-4 text-sm text-gray-600">
-                Thanks for signing up! Before getting started, could you verify
-                your email address by clicking on the link we just emailed to
-                you? If you didn't receive the email, we will gladly send you
-                another.
+                Obrigado por se registrar! Antes de começar, você precisa
+                confirmar seu endereço de e-mail clicando no link de
+                verificação que acabamos de enviar por e-mail.
             </div>
 
             {status === 'verification-link-sent' && (
                 <div className="mb-4 text-sm font-medium text-green-600">
-                    A new verification link has been sent to the email address
-                    you provided during registration.
+                    Uma nova mensagem de verificação foi enviada para o seu endereço
+                    de e-mail.
                 </div>
             )}
 
             <form onSubmit={submit}>
                 <div className="mt-4 flex items-center justify-between">
                     <PrimaryButton disabled={processing}>
-                        Resend Verification Email
+                        Reenviar Link de Verificação
                     </PrimaryButton>
 
                     <Link
@@ -41,7 +40,7 @@ export default function VerifyEmail({ status }) {
                         as="button"
                         className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
-                        Log Out
+                        Sair
                     </Link>
                 </div>
             </form>
