@@ -6,6 +6,8 @@ use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use App\Models\Category;
+use App\Models\Account;
 
 class DashboardController extends Controller
 {
@@ -13,20 +15,18 @@ class DashboardController extends Controller
     {
         $userId = $request->user()->id;
 
-        // mês atual por padrão; permite ?month=2026-02
-        $month = $request->query('month');
-        $start = $month
-            ? Carbon::createFromFormat('Y-m', $month)->startOfMonth()
-            : now()->startOfMonth();
+        // formato ideal pro input type="month": YYYY-MM
+        $month = $request->query('month', now()->format('Y-m'));
 
-        $end = (clone $start)->endOfMonth();
+        $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
+        $end   = (clone $start)->endOfMonth();
 
         $base = Transaction::query()
             ->where('user_id', $userId)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
 
-        $income = (clone $base)->where('type', 'income')->sum('amount');
-        $expense = (clone $base)->where('type', 'expense')->sum('amount');
+        $income  = (float) (clone $base)->where('type', 'income')->sum('amount');
+        $expense = (float) (clone $base)->where('type', 'expense')->sum('amount');
 
         $byCategory = (clone $base)
             ->selectRaw('category_id, SUM(amount) as total')
@@ -40,7 +40,8 @@ class DashboardController extends Controller
                 'category_id' => $row->category_id,
                 'name' => $row->category?->name ?? 'Sem categoria',
                 'total' => (float) $row->total,
-            ]);
+            ])
+            ->values();
 
         $latest = (clone $base)
             ->with(['category:id,name', 'account:id,name'])
@@ -56,15 +57,45 @@ class DashboardController extends Controller
                 'description' => $t->description,
                 'category' => $t->category?->name,
                 'account' => $t->account?->name,
-            ]);
+            ])
+            ->values();
+
+        $accounts = Account::query()
+            ->where('user_id', $userId)
+            ->withSum(['transactions as income_sum' => function ($q) use ($start, $end) {
+                $q->where('type', 'income')->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+            }], 'amount')
+            ->withSum(['transactions as expense_sum' => function ($q) use ($start, $end) {
+                $q->where('type', 'expense')->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+            }], 'amount')
+            ->orderBy('name')
+            ->get(['id','name','type','initial_balance'])
+            ->map(function ($a) {
+                $inc = (float) ($a->income_sum ?? 0);
+                $exp = (float) ($a->expense_sum ?? 0);
+                $initial = (float) ($a->initial_balance ?? 0);
+
+                return [
+                    'id' => $a->id,
+                    'name' => $a->name,
+                    'type' => $a->type,
+                    'initial_balance' => $initial,
+                    'income' => $inc,
+                    'expense' => $exp,
+                    'balance' => $initial + $inc - $exp,
+                ];
+            })
+            ->values();
 
         return Inertia::render('Dashboard', [
-            'month' => $start->format('Y-m'),
-            'income' => (float) $income,
-            'expense' => (float) $expense,
-            'balance' => (float) ($income - $expense),
+            'month' => $month,                 // ✅ YYYY-MM (pro input month)
+            'income' => $income,
+            'expense' => $expense,
+            'balance' => $income - $expense,
             'byCategory' => $byCategory,
             'latest' => $latest,
+            'accounts' => $accounts,
         ]);
     }
+
 }
