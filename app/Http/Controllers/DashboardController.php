@@ -21,14 +21,36 @@ class DashboardController extends Controller
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = (clone $start)->endOfMonth();
 
-        $base = Transaction::query()
+        // Base do mês (para listas e agregações do mês)
+        $baseMonth = Transaction::query()
             ->where('user_id', $userId)
             ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
 
-        $income  = (float) (clone $base)->where('type', 'income')->sum('amount');
-        $expense = (float) (clone $base)->where('type', 'expense')->sum('amount');
+        // ✅ Receitas / despesas DO MÊS
+        $income  = (float) (clone $baseMonth)->where('type', 'income')->sum('amount');
+        $expense = (float) (clone $baseMonth)->where('type', 'expense')->sum('amount');
 
-        $byCategory = (clone $base)
+        // ✅ Saldo inicial (acumulado antes do mês)
+        // income soma, expense subtrai
+        $openingBalance = (float) Transaction::query()
+            ->where('user_id', $userId)
+            ->where('date', '<', $start->toDateString())
+            ->selectRaw("
+                COALESCE(SUM(
+                    CASE
+                        WHEN type = 'income' THEN amount
+                        WHEN type = 'expense' THEN -amount
+                        ELSE 0
+                    END
+                ), 0) AS bal
+            ")
+            ->value('bal');
+
+        // ✅ Saldo final do mês
+        //$balance = $openingBalance + $income - $expense;
+        $balance = $income - $expense;
+
+        $byCategory = (clone $baseMonth)
             ->selectRaw('category_id, SUM(amount) as total')
             ->where('type', 'expense')
             ->groupBy('category_id')
@@ -43,7 +65,7 @@ class DashboardController extends Controller
             ])
             ->values();
 
-        $latest = (clone $base)
+        $latest = (clone $baseMonth)
             ->with(['category:id,name', 'account:id,name'])
             ->orderByDesc('date')
             ->orderByDesc('id')
@@ -60,38 +82,72 @@ class DashboardController extends Controller
             ])
             ->values();
 
+        /**
+         * ✅ CONTAS:
+         * - initial_balance (configurado na conta)
+         * - + saldo acumulado ANTES do mês (por conta)
+         * - + receitas do mês (por conta)
+         * - - despesas do mês (por conta)
+         */
         $accounts = Account::query()
             ->where('user_id', $userId)
-            ->withSum(['transactions as income_sum' => function ($q) use ($start, $end) {
-                $q->where('type', 'income')->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-            }], 'amount')
-            ->withSum(['transactions as expense_sum' => function ($q) use ($start, $end) {
-                $q->where('type', 'expense')->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-            }], 'amount')
+            ->withSum([
+                'transactions as income_sum' => function ($q) use ($start, $end) {
+                    $q->where('type', 'income')
+                    ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                }
+            ], 'amount')
+            ->withSum([
+                'transactions as expense_sum' => function ($q) use ($start, $end) {
+                    $q->where('type', 'expense')
+                    ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                }
+            ], 'amount')
+            // saldo acumulado antes do mês (income - expense) por conta
+            ->withSum([
+                'transactions as pre_balance_sum' => function ($q) use ($start) {
+                    $q->where('date', '<', $start->toDateString())
+                    ->selectRaw("
+                        COALESCE(SUM(
+                            CASE
+                                WHEN type = 'income' THEN amount
+                                WHEN type = 'expense' THEN -amount
+                                ELSE 0
+                            END
+                        ), 0)
+                    ");
+                }
+            ], 'amount')
             ->orderBy('name')
-            ->get(['id','name','type','initial_balance'])
+            ->get(['id', 'name', 'type', 'initial_balance'])
             ->map(function ($a) {
                 $inc = (float) ($a->income_sum ?? 0);
                 $exp = (float) ($a->expense_sum ?? 0);
                 $initial = (float) ($a->initial_balance ?? 0);
 
+                // pre_balance_sum pode vir nulo dependendo do driver/versão
+                $pre = (float) ($a->pre_balance_sum ?? 0);
+
                 return [
-                    'id' => $a->id,
-                    'name' => $a->name,
-                    'type' => $a->type,
-                    'initial_balance' => $initial,
-                    'income' => $inc,
-                    'expense' => $exp,
-                    'balance' => $initial + $inc - $exp,
+                'id' => $a->id,
+                'name' => $a->name,
+                'type' => $a->type,
+                'initial_balance' => $initial,
+                'previous_balance' => $initial + $pre, // saldo até o mês anterior
+                'income' => $inc,
+                'expense' => $exp,
+                'balance' => $initial + $pre + $inc - $exp,
                 ];
+
             })
             ->values();
 
         return Inertia::render('Dashboard', [
             'month' => $month,                 // ✅ YYYY-MM (pro input month)
-            'income' => $income,
-            'expense' => $expense,
-            'balance' => $income - $expense,
+            'income' => $income,               // ✅ receitas do mês
+            'expense' => $expense,             // ✅ despesas do mês
+            'openingBalance' => $openingBalance, // ✅ saldo anterior (acumulado)
+            'balance' => $balance,             // ✅ saldo final (anterior + mês)
             'byCategory' => $byCategory,
             'latest' => $latest,
             'accounts' => $accounts,

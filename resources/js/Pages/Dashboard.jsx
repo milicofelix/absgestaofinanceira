@@ -2,7 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 
-export default function Dashboard({ month, income, expense, balance, byCategory, latest, accounts }) {
+export default function Dashboard({ month, income, expense, balance, byCategory, latest, accounts, openingBalance }) {
   const [selectedMonth, setSelectedMonth] = useState(month);
 
   function changeMonth(v) {
@@ -60,7 +60,13 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
           </div>
 
           {/* cards principais */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+            <StatCard
+              title="Saldo inicial"
+              value={openingBalance}
+              icon="balance"
+              accent={Number(openingBalance) >= 0 ? 'emerald' : 'rose'}
+            />
             <StatCard
               title="Receitas"
               value={income}
@@ -107,6 +113,11 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
                         <span className="text-emerald-700">+{formatBRL(a.income)}</span> ·{' '}
                         <span className="text-rose-600">-{formatBRL(a.expense)}</span>
                       </div>
+                    </div>
+
+                    <div className="mt-1 text-xs text-gray-500">
+                      <span className="text-emerald-700">{formatBRL(a.income)}</span> ·{' '}
+                      <span className="text-rose-600">-{formatBRL(a.expense)}</span>
                     </div>
 
                     <div className="ml-4 text-right">
@@ -191,7 +202,6 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
                           <div className="mt-1 text-xs text-gray-500">
                             {t.date} · {t.category || '—'} · {t.account || '—'}
                           </div>
-
                           <div className="mt-2">
                             {t.type === 'expense' ? (
                               <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
