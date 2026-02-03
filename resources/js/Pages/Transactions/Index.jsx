@@ -8,6 +8,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
   const [categoryId, setCategoryId] = useState(filters.category_id || '');
   const [accountId, setAccountId] = useState(filters.account_id || '');
   const [q, setQ] = useState(filters.q || '');
+  const [exportFormat, setExportFormat] = useState('xlsx');
 
   const queryParams = useMemo(
     () => ({
@@ -19,6 +20,21 @@ export default function Index({ transactions, filters, categories, accounts }) {
     }),
     [month, type, categoryId, accountId, q],
   );
+
+  function exportFile() {
+    const params = new URLSearchParams();
+
+    // reaproveita seus filtros atuais (já vem com undefined quando vazio)
+    Object.entries(queryParams).forEach(([k, v]) => {
+      if (v === undefined || v === null || v === '') return;
+      params.set(k, String(v));
+    });
+
+    params.set('format', exportFormat);
+
+    // download "normal" (não Inertia)
+    window.location.href = `${route('reports.transactions.export')}?${params.toString()}`;
+  }
 
   function applyFilters() {
     router.get(route('transactions.index'), queryParams, {
@@ -145,20 +161,43 @@ export default function Index({ transactions, filters, categories, accounts }) {
               </div>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              <button
-                onClick={applyFilters}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-              >
-                Filtrar
-              </button>
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={applyFilters}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Filtrar
+                </button>
 
-              <button
-                onClick={clearFilters}
-                className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
-              >
-                Limpar
-              </button>
+                <button
+                  onClick={clearFilters}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  Limpar
+                </button>
+              </div>
+
+              {/* Exportar */}
+              <div className="flex items-center gap-2">
+                <select
+                  className="w-40 rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  value={exportFormat}
+                  onChange={(e) => setExportFormat(e.target.value)}
+                >
+                  <option value="xlsx">Excel (XLSX)</option>
+                  <option value="csv">CSV</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={exportFile}
+                  className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+                  title="Exportar com os filtros atuais"
+                >
+                  Exportar
+                </button>
+              </div>
             </div>
           </div>
 

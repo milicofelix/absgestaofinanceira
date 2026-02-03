@@ -9,6 +9,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\AccountController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\TransferController;
+use App\Http\Controllers\ReportTransactionController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -29,6 +30,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/transfers/create', [TransferController::class, 'create'])->name('transfers.create');
     Route::post('/transfers', [TransferController::class, 'store'])->name('transfers.store');
 
+    Route::get('/reports/transactions', [ReportTransactionController::class, 'index'])->name('reports.transactions.index');
+    Route::get('/reports/transactions/export', [ReportTransactionController::class, 'export'])->name('reports.transactions.export');
 });
 
 
