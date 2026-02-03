@@ -14,6 +14,7 @@ export default function AuthenticatedLayout({ header, children }) {
       { name: 'Lançamentos', href: route('transactions.index'), active: route().current('transactions.*') || route().current('transactions.index') },
       { name: 'Categorias', href: route('categories.index'), active: route().current('categories.*') || route().current('categories.index') },
       { name: 'Contas', href: route('accounts.index'), active: route().current('accounts.*') || route().current('accounts.index') },
+      { name: 'Transferências', href: route('transfers.create'), active: route().current('transfers.*') || route().current('transfers.create') },
     ],
     [],
   );
@@ -163,12 +164,16 @@ export default function AuthenticatedLayout({ header, children }) {
           {/* Mobile quick links */}
           <div className="border-t border-gray-100 px-4 py-2 sm:hidden">
             <div className="flex gap-3">
-              <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')}>
-                Dashboard
-              </ResponsiveNavLink>
-              <ResponsiveNavLink href={route('transactions.index')} active={route().current('transactions.*')}>
-                Lançamentos
-              </ResponsiveNavLink>
+                <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')}>
+                    Dashboard
+                </ResponsiveNavLink>
+                <ResponsiveNavLink href={route('transactions.index')} active={route().current('transactions.*')}>
+                    Lançamentos
+                </ResponsiveNavLink>
+                <ResponsiveNavLink href={route('transfers.create')} active={route().current('transfers.create')}>
+                    Transferência
+                </ResponsiveNavLink>
+
             </div>
           </div>
         </nav>

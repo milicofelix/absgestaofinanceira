@@ -69,8 +69,12 @@ class CategoryController extends Controller
     public function destroy(Category $category, Request $request)
     {
         abort_unless($category->user_id === $request->user()->id, 403);
-        $category->delete();
 
-        return redirect()->route('categories.index');
+        if ($category->transactions()->exists()) {
+            return back()->with('error', 'Não é possível excluir: existem transações usando essa categoria.');
+        }
+
+        $category->delete();
+        return redirect()->route('categories.index')->with('success', 'Categoria excluída.');
     }
 }

@@ -2,8 +2,9 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 
-export default function Dashboard({ month, income, expense, balance, byCategory, latest, accounts, openingBalance }) {
+export default function Dashboard({ month, income, expense, balance, byCategory, latest, accounts, openingBalance, lifetimeIncome }) {
   const [selectedMonth, setSelectedMonth] = useState(month);
+  const [showLifetimeIncome, setShowLifetimeIncome] = useState(false);
 
   function changeMonth(v) {
     const m = (v || '').slice(0, 7);
@@ -59,34 +60,66 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
             </Link>
           </div>
 
+          <div className="flex items-center justify-end gap-3">
+            <span className="text-sm font-semibold text-gray-700">
+              Receitas acumuladas
+            </span>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={showLifetimeIncome}
+              onClick={() => setShowLifetimeIncome((v) => !v)}
+              className={[
+                'relative inline-flex h-6 w-11 items-center rounded-full transition',
+                showLifetimeIncome ? 'bg-emerald-600' : 'bg-gray-300',
+                'focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
+                  showLifetimeIncome ? 'translate-x-5' : 'translate-x-1',
+                ].join(' ')}
+              />
+            </button>
+          </div>
+
           {/* cards principais */}
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+          <div className={`grid grid-cols-1 gap-4 md:grid-cols-${showLifetimeIncome ? 5 : 4}`}>
             <StatCard
-              title="Saldo inicial"
+              title="Saldo inicial (mês)"
               value={openingBalance}
               icon="balance"
               accent={Number(openingBalance) >= 0 ? 'emerald' : 'rose'}
             />
             <StatCard
-              title="Receitas"
+              title="Receitas (mês)"
               value={income}
               icon="income"
               accent="emerald"
             />
             <StatCard
-              title="Despesas"
+              title="Despesas (mês)"
               value={expense}
               icon="expense"
               accent="rose"
             />
             <StatCard
-              title="Saldo"
+              title="Saldo (mês)"
               value={balance}
               icon="balance"
               accent={Number(balance) >= 0 ? 'emerald' : 'rose'}
             />
+            {showLifetimeIncome && (
+              <StatCard
+                title="Receitas acumuladas (até este mês)"
+                value={lifetimeIncome}
+                icon="wallet"
+                accent="emerald"
+              />
+            )}
           </div>
-
           {/* contas */}
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
             <div className="mb-4 flex items-center justify-between">
@@ -116,7 +149,8 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
                     </div>
 
                     <div className="mt-1 text-xs text-gray-500">
-                      <span className="text-emerald-700">{formatBRL(a.income)}</span> ·{' '}
+                      Anterior: {formatBRL(a.opening_balance)} ·{' '}
+                      <span className="text-emerald-700">+{formatBRL(a.income)}</span> ·{' '}
                       <span className="text-rose-600">-{formatBRL(a.expense)}</span>
                     </div>
 
