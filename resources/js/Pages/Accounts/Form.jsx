@@ -1,3 +1,4 @@
+import MoneyInput from '@/Components/MoneyInput';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 
@@ -75,12 +76,9 @@ export default function Form({ mode, account }) {
                 <label className="block text-sm font-semibold text-gray-700">
                   Saldo inicial
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                <MoneyInput
                   value={data.initial_balance}
-                  onChange={(e) => setData('initial_balance', e.target.value)}
+                  onChange={(value) => setData('initial_balance', value)}
                 />
                 <p className="mt-1 text-xs text-gray-500">
                   Valor disponível no início do controle

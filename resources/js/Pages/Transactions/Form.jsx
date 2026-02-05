@@ -1,11 +1,12 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useMemo } from 'react';
+import MoneyInput from '@/Components/MoneyInput';
 
 export default function Form({ mode, transaction, categories, accounts }) {
   const { data, setData, post, put, processing, errors } = useForm({
     type: transaction?.type ?? 'expense',
-    amount: transaction?.amount ?? '',
+    amount: transaction?.amount ?? '', // normalizado: "1234.56"
     date: transaction?.date ?? new Date().toISOString().slice(0, 10),
     description: transaction?.description ?? '',
     category_id: transaction?.category_id ?? (categories?.[0]?.id ?? ''),
@@ -16,7 +17,6 @@ export default function Form({ mode, transaction, categories, accounts }) {
   const blocked = categories.length === 0 || accounts.length === 0;
 
   const filteredCategories = useMemo(() => {
-    // mostra categorias compatíveis com o tipo selecionado
     return (categories || []).filter((c) => c.type === data.type);
   }, [categories, data.type]);
 
@@ -29,34 +29,11 @@ export default function Form({ mode, transaction, categories, accounts }) {
   function onChangeType(nextType) {
     setData('type', nextType);
 
-    // se a categoria selecionada não bate com o novo tipo, troca para a primeira compatível
     const current = categories.find((c) => String(c.id) === String(data.category_id));
     if (!current || current.type !== nextType) {
       const first = categories.find((c) => c.type === nextType);
       setData('category_id', first ? String(first.id) : '');
     }
-  }
-
-  function setAmountFromBRL(raw) {
-    // Aceita "1.234,56" / "1234,56" / "1234.56"
-    // Converte para string numérica com ponto: "1234.56"
-    const s = String(raw ?? '').trim();
-
-    if (!s) return setData('amount', '');
-
-    const cleaned = s.replace(/[^\d.,-]/g, '');
-    const hasComma = cleaned.includes(',');
-    let normalized = cleaned;
-
-    if (hasComma) {
-      // "1.234,56" -> remove pontos e troca vírgula por ponto
-      normalized = cleaned.replace(/\./g, '').replace(',', '.');
-    }
-
-    // garante só um "-" no começo
-    normalized = normalized.replace(/(?!^)-/g, '');
-
-    setData('amount', normalized);
   }
 
   const typeBadge =
@@ -80,9 +57,9 @@ export default function Form({ mode, transaction, categories, accounts }) {
       <Head title={mode === 'create' ? 'Novo lançamento' : 'Editar lançamento'} />
 
       <div className="py-8">
-        <div className="mx-auto max-w-xl sm:px-6 lg:px-8">
+        {/* ✅ padding no mobile também (evita colar nas laterais) */}
+        <div className="mx-auto max-w-xl px-4 sm:px-6 lg:px-8">
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-
             {blocked && (
               <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
                 <div className="font-semibold">Atenção</div>
@@ -110,9 +87,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
               {/* Tipo */}
               <div>
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-semibold text-gray-700">
-                    Tipo
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700">Tipo</label>
                   <span className={`rounded-full px-2 py-1 text-xs font-semibold ${typeBadge}`}>
                     {data.type === 'expense' ? 'Despesa' : 'Receita'}
                   </span>
@@ -127,75 +102,55 @@ export default function Form({ mode, transaction, categories, accounts }) {
                   <option value="income">Receita</option>
                 </select>
 
-                {errors.type && (
-                  <div className="mt-1 text-sm text-rose-600">{errors.type}</div>
-                )}
+                {errors.type && <div className="mt-1 text-sm text-rose-600">{errors.type}</div>}
               </div>
 
               {/* Valor + Data */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">
-                    Valor
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700">Valor</label>
 
-                  <div className="relative mt-1">
-                    <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-400">
-                      R$
-                    </span>
-
-                    <input
-                      inputMode="decimal"
-                      className="w-full rounded-lg border-gray-300 pl-10 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  {/* ✅ MoneyInput cuida de máscara e normalização */}
+                  <div className="mt-1">
+                    <MoneyInput
+                      value={data.amount}
+                      onValueChange={(normalized) => setData('amount', normalized)}
                       placeholder="0,00"
-                      value={toBRLInput(data.amount)}
-                      onChange={(e) => setAmountFromBRL(e.target.value)}
+                      prefix="R$"
                     />
                   </div>
 
-                  {errors.amount && (
-                    <div className="mt-1 text-sm text-rose-600">{errors.amount}</div>
-                  )}
+                  {errors.amount && <div className="mt-1 text-sm text-rose-600">{errors.amount}</div>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">
-                    Data
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700">Data</label>
                   <input
                     type="date"
                     className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
                     value={data.date}
                     onChange={(e) => setData('date', e.target.value)}
                   />
-                  {errors.date && (
-                    <div className="mt-1 text-sm text-rose-600">{errors.date}</div>
-                  )}
+                  {errors.date && <div className="mt-1 text-sm text-rose-600">{errors.date}</div>}
                 </div>
               </div>
 
               {/* Descrição */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700">
-                  Descrição
-                </label>
+                <label className="block text-sm font-semibold text-gray-700">Descrição</label>
                 <input
                   className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
                   placeholder="Ex: Mercado, aluguel, salário..."
                   value={data.description}
                   onChange={(e) => setData('description', e.target.value)}
                 />
-                {errors.description && (
-                  <div className="mt-1 text-sm text-rose-600">{errors.description}</div>
-                )}
+                {errors.description && <div className="mt-1 text-sm text-rose-600">{errors.description}</div>}
               </div>
 
               {/* Categoria + Conta */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">
-                    Categoria
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700">Categoria</label>
                   <select
                     className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
                     value={data.category_id}
@@ -212,15 +167,11 @@ export default function Form({ mode, transaction, categories, accounts }) {
                       ))
                     )}
                   </select>
-                  {errors.category_id && (
-                    <div className="mt-1 text-sm text-rose-600">{errors.category_id}</div>
-                  )}
+                  {errors.category_id && <div className="mt-1 text-sm text-rose-600">{errors.category_id}</div>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">
-                    Conta
-                  </label>
+                  <label className="block text-sm font-semibold text-gray-700">Conta</label>
                   <select
                     className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
                     value={data.account_id}
@@ -233,17 +184,13 @@ export default function Form({ mode, transaction, categories, accounts }) {
                       </option>
                     ))}
                   </select>
-                  {errors.account_id && (
-                    <div className="mt-1 text-sm text-rose-600">{errors.account_id}</div>
-                  )}
+                  {errors.account_id && <div className="mt-1 text-sm text-rose-600">{errors.account_id}</div>}
                 </div>
               </div>
 
               {/* Forma de pagamento */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700">
-                  Forma de pagamento
-                </label>
+                <label className="block text-sm font-semibold text-gray-700">Forma de pagamento</label>
                 <select
                   className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
                   value={data.payment_method}
@@ -274,7 +221,6 @@ export default function Form({ mode, transaction, categories, accounts }) {
                 </button>
               </div>
             </form>
-
           </div>
 
           <div className="mt-4 text-xs text-gray-400">
@@ -284,15 +230,4 @@ export default function Form({ mode, transaction, categories, accounts }) {
       </div>
     </AuthenticatedLayout>
   );
-}
-
-/* -------- helpers -------- */
-
-function toBRLInput(v) {
-  // não formatar demais: só troca ponto por vírgula para UX
-  const s = String(v ?? '').trim();
-  if (!s) return '';
-  // se já tem vírgula, mantém
-  if (s.includes(',')) return s;
-  return s.replace('.', ',');
 }

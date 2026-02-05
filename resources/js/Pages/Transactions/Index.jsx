@@ -74,8 +74,8 @@ export default function Index({ transactions, filters, categories, accounts }) {
     >
       <Head title="Lançamentos" />
 
-      <div className="py-8">
-        <div className="mx-auto max-w-7xl space-y-4 sm:px-6 lg:px-8">
+      <div className="py-6 sm:py-8">
+        <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
           {/* Filtros */}
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-5">
             <div className="flex items-center justify-between">

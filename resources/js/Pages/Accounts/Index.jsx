@@ -22,8 +22,8 @@ export default function Index({ accounts }) {
     >
       <Head title="Contas" />
 
-      <div className="py-8">
-        <div className="mx-auto max-w-5xl sm:px-6 lg:px-8">
+      <div className="py-6 sm:py-8">
+        <div className="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
           <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
             <table className="w-full text-left text-sm">
               <thead className="border-b bg-gray-50 text-gray-600">
