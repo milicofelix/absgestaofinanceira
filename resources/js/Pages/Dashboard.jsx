@@ -2,7 +2,17 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 
-export default function Dashboard({ month, income, expense, balance, byCategory, latest, accounts, openingBalance, lifetimeIncome }) {
+export default function Dashboard({
+  month,
+  income,
+  expense,
+  balance,
+  byCategory,
+  latest,
+  accounts,
+  openingBalance,
+  lifetimeIncome,
+}) {
   const [selectedMonth, setSelectedMonth] = useState(month);
   const [showLifetimeIncome, setShowLifetimeIncome] = useState(false);
 
@@ -12,10 +22,42 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
     router.get(route('dashboard'), { month: m }, { preserveState: true, replace: true });
   }
 
+  const monthLabel = useMemo(() => formatMonthPtBR(selectedMonth), [selectedMonth]);
+
   const maxCategory = useMemo(() => {
     const max = Math.max(0, ...(byCategory || []).map((c) => Number(c.total || 0)));
     return max || 1;
   }, [byCategory]);
+
+  const totalByCategory = useMemo(
+    () => (byCategory || []).reduce((acc, c) => acc + Number(c.total || 0), 0),
+    [byCategory],
+  );
+
+  const spendRate = useMemo(() => {
+    const i = Number(income || 0);
+    const e = Number(expense || 0);
+    if (i <= 0) return 0;
+    return Math.round((e / i) * 100);
+  }, [income, expense]);
+
+  const absBalance = useMemo(() => Math.abs(Number(balance || 0)), [balance]);
+
+  // Saldo "pouco" = menor que 10% da receita do mês (ajuste se quiser)
+  const isLowRemaining = useMemo(() => {
+    const i = Number(income || 0);
+    const b = Number(balance || 0);
+    if (i <= 0) return false;
+    if (b < 0) return false;
+    return b > 0 && b < i * 0.1;
+  }, [income, balance]);
+
+  const balanceTone = useMemo(() => {
+    const b = Number(balance || 0);
+    if (b < 0) return 'red';
+    if (isLowRemaining) return 'yellow';
+    return 'green';
+  }, [balance, isLowRemaining]);
 
   return (
     <AuthenticatedLayout
@@ -39,7 +81,6 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
 
       <div className="py-8">
         <div className="mx-auto max-w-7xl space-y-6 sm:px-6 lg:px-8">
-
           {/* filtro + link */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-3 text-sm text-gray-600">
@@ -60,10 +101,29 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
             </Link>
           </div>
 
-          <div className="flex items-center justify-end gap-3">
-            <span className="text-sm font-semibold text-gray-700">
-              Receitas acumuladas
+          {/* resumo rápido do mês */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700">
+              Gastos: {spendRate}% da receita
             </span>
+
+            <span
+              className={[
+                'rounded-full px-3 py-1 text-xs font-semibold',
+                Number(balance || 0) >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700',
+              ].join(' ')}
+            >
+              {Number(balance || 0) >= 0 ? 'Sobrou' : 'Faltou'}: {formatBRL(absBalance)}
+            </span>
+
+            <span className="rounded-full bg-gray-50 px-3 py-1 text-xs font-semibold text-gray-700 ring-1 ring-gray-200">
+              Mês: {monthLabel}
+            </span>
+          </div>
+
+          {/* toggle receitas acumuladas */}
+          <div className="flex items-center justify-end gap-3">
+            <span className="text-sm font-semibold text-gray-700">Receitas acumuladas</span>
 
             <button
               type="button"
@@ -86,40 +146,51 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
           </div>
 
           {/* cards principais */}
-          <div className={`grid grid-cols-1 gap-4 md:grid-cols-${showLifetimeIncome ? 5 : 4}`}>
+          <div className={['grid grid-cols-1 gap-4', showLifetimeIncome ? 'md:grid-cols-5' : 'md:grid-cols-4'].join(' ')}>
             <StatCard
               title="Saldo inicial (mês)"
               value={openingBalance}
               icon="balance"
-              accent={Number(openingBalance) >= 0 ? 'emerald' : 'rose'}
+              tone="blue"
+              href={route('transactions.index', { month: selectedMonth })}
             />
+
             <StatCard
               title="Receitas (mês)"
               value={income}
               icon="income"
-              accent="emerald"
+              tone="green"
+              href={route('transactions.index', { month: selectedMonth, type: 'income' })}
             />
+
             <StatCard
               title="Despesas (mês)"
               value={expense}
               icon="expense"
-              accent="rose"
+              tone="red"
+              href={route('transactions.index', { month: selectedMonth, type: 'expense' })}
             />
+
             <StatCard
               title="Saldo (mês)"
               value={balance}
               icon="balance"
-              accent={Number(balance) >= 0 ? 'emerald' : 'rose'}
+              tone={balanceTone} // green | yellow | red
+              href={route('transactions.index', { month: selectedMonth })}
+              subLabel={balanceTone === 'yellow' ? 'atenção: sobrando pouco' : undefined}
             />
+
             {showLifetimeIncome && (
               <StatCard
                 title="Receitas acumuladas (até este mês)"
                 value={lifetimeIncome}
                 icon="wallet"
-                accent="emerald"
+                tone="purple"
+                href={route('transactions.index', { month: selectedMonth, type: 'income' })}
               />
             )}
           </div>
+
           {/* contas */}
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
             <div className="mb-4 flex items-center justify-between">
@@ -138,34 +209,38 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
             {accounts?.length ? (
               <ul className="divide-y divide-gray-100">
                 {accounts.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between py-4">
+                  <li key={a.id} className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-gray-900">{a.name}</div>
+
                       <div className="mt-1 text-xs text-gray-500">
                         Inicial: {formatBRL(a.initial_balance)} ·{' '}
                         <span className="text-emerald-700">+{formatBRL(a.income)}</span> ·{' '}
                         <span className="text-rose-600">-{formatBRL(a.expense)}</span>
+                        <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                          anterior: {formatBRL(a.opening_balance)}
+                        </span>
                       </div>
                     </div>
 
-                    <div className="mt-1 text-xs text-gray-500">
-                      Anterior: {formatBRL(a.opening_balance)} ·{' '}
-                      <span className="text-emerald-700">+{formatBRL(a.income)}</span> ·{' '}
-                      <span className="text-rose-600">-{formatBRL(a.expense)}</span>
-                    </div>
-
-                    <div className="ml-4 text-right">
-                      <div className={`text-lg font-bold ${Number(a.balance) >= 0 ? 'text-gray-900' : 'text-rose-700'}`}>
+                    <div className="text-right">
+                      <div className={['text-lg font-bold', Number(a.balance) >= 0 ? 'text-gray-900' : 'text-rose-700'].join(' ')}>
                         {formatBRL(a.balance)}
                       </div>
-                      <div className="text-xs text-gray-400">saldo</div>
+                      <div className="text-xs text-gray-400">saldo atual</div>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
-                Sem contas cadastradas. Crie uma conta para começar.
+                <div>Sem contas cadastradas.</div>
+                <Link
+                  href={route('accounts.index')}
+                  className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  + Criar conta
+                </Link>
               </div>
             )}
           </div>
@@ -177,27 +252,36 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Top categorias (despesas)</h3>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                  {selectedMonth}
+                  {monthLabel}
                 </span>
               </div>
 
               {byCategory?.length ? (
                 <ul className="space-y-3">
                   {byCategory.map((c) => {
-                    const pct = Math.round((Number(c.total || 0) / maxCategory) * 100);
+                    const pctBar = Math.round((Number(c.total || 0) / maxCategory) * 100);
+                    const share = totalByCategory
+                      ? Math.round((Number(c.total || 0) / totalByCategory) * 100)
+                      : 0;
+
                     return (
                       <li key={c.category_id}>
                         <div className="flex items-center justify-between text-sm">
                           <span className="truncate font-medium text-gray-800">{c.name}</span>
-                          <span className="ml-4 whitespace-nowrap font-semibold text-gray-900">
-                            {formatBRL(c.total)}
-                          </span>
+
+                          <div className="ml-4 flex items-center gap-2">
+                            <span className="whitespace-nowrap font-semibold text-gray-900">{formatBRL(c.total)}</span>
+                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                              {share}%
+                            </span>
+                          </div>
                         </div>
+
                         <div className="mt-2 h-2 w-full rounded-full bg-gray-100">
                           <div
                             className="h-2 rounded-full bg-emerald-600"
-                            style={{ width: `${Math.max(5, pct)}%` }}
-                            title={`${pct}%`}
+                            style={{ width: `${Math.max(5, pctBar)}%` }}
+                            title={`${share}% do total`}
                           />
                         </div>
                       </li>
@@ -205,7 +289,15 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
                   })}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-500">Sem despesas neste mês.</p>
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
+                  <div>Sem despesas neste mês.</div>
+                  <Link
+                    href={route('transactions.create')}
+                    className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                  >
+                    + Adicionar lançamento
+                  </Link>
+                </div>
               )}
             </div>
 
@@ -226,17 +318,17 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
                   {latest.map((t) => (
                     <li
                       key={t.id}
-                      className="rounded-xl border border-gray-100 p-4 hover:border-gray-200 hover:bg-gray-50"
+                      className="group rounded-xl border border-gray-100 p-4 hover:border-gray-200 hover:bg-gray-50"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="truncate font-semibold text-gray-900">
-                            {t.description || '(sem descrição)'}
-                          </div>
+                          <div className="truncate font-semibold text-gray-900">{t.description || '(sem descrição)'}</div>
+
                           <div className="mt-1 text-xs text-gray-500">
                             {t.date} · {t.category || '—'} · {t.account || '—'}
                           </div>
-                          <div className="mt-2">
+
+                          <div className="mt-2 flex items-center gap-2">
                             {t.type === 'expense' ? (
                               <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
                                 Despesa
@@ -246,70 +338,195 @@ export default function Dashboard({ month, income, expense, balance, byCategory,
                                 Receita
                               </span>
                             )}
+
+                            {/* ações rápidas no desktop (aparece no hover) */}
+                            <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                              <Link
+                                className="text-xs font-semibold text-emerald-700 hover:underline"
+                                href={route('transactions.edit', t.id)}
+                              >
+                                Editar
+                              </Link>
+                              <button
+                                className="text-xs font-semibold text-rose-600 hover:underline"
+                                onClick={() =>
+                                  confirm('Excluir este lançamento?') &&
+                                  router.delete(route('transactions.destroy', t.id))
+                                }
+                              >
+                                Excluir
+                              </button>
+                            </div>
                           </div>
                         </div>
 
-                        <div className={`whitespace-nowrap text-right text-sm font-bold ${t.type === 'expense' ? 'text-rose-700' : 'text-emerald-700'}`}>
-                          {t.type === 'expense' ? '-' : '+'}{formatBRL(t.amount)}
+                        <div
+                          className={[
+                            'whitespace-nowrap text-right text-sm font-bold',
+                            t.type === 'expense' ? 'text-rose-700' : 'text-emerald-700',
+                          ].join(' ')}
+                        >
+                          {t.type === 'expense' ? '-' : '+'}
+                          {formatBRL(t.amount)}
                         </div>
                       </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-500">Sem lançamentos neste mês.</p>
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
+                  <div>Sem lançamentos neste mês.</div>
+                  <Link
+                    href={route('transactions.create')}
+                    className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                  >
+                    + Adicionar lançamento
+                  </Link>
+                </div>
               )}
             </div>
           </div>
-
         </div>
       </div>
     </AuthenticatedLayout>
   );
 }
 
-function StatCard({ title, value, icon, accent = 'emerald' }) {
-  const accentClass =
-    accent === 'rose'
-      ? 'text-rose-700 bg-rose-50'
-      : 'text-emerald-700 bg-emerald-50';
+/**
+ * tone: green | blue | purple | yellow | red | gray
+ */
+function StatCard({ title, value, icon, tone = 'green', href, subLabel }) {
+  const toneClasses = getPastelToneClasses(tone);
 
-  return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="text-sm font-semibold text-gray-600">{title}</div>
+  const body = (
+    <div
+      className={[
+        'rounded-2xl p-6 shadow-sm ring-1 transition',
+        toneClasses.card,
+        'hover:shadow-md',
+      ].join(' ')}
+    >
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <div className={['text-sm font-semibold', toneClasses.title].join(' ')}>{title}</div>
+
           <div className="mt-2 text-2xl font-bold text-gray-900">{formatBRL(value || 0)}</div>
+
+          {subLabel && <div className={['mt-1 text-xs font-semibold', toneClasses.sub].join(' ')}>{subLabel}</div>}
         </div>
 
-        <div className={`flex h-11 w-11 items-center justify-center rounded-xl ${accentClass}`}>
+        <div className={['flex h-11 w-11 items-center justify-center rounded-xl ring-1', toneClasses.icon].join(' ')}>
           <Icon name={icon} />
         </div>
       </div>
     </div>
   );
+
+  return href ? (
+    <Link href={href} className="block">
+      {body}
+    </Link>
+  ) : (
+    body
+  );
+}
+
+function getPastelToneClasses(tone) {
+  // Pastéis (fundo do card + borda + cor do título + “badge” do ícone)
+  switch (tone) {
+    case 'blue':
+      return {
+        card: 'bg-sky-50 ring-sky-200/60',
+        title: 'text-sky-800',
+        sub: 'text-sky-700',
+        icon: 'bg-white/70 text-sky-700 ring-sky-200/70',
+      };
+    case 'purple':
+      return {
+        card: 'bg-violet-50 ring-violet-200/60',
+        title: 'text-violet-800',
+        sub: 'text-violet-700',
+        icon: 'bg-white/70 text-violet-700 ring-violet-200/70',
+      };
+    case 'yellow':
+      return {
+        card: 'bg-amber-50 ring-amber-200/60',
+        title: 'text-amber-900',
+        sub: 'text-amber-800',
+        icon: 'bg-white/70 text-amber-800 ring-amber-200/70',
+      };
+    case 'red':
+      return {
+        card: 'bg-rose-50 ring-rose-200/60',
+        title: 'text-rose-900',
+        sub: 'text-rose-800',
+        icon: 'bg-white/70 text-rose-700 ring-rose-200/70',
+      };
+    case 'gray':
+      return {
+        card: 'bg-gray-50 ring-gray-200/70',
+        title: 'text-gray-800',
+        sub: 'text-gray-700',
+        icon: 'bg-white/70 text-gray-700 ring-gray-200/70',
+      };
+    case 'green':
+    default:
+      return {
+        card: 'bg-emerald-50 ring-emerald-200/60',
+        title: 'text-emerald-900',
+        sub: 'text-emerald-800',
+        icon: 'bg-white/70 text-emerald-700 ring-emerald-200/70',
+      };
+  }
 }
 
 function Icon({ name }) {
   // ícones simples em SVG sem dependências
   if (name === 'income') {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M12 19V5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <path d="M6 11l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
+
   if (name === 'expense') {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M12 5v14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <path d="M6 13l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     );
   }
+
+  if (name === 'balance') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 7h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        <path d="M6 7l1-3h10l1 3" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M6 10v10h12V10" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (name === 'wallet') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 7h18v14H3V7Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+        <path
+          d="M17 15h4V9h-4c-2 0-3 1.5-3 3s1 3 3 3Z"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinejoin="round"
+        />
+        <path d="M3 7l2-3h14l2 3" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path d="M7 7h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path d="M7 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -319,4 +536,13 @@ function Icon({ name }) {
 
 function formatBRL(v) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0));
+}
+
+// "2026-02" -> "fevereiro de 2026"
+function formatMonthPtBR(yyyyMm) {
+  const v = String(yyyyMm || '').slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(v)) return v || '—';
+  const [y, m] = v.split('-');
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d);
 }
