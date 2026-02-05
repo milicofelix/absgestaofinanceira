@@ -24,14 +24,20 @@ class DashboardController extends Controller
         // =========================
         // 1) Transações DO MÊS (cards/listas)
         // =========================
-        $baseMonth = Transaction::query()
+        // $baseMonth = Transaction::query()
+        //     ->where('user_id', $userId)
+        //     ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+
+        $baseMonthReal = Transaction::query()
             ->where('user_id', $userId)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->where('is_transfer', false);
 
-        $income  = (float) (clone $baseMonth)->where('type', 'income')->sum('amount');
-        $expense = (float) (clone $baseMonth)->where('type', 'expense')->sum('amount');
 
-        $byCategory = (clone $baseMonth)
+        $income  = (float) (clone $baseMonthReal)->where('type', 'income')->sum('amount');
+        $expense = (float) (clone $baseMonthReal)->where('type', 'expense')->sum('amount');
+
+        $byCategory = (clone $baseMonthReal)
             ->selectRaw('category_id, SUM(amount) as total')
             ->where('type', 'expense')
             ->groupBy('category_id')
@@ -46,7 +52,7 @@ class DashboardController extends Controller
             ])
             ->values();
 
-        $latest = (clone $baseMonth)
+        $latest = (clone $baseMonthReal)
             ->with(['category:id,name', 'account:id,name'])
             ->orderByDesc('date')
             ->orderByDesc('id')
@@ -139,6 +145,7 @@ class DashboardController extends Controller
         $lifetimeIncome = (float) Transaction::query()
             ->where('user_id', $userId)
             ->where('type', 'income')
+            ->where('is_transfer', false)
             ->whereDate('date', '<=', $end->toDateString()) // ✅ só até o fim do mês selecionado
             ->sum('amount');
 

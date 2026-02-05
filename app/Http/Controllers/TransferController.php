@@ -72,6 +72,7 @@ class TransferController extends Controller
                 'category_id' => $catOut->id,
                 'account_id' => $data['from_account_id'],
                 'payment_method' => 'transfer',
+                'is_transfer' => true,
             ]);
 
             // Entrada (receita) na conta destino
@@ -86,6 +87,7 @@ class TransferController extends Controller
                 'category_id' => $catIn->id,
                 'account_id' => $data['to_account_id'],
                 'payment_method' => 'transfer',
+                'is_transfer' => true,
             ]);
         });
 

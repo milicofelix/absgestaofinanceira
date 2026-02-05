@@ -9,13 +9,16 @@ class Transaction extends Model
 {
     protected $fillable = [
         'user_id',
+        'transfer_group_id',
         'type',
         'amount',
         'date',
+        'note',
         'description',
         'category_id',
         'account_id',
         'payment_method',
+        'is_transfer',
     ];
 
     protected $casts = [
