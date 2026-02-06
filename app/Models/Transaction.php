@@ -10,6 +10,7 @@ class Transaction extends Model
     protected $fillable = [
         'user_id',
         'transfer_group_id',
+        'conterpart_id',
         'type',
         'amount',
         'date',
@@ -24,6 +25,7 @@ class Transaction extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'date' => 'date:Y-m-d',
+        'is_transfer' => 'boolean',
     ];
 
     public function user(): BelongsTo

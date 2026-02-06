@@ -10,6 +10,7 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\ReportTransactionController;
+use App\Http\Controllers\TransferContactController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -29,6 +30,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/transfers/create', [TransferController::class, 'create'])->name('transfers.create');
     Route::post('/transfers', [TransferController::class, 'store'])->name('transfers.store');
+    // 🔎 buscar contas do destinatário (somente contatos permitidos)
+    Route::get('/transfers/recipient-accounts', [TransferController::class, 'recipientAccounts'])->name('transfers.recipientAccounts');
+    Route::get('/transfers/recipients', [TransferController::class, 'recipientSearch'])
+        ->name('transfers.recipientSearch');
+
+    // Contatos
+    Route::get('/transfer-contacts', [TransferContactController::class, 'index'])->name('transfer_contacts.index');
+    Route::post('/transfer-contacts', [TransferContactController::class, 'store'])->name('transfer_contacts.store');
+    Route::delete('/transfer-contacts/{contactUserId}', [TransferContactController::class, 'destroy'])->name('transfer_contacts.destroy');
+    Route::get('/transfer-contacts/users', [TransferContactController::class, 'userSearch'])
+        ->name('transfer_contacts.userSearch'); // busca users por email p/ adicionar contato
 
     Route::get('/reports/transactions', [ReportTransactionController::class, 'index'])->name('reports.transactions.index');
     Route::get('/reports/transactions/export', [ReportTransactionController::class, 'export'])->name('reports.transactions.export');

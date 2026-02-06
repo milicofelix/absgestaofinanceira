@@ -2,8 +2,10 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import MoneyInput from '@/Components/MoneyInput';
 
-export default function TransferForm({ accounts, defaultDate }) {
+export default function TransferForm({ accounts, defaultDate, defaultRecipientMode = 'self' }) {
   const { data, setData, post, processing, errors } = useForm({
+    recipient_mode: defaultRecipientMode ?? 'self', // 'self' | 'other'
+    recipient_user_id: '',
     from_account_id: accounts?.[0]?.id ?? '',
     to_account_id: accounts?.[1]?.id ?? (accounts?.[0]?.id ?? ''),
     amount: '',
@@ -12,12 +14,121 @@ export default function TransferForm({ accounts, defaultDate }) {
     note: '',
   });
 
+  const blocked = !accounts || accounts.length < 2;
+
+  // ---------- Autocomplete destinatário ----------
+  const [recipientQ, setRecipientQ] = useState('');
+  const [recipientOptions, setRecipientOptions] = useState([]);
+  const [recipientLoading, setRecipientLoading] = useState(false);
+
+  // contas do destinatário (quando other)
+  const [recipientAccounts, setRecipientAccounts] = useState([]);
+
+  // opções do select "Para"
+  const toAccountOptions = useMemo(() => {
+    return data.recipient_mode === 'other' ? recipientAccounts : (accounts || []);
+  }, [data.recipient_mode, recipientAccounts, accounts]);
+
+  // limpar estado ao trocar modo
+  useEffect(() => {
+    if (data.recipient_mode === 'self') {
+      setRecipientQ('');
+      setRecipientOptions([]);
+      setRecipientAccounts([]);
+
+      // garante que to_account_id volte para uma conta do usuário (se possível)
+      const fallback = accounts?.[1]?.id ?? accounts?.[0]?.id ?? '';
+      setData('recipient_user_id', '');
+      setData('to_account_id', fallback);
+    } else {
+      // modo other: limpa destino até escolher alguém
+      setRecipientAccounts([]);
+      setData('recipient_user_id', '');
+      setData('to_account_id', '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.recipient_mode]);
+
+  // debounce de busca de destinatário por email
+  useEffect(() => {
+    if (data.recipient_mode !== 'other') return;
+
+    const term = recipientQ.trim();
+    if (term.length < 2) {
+      setRecipientOptions([]);
+      return;
+    }
+
+    const t = setTimeout(async () => {
+      try {
+        setRecipientLoading(true);
+        const res = await fetch(route('transfers.recipientSearch', { q: term }), {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        const json = await res.json();
+        setRecipientOptions(json.recipients || []);
+      } catch {
+        setRecipientOptions([]);
+      } finally {
+        setRecipientLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [recipientQ, data.recipient_mode]);
+
+  async function selectRecipient(u) {
+    setData('recipient_user_id', u.id);
+    setRecipientQ(u.email);
+    setRecipientOptions([]);
+
+    try {
+      const res = await fetch(route('transfers.recipientAccounts', { recipient_user_id: u.id }), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      });
+      const json = await res.json();
+      const accs = json.accounts || [];
+      setRecipientAccounts(accs);
+      setData('to_account_id', accs?.[0]?.id ?? '');
+    } catch {
+      setRecipientAccounts([]);
+      setData('to_account_id', '');
+    }
+  }
+
+  // quando escolher destinatário, carrega contas (backup caso algo mude por fora)
+  useEffect(() => {
+    if (data.recipient_mode !== 'other' || !data.recipient_user_id) return;
+
+    fetch(route('transfers.recipientAccounts', { recipient_user_id: data.recipient_user_id }), {
+      headers: { 'X-Requested-With': 'XMLHttpRequest' },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        const accs = json.accounts || [];
+        setRecipientAccounts(accs);
+        // se não existe mais a conta selecionada, seta a primeira
+        if (!accs.some((a) => String(a.id) === String(data.to_account_id))) {
+          setData('to_account_id', accs?.[0]?.id ?? '');
+        }
+      })
+      .catch(() => {
+        setRecipientAccounts([]);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.recipient_mode, data.recipient_user_id]);
+
+  // validações de UI
+  const needsRecipient = data.recipient_mode === 'other';
+  const missingRecipient = needsRecipient && !data.recipient_user_id;
+  const missingToAccount = needsRecipient && !data.to_account_id;
+
+  const uiBlocked = blocked || missingRecipient || missingToAccount;
+
   function submit(e) {
     e.preventDefault();
     post(route('transfers.store'));
   }
-
-  const blocked = !accounts || accounts.length < 2;
 
   return (
     <AuthenticatedLayout
@@ -75,11 +186,19 @@ export default function TransferForm({ accounts, defaultDate }) {
                     className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
                     value={data.to_account_id}
                     onChange={(e) => setData('to_account_id', e.target.value)}
-                    disabled={blocked}
+                    disabled={blocked || (data.recipient_mode === 'other' && !data.recipient_user_id)}
                   >
-                    {accounts.map((a) => (
+                    <option value="">
+                      {data.recipient_mode === 'other' && !data.recipient_user_id
+                        ? '(selecione um destinatário)'
+                        : '(selecione)'}
+                    </option>
+
+                    {toAccountOptions.map((a) => (
                       <option key={a.id} value={a.id}>
+                        
                         {a.name}
+                      
                       </option>
                     ))}
                   </select>
@@ -87,6 +206,7 @@ export default function TransferForm({ accounts, defaultDate }) {
                 </div>
               </div>
 
+              {/* valor + data */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700">Valor</label>
@@ -162,6 +282,13 @@ export default function TransferForm({ accounts, defaultDate }) {
           <div className="mt-4 text-xs text-gray-400">
             Dica: use a descrição para identificar a transferência (ex.: “BB → Nubank”).
           </div>
+
+          {/* ajuda rápida */}
+          {data.recipient_mode === 'other' && (
+            <div className="mt-3 text-xs text-gray-500">
+              Não achou o e-mail? Cadastre em <b>Contatos para transferência</b>.
+            </div>
+          )}
         </div>
       </div>
     </AuthenticatedLayout>
