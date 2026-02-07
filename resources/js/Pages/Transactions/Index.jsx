@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import { formatDateBR } from '@/utils/formatters';
 
 export default function Index({ transactions, filters, categories, accounts }) {
   const [month, setMonth] = useState(filters.month || new Date().toISOString().slice(0, 7));
@@ -286,7 +287,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
               <tbody className="divide-y divide-gray-100">
                 {transactions.data.map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">{t.date}</td>
+                    <td className="px-4 py-3">{formatDateBR(t.date)}</td>
                     <td className="px-4 py-3">
                       {t.description || <span className="text-gray-400">(sem descrição)</span>}
                     </td>

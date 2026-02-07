@@ -15,7 +15,7 @@ class AccountController extends Controller
         $accounts = Account::query()
             ->where('user_id', $request->user()->id)
             ->orderBy('name')
-            ->get(['id','name','type','initial_balance']);
+            ->get(['id','name','type','initial_balance', 'statement_close_day', 'statement_close_month']);
 
         return Inertia::render('Accounts/Index', [
             'accounts' => $accounts,
@@ -37,6 +37,8 @@ class AccountController extends Controller
             'name' => $request->string('name'),
             'type' => $request->string('type'),
             'initial_balance' => $request->input('initial_balance', 0),
+            'statement_close_day' => $request->input('statement_close_day') ?: null,
+            'statement_close_month' => $request->input('statement_close_month') ?: null,
         ]);
 
         return redirect()->route('accounts.index');
@@ -48,7 +50,7 @@ class AccountController extends Controller
 
         return Inertia::render('Accounts/Form', [
             'mode' => 'edit',
-            'account' => $account->only(['id','name','type','initial_balance']),
+            'account' => $account->only(['id','name','type','initial_balance', 'statement_close_day', 'statement_close_month']),
         ]);
     }
 
@@ -60,6 +62,8 @@ class AccountController extends Controller
             'name' => $request->string('name'),
             'type' => $request->string('type'),
             'initial_balance' => $request->input('initial_balance', 0),
+            'statement_close_day' => $request->input('statement_close_day') ?: null,
+            'statement_close_month' => $request->input('statement_close_month') ?: null,
         ]);
 
         return redirect()->route('accounts.index');

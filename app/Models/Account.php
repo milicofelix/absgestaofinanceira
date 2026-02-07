@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Account extends Model
 {
-    protected $fillable = ['user_id', 'name', 'type', 'initial_balance'];
+    protected $fillable = ['user_id', 'name', 'type', 'initial_balance', 'statement_close_day', 'statement_close_month'];
 
     protected $casts = [
         'initial_balance' => 'decimal:2',

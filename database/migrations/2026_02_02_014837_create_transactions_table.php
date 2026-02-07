@@ -14,6 +14,7 @@ return new class extends Migration {
             $table->enum('type', ['income', 'expense']);
             $table->decimal('amount', 12, 2);
             $table->date('date');
+            
 
             $table->string('description', 255)->nullable();
 
