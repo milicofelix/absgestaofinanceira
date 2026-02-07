@@ -6,12 +6,10 @@ use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
-use App\Models\Category;
 use App\Models\Account;
 
 class DashboardController extends Controller
 {
-
     public function index(Request $request)
     {
         $userId = $request->user()->id;
@@ -22,17 +20,20 @@ class DashboardController extends Controller
         $end   = (clone $start)->endOfMonth();
 
         // =========================
-        // 1) Transações DO MÊS (cards/listas)
+        // 1) Transações DO MÊS (cards/listas) - por COMPETÊNCIA
         // =========================
-        // $baseMonth = Transaction::query()
-        //     ->where('user_id', $userId)
-        //     ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-
         $baseMonthReal = Transaction::query()
             ->where('user_id', $userId)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
-            ->where('is_transfer', false);
-
+            ->where('is_transfer', false)
+            ->where(function ($q) use ($month, $start, $end) {
+                // competência preenchida
+                $q->where('competence_month', $month)
+                  // fallback: dados antigos sem competence_month
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->whereNull('competence_month')
+                         ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                  });
+            });
 
         $income  = (float) (clone $baseMonthReal)->where('type', 'income')->sum('amount');
         $expense = (float) (clone $baseMonthReal)->where('type', 'expense')->sum('amount');
@@ -54,7 +55,7 @@ class DashboardController extends Controller
 
         $latest = (clone $baseMonthReal)
             ->with(['category:id,name', 'account:id,name'])
-            ->orderByDesc('date')
+            ->orderByDesc('date') // pode manter por data real
             ->orderByDesc('id')
             ->limit(10)
             ->get()
@@ -70,17 +71,23 @@ class DashboardController extends Controller
             ->values();
 
         // =========================
-        // 2) Contas + agregados (SEM N+1)
+        // 2) Contas + agregados (SEM N+1) - por COMPETÊNCIA
         // =========================
         $accountsRaw = Account::query()
             ->where('user_id', $userId)
             ->orderBy('name')
             ->get(['id', 'name', 'type', 'initial_balance']);
 
-        // Tudo ANTES do mês, por conta
+        // Tudo ANTES do mês (por competência)
         $beforeAgg = Transaction::query()
             ->where('user_id', $userId)
-            ->whereDate('date', '<', $start->toDateString())
+            ->where(function ($q) use ($month, $start) {
+                $q->where('competence_month', '<', $month)
+                  ->orWhere(function ($q2) use ($start) {
+                      $q2->whereNull('competence_month')
+                         ->whereDate('date', '<', $start->toDateString());
+                  });
+            })
             ->selectRaw('account_id')
             ->selectRaw("COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as inc")
             ->selectRaw("COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as exp")
@@ -88,10 +95,16 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        // Só DO MÊS, por conta
+        // Só DO MÊS (por competência)
         $monthAgg = Transaction::query()
             ->where('user_id', $userId)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            ->where(function ($q) use ($month, $start, $end) {
+                $q->where('competence_month', $month)
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->whereNull('competence_month')
+                         ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                  });
+            })
             ->selectRaw('account_id')
             ->selectRaw("COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as inc")
             ->selectRaw("COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as exp")
@@ -99,10 +112,17 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        // Acumulado ATÉ o fim do mês selecionado, por conta
+        // Acumulado ATÉ o fim do mês (por competência)
+        // Como competence_month é "YYYY-MM", <= $month já representa "até este mês".
         $upToEndAgg = Transaction::query()
             ->where('user_id', $userId)
-            ->whereDate('date', '<=', $end->toDateString())
+            ->where(function ($q) use ($month, $end) {
+                $q->where('competence_month', '<=', $month)
+                  ->orWhere(function ($q2) use ($end) {
+                      $q2->whereNull('competence_month')
+                         ->whereDate('date', '<=', $end->toDateString());
+                  });
+            })
             ->selectRaw('account_id')
             ->selectRaw("COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as inc")
             ->selectRaw("COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as exp")
@@ -119,7 +139,7 @@ class DashboardController extends Controller
             $monthInc  = (float) ($monthAgg[$a->id]->inc ?? 0);
             $monthExp  = (float) ($monthAgg[$a->id]->exp ?? 0);
 
-            $openingBalance = $initial + $beforeInc - $beforeExp;
+            $openingBalance  = $initial + $beforeInc - $beforeExp;
             $monthEndBalance = $openingBalance + $monthInc - $monthExp;
 
             return [
@@ -127,40 +147,38 @@ class DashboardController extends Controller
                 'name' => $a->name,
                 'type' => $a->type,
 
-                // ✅ agora faz sentido (baseado no histórico)
                 'opening_balance' => $openingBalance,
-
-                // ✅ só do mês
                 'income' => $monthInc,
                 'expense' => $monthExp,
-
-                // ✅ saldo ao final do mês selecionado
                 'balance' => $monthEndBalance,
             ];
         })->values();
 
-        // ✅ openingBalance do dashboard (soma de todas as contas)
         $openingBalance = (float) $accounts->sum('opening_balance');
 
+        // Receitas acumuladas (até o mês selecionado) - por competência
         $lifetimeIncome = (float) Transaction::query()
             ->where('user_id', $userId)
             ->where('type', 'income')
             ->where('is_transfer', false)
-            ->whereDate('date', '<=', $end->toDateString()) // ✅ só até o fim do mês selecionado
+            ->where(function ($q) use ($month, $end) {
+                $q->where('competence_month', '<=', $month)
+                  ->orWhere(function ($q2) use ($end) {
+                      $q2->whereNull('competence_month')
+                         ->whereDate('date', '<=', $end->toDateString());
+                  });
+            })
             ->sum('amount');
 
         return Inertia::render('Dashboard', [
             'month' => $month,
 
-            // cards
             'openingBalance' => $openingBalance,
             'income' => $income,
             'expense' => $expense,
 
-            // ✅ saldo do mês = opening + entradas do mês - saídas do mês
             'balance' => $openingBalance + $income - $expense,
 
-             // ✅ soma de tudo que já entrou, sem subtrair nada
             'lifetimeIncome' => $lifetimeIncome,
 
             'byCategory' => $byCategory,

@@ -23,8 +23,20 @@ class TransactionController extends Controller
 
         $query = Transaction::query()
             ->where('user_id', $userId)
-            ->whereBetween('date', [$start->toDateString(), $end->toDateString()])
+            /**
+             * ✅ NOVO: filtra por competência quando existir.
+             * - Se competence_month estiver preenchido => usa ele
+             * - Se estiver NULL (dados antigos) => cai no filtro por date
+             */
+            ->where(function ($q) use ($month, $start, $end) {
+                $q->where('competence_month', $month)
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->whereNull('competence_month')
+                         ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                  });
+            })
             ->with(['category:id,name', 'account:id,name'])
+            // se você quiser, pode ordenar por competência, mas manter por date é ok
             ->orderByDesc('date')
             ->orderByDesc('id');
 
@@ -49,10 +61,11 @@ class TransactionController extends Controller
             ->orderBy('type')->orderBy('name')
             ->get(['id','name','type']);
 
+        // (opcional) traz type e statement_close_day caso você queira mostrar no front
         $accounts = Account::query()
             ->where('user_id', $userId)
             ->orderBy('name')
-            ->get(['id','name']);
+            ->get(['id','name','type','statement_close_day']);
 
         return Inertia::render('Transactions/Index', [
             'filters' => [
@@ -76,7 +89,8 @@ class TransactionController extends Controller
             'mode' => 'create',
             'transaction' => null,
             'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
-            'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name']),
+            // (opcional) traz type e statement_close_day caso você queira exibir/ajudar no front
+            'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
         ]);
     }
 
@@ -85,21 +99,28 @@ class TransactionController extends Controller
         $userId = $request->user()->id;
 
         $categoryOk = Category::where('id', $request->integer('category_id'))->where('user_id', $userId)->exists();
-        $accountOk  = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->exists();
-        abort_unless($categoryOk && $accountOk, 422);
+        $account = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->first();
+        abort_unless($categoryOk && $account, 422);
+
+        $dateYmd = $request->date('date')->format('Y-m-d');
+
+        // ✅ NOVO: calcula competência
+        $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
 
         Transaction::create([
             'user_id' => $userId,
             'type' => $request->string('type'),
             'amount' => $request->input('amount'),
-            'date' => $request->date('date')->format('Y-m-d'),
+            'date' => $dateYmd,
+            'competence_month' => $competenceMonth, // ✅ NOVO
             'description' => $request->input('description'),
             'category_id' => $request->integer('category_id'),
-            'account_id' => $request->integer('account_id'),
+            'account_id' => $account->id,
             'payment_method' => $request->input('payment_method'),
         ]);
 
-        return redirect()->route('transactions.index', ['month' => now()->format('Y-m')]);
+        // ✅ redireciona para o mês de COMPETÊNCIA (pra compra do dia 31/jan cair em fev, por exemplo)
+        return redirect()->route('transactions.index', ['month' => $competenceMonth]);
     }
 
     public function edit(Transaction $transaction, Request $request)
@@ -121,7 +142,7 @@ class TransactionController extends Controller
                 'payment_method' => $transaction->payment_method,
             ],
             'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
-            'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name']),
+            'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
         ]);
     }
 
@@ -131,20 +152,26 @@ class TransactionController extends Controller
         abort_unless($transaction->user_id === $userId, 403);
 
         $categoryOk = Category::where('id', $request->integer('category_id'))->where('user_id', $userId)->exists();
-        $accountOk  = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->exists();
-        abort_unless($categoryOk && $accountOk, 422);
+        $account = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->first();
+        abort_unless($categoryOk && $account, 422);
+
+        $dateYmd = $request->date('date')->format('Y-m-d');
+
+        // ✅ NOVO: recalcula competência (pode mudar se trocar a conta ou a data)
+        $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
 
         $transaction->update([
             'type' => $request->string('type'),
             'amount' => $request->input('amount'),
-            'date' => $request->date('date')->format('Y-m-d'),
+            'date' => $dateYmd,
+            'competence_month' => $competenceMonth, // ✅ NOVO
             'description' => $request->input('description'),
             'category_id' => $request->integer('category_id'),
-            'account_id' => $request->integer('account_id'),
+            'account_id' => $account->id,
             'payment_method' => $request->input('payment_method'),
         ]);
 
-        return redirect()->route('transactions.index');
+        return redirect()->route('transactions.index', ['month' => $competenceMonth]);
     }
 
     public function destroy(Transaction $transaction, Request $request)
@@ -153,5 +180,29 @@ class TransactionController extends Controller
         $transaction->delete();
 
         return redirect()->route('transactions.index');
+    }
+
+    /**
+     * ✅ Helper fica AQUI no Controller mesmo (pra não confundir).
+     * - Se não for cartão, competência = mês da data
+     * - Se for cartão e tiver statement_close_day:
+     *    - compra em dia >= close_day => próximo mês
+     *    - senão => mesmo mês
+     */
+    private function computeCompetenceMonth(Account $account, string $dateYmd): string
+    {
+        $d = Carbon::createFromFormat('Y-m-d', $dateYmd);
+
+        if (($account->type ?? null) !== 'credit_card' || empty($account->statement_close_day)) {
+            return $d->format('Y-m');
+        }
+
+        $closeDay = (int) $account->statement_close_day;
+
+        if ((int) $d->day >= $closeDay) {
+            return $d->copy()->addMonthNoOverflow()->format('Y-m');
+        }
+
+        return $d->format('Y-m');
     }
 }

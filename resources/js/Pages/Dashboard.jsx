@@ -1,6 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
+import { formatDateBR } from '@/utils/formatters';
 
 export default function Dashboard({
   month,
@@ -325,7 +326,7 @@ export default function Dashboard({
                           <div className="truncate font-semibold text-gray-900">{t.description || '(sem descrição)'}</div>
 
                           <div className="mt-1 text-xs text-gray-500">
-                            {t.date} · {t.category || '—'} · {t.account || '—'}
+                            {formatDateBR(t.date)} · {t.category || '—'} · {t.account || '—'}
                           </div>
 
                           <div className="mt-2 flex items-center gap-2">

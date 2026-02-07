@@ -20,6 +20,15 @@ class Transaction extends Model
         'account_id',
         'payment_method',
         'is_transfer',
+        'transfer_id',
+        'transfer_type',
+        'transfer_date',
+        'transfer_amount',
+        'transfer_description',
+        'transfer_note',
+        'competence_month',
+        'competence_year',
+        'competence_id',
     ];
 
     protected $casts = [
