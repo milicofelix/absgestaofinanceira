@@ -147,7 +147,12 @@ export default function Dashboard({
           </div>
 
           {/* cards principais */}
-          <div className={['grid grid-cols-1 gap-4', showLifetimeIncome ? 'md:grid-cols-5' : 'md:grid-cols-4'].join(' ')}>
+            <div
+              className={[
+                'grid grid-cols-1 gap-4 items-stretch',
+                showLifetimeIncome ? 'md:grid-cols-5' : 'md:grid-cols-4',
+              ].join(' ')}
+            >
             <StatCard
               title="Saldo inicial (mês)"
               value={openingBalance}
@@ -402,29 +407,35 @@ function StatCard({ title, value, icon, tone = 'green', href, subLabel }) {
   const body = (
     <div
       className={[
-        'rounded-2xl p-6 shadow-sm ring-1 transition',
+        'relative h-full rounded-2xl p-6 shadow-sm ring-1 transition',
         toneClasses.card,
         'hover:shadow-md',
       ].join(' ')}
     >
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <div className={['text-sm font-semibold', toneClasses.title].join(' ')}>{title}</div>
+      {/* Ícone menor no topo direito */}
+      <div className={['absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl ring-1', toneClasses.icon].join(' ')}>
+        <Icon name={icon} size={18} />
+      </div>
 
-          <div className="mt-2 text-2xl font-bold text-gray-900">{formatBRL(value || 0)}</div>
-
-          {subLabel && <div className={['mt-1 text-xs font-semibold', toneClasses.sub].join(' ')}>{subLabel}</div>}
+      {/* Conteúdo (reserva espaço pro título não “crescer”) */}
+      <div className="pr-14">
+        <div className={['text-sm font-semibold leading-5', toneClasses.title].join(' ')}>
+          <span className="block line-clamp-2 min-h-[40px]">{title}</span>
         </div>
 
-        <div className={['flex h-11 w-11 items-center justify-center rounded-xl ring-1', toneClasses.icon].join(' ')}>
-          <Icon name={icon} />
-        </div>
+        <div className="mt-3 text-2xl font-bold text-gray-900">{formatBRL(value || 0)}</div>
+
+        {subLabel && (
+          <div className={['mt-2 text-xs font-semibold', toneClasses.sub].join(' ')}>
+            {subLabel}
+          </div>
+        )}
       </div>
     </div>
   );
 
   return href ? (
-    <Link href={href} className="block">
+    <Link href={href} className="block h-full">
       {body}
     </Link>
   ) : (
@@ -481,11 +492,10 @@ function getPastelToneClasses(tone) {
   }
 }
 
-function Icon({ name }) {
-  // ícones simples em SVG sem dependências
+function Icon({ name, size = 22 }) {
   if (name === 'income') {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M12 19V5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <path d="M6 11l6-6 6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -494,7 +504,7 @@ function Icon({ name }) {
 
   if (name === 'expense') {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M12 5v14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <path d="M6 13l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
@@ -503,7 +513,7 @@ function Icon({ name }) {
 
   if (name === 'balance') {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M3 7h18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         <path d="M6 7l1-3h10l1 3" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
         <path d="M6 10v10h12V10" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
@@ -513,7 +523,7 @@ function Icon({ name }) {
 
   if (name === 'wallet') {
     return (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path d="M3 7h18v14H3V7Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
         <path
           d="M17 15h4V9h-4c-2 0-3 1.5-3 3s1 3 3 3Z"
@@ -527,7 +537,7 @@ function Icon({ name }) {
   }
 
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path d="M4 12h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path d="M7 7h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
       <path d="M7 17h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />

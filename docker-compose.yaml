@@ -1,7 +1,28 @@
 services:
+  frontend_build:
+    image: node:20-alpine
+    working_dir: /var/www/app
+    volumes:
+      - ./:/var/www/app
+    command: sh -lc "npm ci && npm run build"
+    restart: "no"
+    networks:
+      - shared
+
+  frontend_dev:
+    image: node:20-alpine
+    working_dir: /var/www/app
+    volumes:
+      - ./:/var/www/app
+    command: sh -lc "npm ci && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
+    networks:
+      - shared
+
   app:
     build:
-      context: ./infra
+      context: ../docker/php
       dockerfile: Dockerfile
     image: php82-fpm-base:1
     container_name: financeiro_app
@@ -12,12 +33,10 @@ services:
       APP_ENV: local
       PHP_MEMORY_LIMIT: 512M
       COMPOSER_MEMORY_LIMIT: "-1"
-      XDEBUG_MODE: debug,develop
+      XDEBUG_MODE: develop
       XDEBUG_CONFIG: client_host=host.docker.internal client_port=9003
     extra_hosts:
       - host.docker.internal=host-gateway
-    ports:
-      - "5173:5173"
     networks:
       - shared
 
@@ -26,6 +45,8 @@ services:
     container_name: financeiro_web
     depends_on:
       - app
+      - frontend_build
+    command: /bin/sh -c 'while [ ! -f /var/www/app/public/build/manifest.json ]; do echo "Aguardando build do Vite (manifest.json)..."; sleep 1; done; nginx -g "daemon off;"'
     ports:
       - "8082:80"
     volumes:

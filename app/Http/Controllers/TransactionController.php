@@ -24,7 +24,7 @@ class TransactionController extends Controller
         $query = Transaction::query()
             ->where('user_id', $userId)
             /**
-             * ✅ NOVO: filtra por competência quando existir.
+             * filtra por competência quando existir.
              * - Se competence_month estiver preenchido => usa ele
              * - Se estiver NULL (dados antigos) => cai no filtro por date
              */
@@ -104,7 +104,7 @@ class TransactionController extends Controller
 
         $dateYmd = $request->date('date')->format('Y-m-d');
 
-        // ✅ NOVO: calcula competência
+        //  calcula competência
         $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
 
         Transaction::create([
@@ -157,7 +157,7 @@ class TransactionController extends Controller
 
         $dateYmd = $request->date('date')->format('Y-m-d');
 
-        // ✅ NOVO: recalcula competência (pode mudar se trocar a conta ou a data)
+        //  recalcula competência (pode mudar se trocar a conta ou a data)
         $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
 
         $transaction->update([
