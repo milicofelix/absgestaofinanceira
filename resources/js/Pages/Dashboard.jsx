@@ -13,6 +13,7 @@ export default function Dashboard({
   accounts,
   openingBalance,
   lifetimeIncome,
+  budgetsBadge,
 }) {
   const [selectedMonth, setSelectedMonth] = useState(month);
   const [showLifetimeIncome, setShowLifetimeIncome] = useState(false);
@@ -145,6 +146,33 @@ export default function Dashboard({
               />
             </button>
           </div>
+
+          {budgetsBadge?.total > 0 && (
+            <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-gray-900">Metas do mês em atenção</div>
+                  <div className="mt-1 text-sm text-gray-600">
+                    {budgetsBadge.exceeded ? (
+                      <span className="font-semibold text-rose-700">{budgetsBadge.exceeded} estourada(s)</span>
+                    ) : null}
+                    {budgetsBadge.warning ? (
+                      <span className={budgetsBadge.exceeded ? 'ml-2 font-semibold text-amber-800' : 'font-semibold text-amber-800'}>
+                        {budgetsBadge.warning} em risco
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <Link
+                  href={route('budgets.index', { month: budgetsBadge.month })}
+                  className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+                >
+                  Ver metas →
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* cards principais */}
             <div

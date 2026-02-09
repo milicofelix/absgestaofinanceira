@@ -1,0 +1,41 @@
+$month = $month; // 2026-02
+$catId = 29;
+
+$tx = Transaction::query()
+  ->where('user_id', $userId)
+  ->where('is_transfer', false)
+  ->where('type', 'expense')
+  ->where('category_id', $catId)
+  ->where(function ($q) use ($month, $start, $end) {
+      $q->where('competence_month', $month)
+        ->orWhere(function ($q2) use ($start, $end) {
+            $q2->whereNull('competence_month')
+               ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+        });
+  })
+  ->orderBy('date')
+  ->get(['id','amount','date','competence_month','description','is_transfer']);
+
+\Log::info('budget.cat29.txs', $tx->toArray());
+\Log::info('budget.cat29.sum', ['sum' => (float) $tx->sum('amount')]);
+
+$month = $month; // 2026-02
+$catId = 29;
+$tx = Transaction::query()
+  ->where('user_id', $userId)
+  ->where('is_transfer', false)
+  ->where('type', 'expense')
+  ->where('category_id', $catId)
+  ->where(function ($q) use ($month, $start, $end) {
+      $q->where('competence_month', $month)
+        ->orWhere(function ($q2) use ($start, $end) {
+            $q2->whereNull('competence_month')
+               ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+        });
+  })
+  ->orderBy('date')
+  ->get(['id','amount','date','competence_month','description','is_transfer']);
+
+\Log::info('budget.cat29.txs', $tx->toArray());
+\Log::info('budget.cat29.sum', ['sum' => (float) $tx->sum('amount')]);
+exit

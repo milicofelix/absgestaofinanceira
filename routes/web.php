@@ -13,6 +13,7 @@ use App\Http\Controllers\ReportTransactionController;
 use App\Http\Controllers\TransferContactController;
 use App\Http\Controllers\RecurringTransactionController;
 use App\Http\Controllers\InstallmentController;
+use App\Http\Controllers\CategoryBudgetController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -51,6 +52,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/installments', [InstallmentController::class, 'store'])->name('installments.store');
     Route::post('/installments/{installment}/cancel', [\App\Http\Controllers\InstallmentController::class, 'cancel'])
         ->name('installments.cancel');
+
+    Route::get('/budgets', [CategoryBudgetController::class, 'index'])->name('budgets.index');
+    Route::post('/budgets', [CategoryBudgetController::class, 'store'])->name('budgets.store');
+    Route::put('/budgets/{budget}', [CategoryBudgetController::class, 'update'])->name('budgets.update');
+    Route::delete('/budgets/{budget}', [CategoryBudgetController::class, 'destroy'])->name('budgets.destroy');
+
 
 });
 

@@ -68,20 +68,40 @@ class RecurringTransactionController extends Controller
 
   public function edit(Request $request, RecurringTransaction $recurring)
   {
-    abort_unless($recurring->user_id === $request->user()->id, 403);
+      abort_unless($recurring->user_id === $request->user()->id, 403);
 
-    $userId = $request->user()->id;
+      $userId = $request->user()->id;
 
-    return Inertia::render('Recurrings/Form', [
-      'mode' => 'edit',
-      'recurring' => $recurring->only([
-        'id','account_id','category_id','type','description','amount',
-        'frequency','interval','start_date','end_date','next_run_date',
-        'auto_post','is_active',
-      ]),
-      'accounts' => Account::where('user_id',$userId)->orderBy('name')->get(['id','name']),
-      'categories' => Category::where('user_id',$userId)->orderBy('name')->get(['id','name','type']),
-    ]);
+      return Inertia::render('Recurrings/Form', [
+          'mode' => 'edit',
+          'recurring' => [
+              'id'          => $recurring->id,
+              'account_id'  => $recurring->account_id,
+              'category_id' => $recurring->category_id,
+              'type'        => $recurring->type,
+              'description' => $recurring->description,
+              'amount'      => (float) $recurring->amount,
+
+              'frequency'   => $recurring->frequency,
+              'interval'    => $recurring->interval,
+
+              // ✅ inputs type="date" precisam de YYYY-MM-DD
+              'start_date'   => optional($recurring->start_date)->format('Y-m-d'),
+              'end_date'     => optional($recurring->end_date)->format('Y-m-d'),
+              'next_run_date'=> optional($recurring->next_run_date)->format('Y-m-d'),
+
+              'auto_post'   => (bool) $recurring->auto_post,
+              'is_active'   => (bool) $recurring->is_active,
+          ],
+
+          'accounts' => Account::where('user_id', $userId)
+              ->orderBy('name')
+              ->get(['id', 'name']),
+
+          'categories' => Category::where('user_id', $userId)
+              ->orderBy('name')
+              ->get(['id', 'name', 'type']),
+      ]);
   }
 
   public function update(Request $request, RecurringTransaction $recurring)

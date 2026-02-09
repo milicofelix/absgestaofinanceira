@@ -1,5 +1,5 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, useForm, router } from '@inertiajs/react';
 import MoneyInput from '@/Components/MoneyInput';
 import { useEffect, useMemo } from 'react';
 
@@ -68,13 +68,14 @@ export default function Form({ mode, transaction, categories, accounts }) {
       return put(route('transactions.update', transaction.id));
     }
 
-    // CREATE: se parcelado -> installments.store
+    // CREATE: se parcelado, manda payload direto
+
     if (canInstallment && data.is_installment) {
-      return post(route('installments.store'), {
-        preserveScroll: true,
-        onError: () => {},
-      });
-    }
+    return router.post(route('installments.store'), installmentPayload, {
+      preserveScroll: true,
+      onError: () => {},
+    });
+  }
 
     // CREATE normal
     return post(route('transactions.store'));
@@ -111,9 +112,10 @@ export default function Form({ mode, transaction, categories, accounts }) {
       description: data.description,
       total_amount: data.amount,
       installments_count: data.installments_count,
+      purchase_date: data.date,
       first_due_date: data.first_due_date,
     };
-  }, [data.account_id, data.category_id, data.description, data.amount, data.installments_count, data.first_due_date]);
+  }, [data.account_id, data.category_id, data.description, data.amount, data.installments_count, data.date, data.first_due_date]);
 
   return (
     <AuthenticatedLayout
@@ -163,19 +165,8 @@ export default function Form({ mode, transaction, categories, accounts }) {
               </div>
             )}
 
-            <form
-              onSubmit={(e) => {
-                // ✅ se for parcelado, antes de enviar, ajusta o data pra bater com installments.store
-                if (!formDisabled && mode === 'create' && canInstallment && data.is_installment) {
-                  setData((prev) => ({
-                    ...prev,
-                    ...installmentPayload,
-                  }));
-                }
-                submit(e);
-              }}
-              className="space-y-5"
-            >
+            <form onSubmit={submit} className="space-y-5">
+
               {/* Tipo */}
               <div>
                 <div className="flex items-center justify-between">
@@ -230,7 +221,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
                           step="1"
                           className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
                           value={data.installments_count}
-                          onChange={(e) => !formDisabled && setData('installments_count', e.target.value)}
+                          onChange={(e) => !formDisabled && setData('installments_count', Number(e.target.value))}
                         />
                         {errors.installments_count && (
                           <div className="mt-1 text-sm text-rose-600">{errors.installments_count}</div>
