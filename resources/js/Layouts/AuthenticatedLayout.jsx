@@ -1,59 +1,82 @@
 import Dropdown from '@/Components/Dropdown';
-import NavLink from '@/Components/NavLink';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 export default function AuthenticatedLayout({ header, children }) {
-  const user = usePage().props.auth.user;
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [openGroup, setOpenGroup] = useState(null); // sidebar: grupo aberto (mobile/desktop)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-  if (typeof window === 'undefined') return false;
-  return localStorage.getItem('sidebarCollapsed') === '1';
-});
+  const page = usePage();
+  const user = page.props?.auth?.user ?? null; // ✅ evita crash quando não tiver auth
+  const navBadge = page.props?.nav?.budgets_badge ?? null;
 
-useEffect(() => {
-  localStorage.setItem('sidebarCollapsed', sidebarCollapsed ? '1' : '0');
-}, [sidebarCollapsed]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [openGroup, setOpenGroup] = useState(null);
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.localStorage.getItem('sidebarCollapsed') === '1';
+  });
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('sidebarCollapsed', sidebarCollapsed ? '1' : '0');
+  }, [sidebarCollapsed]);
 
   const navItems = useMemo(
     () => [
       { name: 'Dashboard', href: route('dashboard'), active: route().current('dashboard') },
 
-      {
-        name: 'Lançamentos',
-        href: route('transactions.index'),
-        active: route().current('transactions.*'),
-      },
+      { name: 'Lançamentos', href: route('transactions.index'), active: route().current('transactions.*') },
 
-      {
-        name: 'Categorias',
-        href: route('categories.index'),
-        active: route().current('categories.*'),
-      },
+      { name: 'Categorias', href: route('categories.index'), active: route().current('categories.*') },
 
-      {
-        name: 'Contas',
-        href: route('accounts.index'),
-        active: route().current('accounts.*'),
-      },
+      { name: 'Contas', href: route('accounts.index'), active: route().current('accounts.*') },
 
       {
         name: 'Transferências',
-        href: route('transfers.create'), // fallback ao clicar no nome (opcional)
+        href: route('transfers.create'),
         active: route().current('transfers.*') || route().current('transfer_contacts.*'),
         children: [
           { name: 'Nova transferência', href: route('transfers.create'), active: route().current('transfers.*') },
           { name: 'Contatos', href: route('transfer_contacts.index'), active: route().current('transfer_contacts.*') },
         ],
       },
-      
+
       { name: 'Recorrências', href: route('recurrings.index'), active: route().current('recurrings.*') },
-      ],
-    [],
+
+      {
+        name: 'Metas',
+        href: route('budgets.index'),
+        active: route().current('budgets.*'),
+        badge: navBadge?.total ? String(navBadge.total) : null,
+        badgeTone: navBadge?.exceeded ? 'red' : navBadge?.warning ? 'yellow' : 'gray',
+      },
+    ],
+    [navBadge],
   );
+
+  // ✅ se por algum motivo renderizar sem user, não quebra (mas ideal é nunca usar layout nessas páginas)
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <div className="mx-auto max-w-3xl px-4 py-10">
+          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+            <div className="text-sm font-semibold text-gray-900">Sessão não encontrada</div>
+            <div className="mt-1 text-sm text-gray-600">
+              Esta página requer autenticação. Volte e faça login.
+            </div>
+            <div className="mt-4">
+              <Link
+                href={route('login')}
+                className="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+              >
+                Ir para login
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -69,21 +92,14 @@ useEffect(() => {
       <aside
         className={[
           'fixed left-0 top-0 z-50 h-full w-72 transform border-r border-gray-200 bg-white transition-transform',
-          // mobile: usa sidebarOpen
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          // desktop: sempre visível, a não ser que colapse
           sidebarCollapsed ? 'sm:-translate-x-full' : 'sm:translate-x-0',
-          // em desktop não precisa depender de sidebarOpen
           'sm:block',
         ].join(' ')}
       >
         <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4">
           <Link href={route('dashboard')} className="inline-flex items-center gap-3">
-            <img
-              src="/images/abs_logo.png"
-              alt="ABS Gestão Financeira"
-              className="h-20 w-auto"
-            />
+            <img src="/images/abs_logo.png" alt="ABS Gestão Financeira" className="h-20 w-auto" />
           </Link>
 
           <button
@@ -98,24 +114,21 @@ useEffect(() => {
         </div>
 
         <div className="px-3 py-4">
-          <div className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Menu
-          </div>
-
-          {/* <nav className="space-y-1">
-            {navItems.map((item) => (
-              <SidebarLink key={item.name} href={item.href} active={item.active}>
-                {item.name}
-              </SidebarLink>
-            ))}
-          </nav> */}
+          <div className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Menu</div>
 
           <nav className="space-y-1">
             {navItems.map((item) => {
               const hasChildren = Array.isArray(item.children) && item.children.length > 0;
               if (!hasChildren) {
                 return (
-                  <SidebarLink key={item.name} href={item.href} active={item.active} onClick={() => setSidebarOpen(false)}>
+                  <SidebarLink
+                    key={item.name}
+                    href={item.href}
+                    active={item.active}
+                    badge={item.badge}
+                    badgeTone={item.badgeTone}
+                    onClick={() => setSidebarOpen(false)}
+                  >
                     {item.name}
                   </SidebarLink>
                 );
@@ -131,12 +144,16 @@ useEffect(() => {
                 />
               );
             })}
-           </nav>
+          </nav>
 
           <div className="mt-6 border-t border-gray-100 pt-4">
             <div className="px-2">
-              <div className="text-sm font-semibold text-gray-900">{user.name}</div>
-              <div className="text-xs text-gray-500">{user.email}</div>
+             {user && (
+                <>
+                  <div className="text-sm font-semibold text-gray-900">{user.name}</div>
+                  <div className="text-xs text-gray-500">{user.email}</div>
+                </>
+              )}
             </div>
 
             <div className="mt-3 space-y-1">
@@ -174,26 +191,26 @@ useEffect(() => {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
                   </svg>
                 </button>
+
                 {/* Desktop toggle sidebar */}
-                  <button
-                    type="button"
-                    onClick={() => setSidebarCollapsed((v) => !v)}
-                    className="hidden sm:inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100"
-                    aria-label={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
-                    title={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
-                  >
-                    {sidebarCollapsed ? (
-                        // ícone "abrir sidebar"
-                        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M3 6h18M3 18h18" />
-                        </svg>
-                      ) : (
-                        // ícone "ocultar sidebar"
-                        <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                          <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 6h7M4 12h7M4 18h7M15 6h5M15 12h5M15 18h5" />
-                        </svg>
-                      )}
-                  </button>
+                <button
+                  type="button"
+                  onClick={() => setSidebarCollapsed((v) => !v)}
+                  className="hidden sm:inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100"
+                  aria-label={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
+                  title={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
+                >
+                  {sidebarCollapsed ? (
+                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M3 6h18M3 18h18" />
+                    </svg>
+                  ) : (
+                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 6h7M4 12h7M4 18h7M15 6h5M15 12h5M15 18h5" />
+                    </svg>
+                  )}
+                </button>
+
                 {/* Title */}
                 <div className="hidden sm:block">
                   <div className="text-sm font-semibold text-gray-900">ABS Gestão Financeira</div>
@@ -207,7 +224,7 @@ useEffect(() => {
                   href={route('transactions.create')}
                   className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
                 >
-                   Lançamento
+                  Lançamento
                 </Link>
               </div>
 
@@ -248,60 +265,66 @@ useEffect(() => {
           {/* Mobile quick links */}
           <div className="border-t border-gray-100 px-4 py-2 sm:hidden">
             <div className="flex gap-3">
-                <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')}>
-                    Dashboard
-                </ResponsiveNavLink>
-                <ResponsiveNavLink href={route('transactions.index')} active={route().current('transactions.*')}>
-                    Lançamentos
-                </ResponsiveNavLink>
-                {/* ✅ Agrupado: Transferências (dropdown simples) */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setOpenGroup((v) => (v === '__top_transfers__' ? null : '__top_transfers__'))}
-                    className={[
-                      'inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition',
-                      (route().current('transfers.*') || route().current('transfer_contacts.*'))
-                        ? 'bg-emerald-50 text-emerald-800'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
-                    ].join(' ')}
-                  >
-                    Transferências
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
+              <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')}>
+                Dashboard
+              </ResponsiveNavLink>
 
-                  {openGroup === '__top_transfers__' && (
-                    <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl bg-white p-1 shadow-lg ring-1 ring-gray-200">
-                      <Link
-                        href={route('transfers.create')}
-                        className={[
-                          'block rounded-lg px-3 py-2 text-sm font-semibold transition',
-                          route().current('transfers.*') ? 'bg-emerald-50 text-emerald-800' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
-                        ].join(' ')}
-                        onClick={() => setOpenGroup(null)}
-                      >
-                        Nova transferência
-                      </Link>
-                      <Link
-                        href={route('transfer_contacts.index')}
-                        className={[
-                          'block rounded-lg px-3 py-2 text-sm font-semibold transition',
-                          route().current('transfer_contacts.*') ? 'bg-emerald-50 text-emerald-800' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
-                        ].join(' ')}
-                        onClick={() => setOpenGroup(null)}
-                      >
-                        Contatos
-                      </Link>
-                    </div>
-                  )}
-                </div>
+              <ResponsiveNavLink href={route('transactions.index')} active={route().current('transactions.*')}>
+                Lançamentos
+              </ResponsiveNavLink>
+
+              <ResponsiveNavLink href={route('budgets.index')} active={route().current('budgets.*')}>
+                Metas
+              </ResponsiveNavLink>
+
+              {/* Transferências dropdown */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setOpenGroup((v) => (v === '__top_transfers__' ? null : '__top_transfers__'))}
+                  className={[
+                    'inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition',
+                    route().current('transfers.*') || route().current('transfer_contacts.*')
+                      ? 'bg-emerald-50 text-emerald-800'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                  ].join(' ')}
+                >
+                  Transferências
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {openGroup === '__top_transfers__' && (
+                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl bg-white p-1 shadow-lg ring-1 ring-gray-200">
+                    <Link
+                      href={route('transfers.create')}
+                      className={[
+                        'block rounded-lg px-3 py-2 text-sm font-semibold transition',
+                        route().current('transfers.*') ? 'bg-emerald-50 text-emerald-800' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                      ].join(' ')}
+                      onClick={() => setOpenGroup(null)}
+                    >
+                      Nova transferência
+                    </Link>
+                    <Link
+                      href={route('transfer_contacts.index')}
+                      className={[
+                        'block rounded-lg px-3 py-2 text-sm font-semibold transition',
+                        route().current('transfer_contacts.*') ? 'bg-emerald-50 text-emerald-800' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                      ].join(' ')}
+                      onClick={() => setOpenGroup(null)}
+                    >
+                      Contatos
+                    </Link>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </nav>
 
-        {/* Header (page title area) */}
+        {/* Header */}
         {header && (
           <header className="bg-white shadow-sm">
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{header}</div>
@@ -314,19 +337,30 @@ useEffect(() => {
   );
 }
 
-function SidebarLink({ href, active, children, onClick }) {
+function SidebarLink({ href, active, children, onClick, badge, badgeTone = 'gray' }) {
+  const badgeClass =
+    badgeTone === 'red'
+      ? 'bg-rose-100 text-rose-800 ring-rose-200'
+      : badgeTone === 'yellow'
+        ? 'bg-amber-100 text-amber-900 ring-amber-200'
+        : 'bg-gray-100 text-gray-700 ring-gray-200';
+
   return (
     <Link
       href={href}
       onClick={onClick}
       className={[
-        'flex items-center rounded-lg px-3 py-2 text-sm font-semibold transition',
-        active
-          ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100'
-          : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+        'flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition',
+        active ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
       ].join(' ')}
     >
       <span className="truncate">{children}</span>
+
+      {badge ? (
+        <span className={['inline-flex min-w-6 justify-center rounded-full px-2 py-0.5 text-xs font-bold ring-1', badgeClass].join(' ')}>
+          {badge}
+        </span>
+      ) : null}
     </Link>
   );
 }
@@ -339,19 +373,12 @@ function SidebarGroup({ item, open, onToggle, onNavigate }) {
         onClick={onToggle}
         className={[
           'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold transition',
-          item.active
-            ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100'
-            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+          item.active ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
         ].join(' ')}
         aria-expanded={open}
       >
         <span className="truncate">{item.name}</span>
-        <svg
-          className={['h-4 w-4 transition-transform', open ? 'rotate-180' : 'rotate-0'].join(' ')}
-          viewBox="0 0 24 24"
-          fill="none"
-          aria-hidden="true"
-        >
+        <svg className={['h-4 w-4 transition-transform', open ? 'rotate-180' : 'rotate-0'].join(' ')} viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
@@ -362,12 +389,12 @@ function SidebarGroup({ item, open, onToggle, onNavigate }) {
             <Link
               key={child.name}
               href={child.href}
-              onClick={onNavigate}
+              onClick={() => {
+                onNavigate?.();
+              }}
               className={[
                 'flex items-center rounded-lg px-3 py-2 text-sm font-semibold transition',
-                child.active
-                  ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100'
-                  : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                child.active ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
               ].join(' ')}
             >
               <span className="truncate">{child.name}</span>

@@ -20,7 +20,12 @@ class InstallmentController extends Controller
       'description' => ['nullable','string','max:255'],
       'total_amount' => ['required','numeric','min:0.01'],
       'installments_count' => ['required','integer','min:2','max:60'],
-      'first_due_date' => ['required','date'],
+
+      // data da compra (pra calcular a fatura correta)
+      'purchase_date' => ['required','date'],
+
+      // se vier, respeita; se não vier, calcula com statement_close_day
+      'first_due_date' => ['nullable','date'],
     ]);
 
     $data['user_id'] = $userId;

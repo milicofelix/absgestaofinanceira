@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use App\Models\Account;
+use App\Models\CategoryBudget;
 
 class DashboardController extends Controller
 {
@@ -170,6 +171,62 @@ class DashboardController extends Controller
             })
             ->sum('amount');
 
+        // Badge de metas do mês selecionado (exceeded/warning de verdade)
+        $year = (int) substr($month, 0, 4);
+        $m    = (int) substr($month, 5, 2);
+
+        // metas do mês
+        $budgets = CategoryBudget::query()
+            ->where('user_id', $userId)
+            ->where('year', $year)
+            ->where('month', $m)
+            ->get(['id', 'category_id', 'amount']); // <-- "amount" = limite da meta (ajuste se tiver outro nome)
+
+        $totalBudgets = $budgets->count();
+
+        $spentByCategory = Transaction::query()
+            ->where('user_id', $userId)
+            ->where('is_transfer', false)
+            ->where('type', 'expense')
+            ->where(function ($q) use ($month, $start, $end) {
+                $q->where('competence_month', $month)
+                ->orWhere(function ($q2) use ($start, $end) {
+                    $q2->whereNull('competence_month')
+                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                });
+            })
+            ->whereIn('category_id', $budgets->pluck('category_id')->filter()->unique()->values())
+            ->selectRaw('category_id, COALESCE(SUM(amount),0) as spent')
+            ->groupBy('category_id')
+            ->pluck('spent', 'category_id'); // [category_id => spent]
+
+        $exceeded = 0;
+        $warning  = 0;
+
+        foreach ($budgets as $b) {
+            $limit = (float) ($b->amount ?? 0); // ajuste se o nome for outro
+            if ($limit <= 0) continue;
+
+            $spent = (float) ($spentByCategory[$b->category_id] ?? 0);
+            //$pct   = $spent / $limit;
+
+            $spentCents = (int) round($spent * 100);
+            $limitCents = (int) round($limit * 100);
+
+            if ($spentCents > $limitCents) {
+                $exceeded++;
+            } elseif ($limitCents > 0 && $spentCents * 100 >= (int) round($limitCents * 80)) {
+                $warning++;
+            }
+        }
+
+        $budgetsBadge = [
+            'month'    => $month,
+            'warning'  => $warning,
+            'exceeded' => $exceeded,
+            'total'    => $totalBudgets,
+        ];
+
         return Inertia::render('Dashboard', [
             'month' => $month,
 
@@ -184,6 +241,8 @@ class DashboardController extends Controller
             'byCategory' => $byCategory,
             'latest' => $latest,
             'accounts' => $accounts,
+
+            'budgetsBadge' => $budgetsBadge,
         ]);
     }
 }
