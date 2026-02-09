@@ -35,7 +35,12 @@ class TransactionController extends Controller
                          ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
                   });
             })
-            ->with(['category:id,name', 'account:id,name'])
+            ->with([
+                'category:id,name',
+                'account:id,name',
+                'installment:id,installments_count,is_active'
+            ])
+
             // se você quiser, pode ordenar por competência, mas manter por date é ok
             ->orderByDesc('date')
             ->orderByDesc('id');
@@ -52,6 +57,24 @@ class TransactionController extends Controller
         if ($request->filled('q')) {
             $q = $request->string('q');
             $query->where('description', 'like', "%{$q}%");
+        }
+        if ($request->filled('installment')) {
+            $v = $request->string('installment');
+            if ($v === 'only') {
+                $query->whereNotNull('installment_id');
+            } elseif ($v === 'none') {
+                $query->whereNull('installment_id');
+            }
+        }
+
+        if ($request->filled('status')) {
+            $status = (string) $request->query('status');
+
+            if ($status === 'paid') {
+                $query->where('is_cleared', true);
+            } elseif ($status === 'open') {
+                $query->where('is_cleared', false);
+            }
         }
 
         $transactions = $query->paginate(15)->withQueryString();
@@ -74,6 +97,8 @@ class TransactionController extends Controller
                 'category_id' => $request->query('category_id'),
                 'account_id' => $request->query('account_id'),
                 'q' => $request->query('q'),
+                'installment' => $request->query('installment'),
+                'status' => $request->query('status'),
             ],
             'transactions' => $transactions,
             'categories' => $categories,
@@ -140,9 +165,11 @@ class TransactionController extends Controller
                 'category_id' => $transaction->category_id,
                 'account_id' => $transaction->account_id,
                 'payment_method' => $transaction->payment_method,
+                'is_cleared' => $transaction->is_cleared,
             ],
             'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
             'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
+            'mode' => 'edit',
         ]);
     }
 
@@ -169,6 +196,7 @@ class TransactionController extends Controller
             'category_id' => $request->integer('category_id'),
             'account_id' => $account->id,
             'payment_method' => $request->input('payment_method'),
+            'is_cleared' => $request->boolean('is_cleared'),
         ]);
 
         return redirect()->route('transactions.index', ['month' => $competenceMonth]);

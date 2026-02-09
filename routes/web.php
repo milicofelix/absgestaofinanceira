@@ -11,6 +11,8 @@ use App\Http\Controllers\TransactionController;
 use App\Http\Controllers\TransferController;
 use App\Http\Controllers\ReportTransactionController;
 use App\Http\Controllers\TransferContactController;
+use App\Http\Controllers\RecurringTransactionController;
+use App\Http\Controllers\InstallmentController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -44,6 +46,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/reports/transactions', [ReportTransactionController::class, 'index'])->name('reports.transactions.index');
     Route::get('/reports/transactions/export', [ReportTransactionController::class, 'export'])->name('reports.transactions.export');
+
+    Route::resource('recurrings', RecurringTransactionController::class)->except(['show']);
+    Route::post('/installments', [InstallmentController::class, 'store'])->name('installments.store');
+    Route::post('/installments/{installment}/cancel', [\App\Http\Controllers\InstallmentController::class, 'cancel'])
+        ->name('installments.cancel');
+
 });
 
 

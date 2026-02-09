@@ -49,6 +49,8 @@ useEffect(() => {
           { name: 'Contatos', href: route('transfer_contacts.index'), active: route().current('transfer_contacts.*') },
         ],
       },
+      
+      { name: 'Recorrências', href: route('recurrings.index'), active: route().current('recurrings.*') },
       ],
     [],
   );
