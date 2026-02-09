@@ -79,15 +79,14 @@ export default function AuthenticatedLayout({ header, children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
       {/* Overlay mobile */}
       <div
-        className={`fixed inset-0 z-40 bg-black/40 transition-opacity sm:hidden ${
+        className={`fixed left-0 right-0 top-0 bottom-0 z-40 bg-black/40 transition-opacity sm:hidden ${
           sidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={() => setSidebarOpen(false)}
       />
-
       {/* Sidebar */}
       <aside
         className={[
