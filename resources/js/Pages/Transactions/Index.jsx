@@ -11,6 +11,8 @@ export default function Index({ transactions, filters, categories, accounts }) {
   const [q, setQ] = useState(filters.q || '');
   const [exportFormat, setExportFormat] = useState('xlsx');
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [installmentFilter, setInstallmentFilter] = useState(filters.installment || '');
+  const [status, setStatus] = useState(filters.status || '');
 
   const queryParams = useMemo(
     () => ({
@@ -19,8 +21,10 @@ export default function Index({ transactions, filters, categories, accounts }) {
       category_id: categoryId || undefined,
       account_id: accountId || undefined,
       q: q || undefined,
+      installment: installmentFilter || undefined,
+      status: status || undefined,
     }),
-    [month, type, categoryId, accountId, q],
+    [month, type, categoryId, accountId, q, installmentFilter, status],
   );
 
   function exportFile() {
@@ -47,6 +51,8 @@ export default function Index({ transactions, filters, categories, accounts }) {
     setCategoryId('');
     setAccountId('');
     setQ('');
+    setInstallmentFilter('');
+    setStatus('');
     router.get(route('transactions.index'), { month }, { preserveState: true, replace: true });
   }
 
@@ -93,7 +99,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
             <div className={`${filtersOpen ? 'block' : 'hidden'} mt-4 sm:block`}>
               {/* GRID INPUTS (faltou aqui no seu código) */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-6 sm:items-end">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-8 sm:items-end">
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Mês</label>
                   <input
@@ -142,6 +148,32 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     {accounts.map((a) => (
                       <option key={a.id} value={a.id}>{a.name}</option>
                     ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Parcelamento</label>
+                  <select
+                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    value={installmentFilter}
+                    onChange={(e) => setInstallmentFilter(e.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    <option value="only">Somente parcelados</option>
+                    <option value="none">Somente normais</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</label>
+                  <select
+                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    value={status}
+                    onChange={(e) => setStatus(e.target.value)}
+                  >
+                    <option value="">Todos</option>
+                    <option value="open">Em aberto</option>
+                    <option value="paid">Pago</option>
                   </select>
                 </div>
 
@@ -212,7 +244,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     </div>
 
                     <div className="mt-1 text-xs text-gray-500">
-                      {t.date} • {t.category?.name || '—'} • {t.account?.name || '—'}
+                      {formatDateBR(t.date)} • {t.category?.name || '—'} • {t.account?.name || '—'}
                     </div>
 
                     <div className="mt-2">
@@ -225,6 +257,29 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           Receita
                         </span>
                       )}
+                        {t.installment_id && (
+                        <span
+                            className={[
+                              'ml-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold',
+                              t.installment?.is_active ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-700',
+                            ].join(' ')}
+                            title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
+                          >
+                            {t.installment_number}/{t.installment?.installments_count ?? '?'}
+                        </span>
+                      )}
+                        <span
+                          className={[
+                            'inline-flex rounded-full px-2 py-1 text-xs font-semibold',
+                            t.is_cleared
+                              ? 'bg-emerald-50 text-emerald-700'
+                              : t.type === 'income'
+                                ? 'bg-sky-50 text-sky-700'
+                                : 'bg-amber-50 text-amber-900',
+                          ].join(' ')}
+                        >
+                          {getClearedLabel(t)}
+                        </span>
                     </div>
                   </div>
 
@@ -246,6 +301,19 @@ export default function Index({ transactions, filters, categories, accounts }) {
                       >
                         ✏️
                       </Link>
+
+                      {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
+                        <button
+                          className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                          title="Cancelar parcelamento"
+                          onClick={() => {
+                            if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
+                            router.post(route('installments.cancel', t.installment_id));
+                          }}
+                        >
+                          ⛔
+                        </button>
+                      )}
 
                       <button
                         className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
@@ -289,7 +357,43 @@ export default function Index({ transactions, filters, categories, accounts }) {
                   <tr key={t.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">{formatDateBR(t.date)}</td>
                     <td className="px-4 py-3">
-                      {t.description || <span className="text-gray-400">(sem descrição)</span>}
+                      <div className="flex items-center gap-2">
+                        <div className="min-w-0">
+                          <div className="truncate">
+                            {t.description || <span className="text-gray-400">(sem descrição)</span>}
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <span
+                              className={[
+                                'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                t.type === 'expense' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700',
+                              ].join(' ')}
+                            >
+                              {t.type === 'expense' ? 'Despesa' : 'Receita'}
+                            </span>
+
+                            {t.installment_id && (
+                              <span
+                                className={[
+                                  'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                  t.installment?.is_active ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-700',
+                                ].join(' ')}
+                                title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
+                              >
+                                {t.installment_number}/{t.installment?.installments_count ?? '?'}
+                              </span>
+                            )}
+                            <span
+                              className={[
+                                'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                t.is_cleared ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-900',
+                              ].join(' ')}
+                            >
+                               {getClearedLabel(t)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-4 py-3">{t.category?.name || '—'}</td>
                     <td className="px-4 py-3">{t.account?.name || '—'}</td>
@@ -308,6 +412,17 @@ export default function Index({ transactions, filters, categories, accounts }) {
                         >
                           Editar
                         </Link>
+                        {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
+                        <button
+                            className="text-sm font-semibold text-amber-700 hover:underline"
+                            onClick={() => {
+                              if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
+                              router.post(route('installments.cancel', t.installment_id));
+                            }}
+                          >
+                            Cancelar
+                          </button>
+                        )}
                         <button
                           className="text-sm font-semibold text-rose-600 hover:underline"
                           onClick={() =>
@@ -375,3 +490,13 @@ function normalizeMonth(v) {
   if (!v) return new Date().toISOString().slice(0, 7);
   return v.slice(0, 7);
 }
+
+function getClearedLabel(transaction) {
+  if (transaction.type === 'income') {
+    return transaction.is_cleared ? 'Recebida' : 'A receber';
+  }
+
+  // expense
+  return transaction.is_cleared ? 'Paga' : 'Em aberto';
+}
+

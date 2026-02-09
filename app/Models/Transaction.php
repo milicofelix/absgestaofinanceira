@@ -29,12 +29,14 @@ class Transaction extends Model
         'competence_month',
         'competence_year',
         'competence_id',
+        'is_cleared',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
         'date' => 'date:Y-m-d',
         'is_transfer' => 'boolean',
+        'is_cleared' => 'boolean',
     ];
 
     public function user(): BelongsTo
@@ -50,5 +52,10 @@ class Transaction extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+    
+    public function installment(): BelongsTo
+    {
+        return $this->belongsTo(Installment::class);
     }
 }
