@@ -42,7 +42,8 @@ class InstallmentService
       $base = intdiv($totalCents, $n);
       $remainder = $totalCents - ($base * $n);
 
-      $due = Carbon::parse($inst->first_due_date)->startOfDay();
+      //$due = Carbon::parse($inst->first_due_date)->startOfDay();
+      $due = Carbon::parse($inst->first_due_date)->startOfDay()->startOfMonth();
 
       for ($i = 1; $i <= $n; $i++) {
         $cents = $base + ($i === $n ? $remainder : 0);
@@ -77,7 +78,8 @@ class InstallmentService
     $closeThisMonth = $purchase->copy()->day(min($closeDay, $purchase->daysInMonth))->startOfDay();
 
     // Se comprou DEPOIS do fechamento, vai pra próxima fatura (mês seguinte)
-    if ($purchase->gt($closeThisMonth)) {
+    // if ($purchase->gt($closeThisMonth)) {
+    if ($purchase->gte($closeThisMonth)) {
       $next = $purchase->copy()->addMonthNoOverflow();
       return $next->day(min($closeDay, $next->daysInMonth))->startOfDay();
     }

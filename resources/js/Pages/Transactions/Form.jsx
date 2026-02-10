@@ -113,7 +113,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
       total_amount: data.amount,
       installments_count: data.installments_count,
       purchase_date: data.date,
-      first_due_date: data.first_due_date,
+      first_due_date: null,
     };
   }, [data.account_id, data.category_id, data.description, data.amount, data.installments_count, data.date, data.first_due_date]);
 
