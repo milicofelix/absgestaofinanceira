@@ -27,35 +27,40 @@ export default function Form({ mode, recurring, accounts, categories }) {
   });
 
   const filteredCategories = useMemo(() => {
-    // opcional: filtra categorias por type (income/expense)
     const t = data.type;
     return (categories || []).filter((c) => !c.type || c.type === t);
   }, [categories, data.type]);
 
   function submit(e) {
     e.preventDefault();
-
-    if (isEdit) {
-      put(route('recurrings.update', recurring.id));
-    } else {
-      post(route('recurrings.store'));
-    }
+    if (isEdit) put(route('recurrings.update', recurring.id));
+    else post(route('recurrings.store'));
   }
+
+  const inputBase =
+    'mt-1 w-full rounded-lg border shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500 ' +
+    'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 ' +
+    'dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500';
+
+  const labelBase = 'text-sm font-semibold text-gray-700 dark:text-slate-200';
+
+  const errorText = (msg) =>
+    msg ? <div className="mt-1 text-xs font-semibold text-rose-600 dark:text-rose-400">{msg}</div> : null;
 
   return (
     <AuthenticatedLayout
       header={
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold leading-tight text-gray-900">
+            <h2 className="text-xl font-semibold leading-tight text-gray-900 dark:text-slate-100">
               {isEdit ? 'Editar recorrência' : 'Nova recorrência'}
             </h2>
-            <p className="text-sm text-gray-500">Defina lançamentos automáticos (mensal/anual)</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400">Defina lançamentos automáticos (mensal/anual)</p>
           </div>
 
           <Link
             href={route('recurrings.index')}
-            className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+            className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300"
           >
             Voltar →
           </Link>
@@ -66,41 +71,44 @@ export default function Form({ mode, recurring, accounts, categories }) {
 
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-3xl space-y-6 px-4 sm:px-6 lg:px-8">
-          <form onSubmit={submit} className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+          <form
+            onSubmit={submit}
+            className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800"
+          >
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* tipo */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Tipo</label>
+                <label className={labelBase}>Tipo</label>
                 <select
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.type}
                   onChange={(e) => setData('type', e.target.value)}
                 >
                   <option value="expense">Despesa</option>
                   <option value="income">Receita</option>
                 </select>
-                {errors.type && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.type}</div>}
+                {errorText(errors.type)}
               </div>
 
               {/* valor */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Valor</label>
+                <label className={labelBase}>Valor</label>
                 <input
                   type="number"
                   step="0.01"
                   inputMode="decimal"
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={formatBRLInput(data.amount)}
                   onChange={(e) => setData('amount', e.target.value)}
                 />
-                {errors.amount && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.amount}</div>}
+                {errorText(errors.amount)}
               </div>
 
               {/* conta */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Conta</label>
+                <label className={labelBase}>Conta</label>
                 <select
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.account_id}
                   onChange={(e) => setData('account_id', e.target.value)}
                 >
@@ -111,14 +119,14 @@ export default function Form({ mode, recurring, accounts, categories }) {
                     </option>
                   ))}
                 </select>
-                {errors.account_id && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.account_id}</div>}
+                {errorText(errors.account_id)}
               </div>
 
               {/* categoria */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Categoria</label>
+                <label className={labelBase}>Categoria</label>
                 <select
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.category_id || ''}
                   onChange={(e) => setData('category_id', e.target.value || '')}
                 >
@@ -129,111 +137,113 @@ export default function Form({ mode, recurring, accounts, categories }) {
                     </option>
                   ))}
                 </select>
-                {errors.category_id && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.category_id}</div>}
+                {errorText(errors.category_id)}
               </div>
 
               {/* descrição */}
               <div className="sm:col-span-2">
-                <label className="text-sm font-semibold text-gray-700">Descrição</label>
+                <label className={labelBase}>Descrição</label>
                 <input
                   type="text"
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.description}
                   onChange={(e) => setData('description', e.target.value)}
                   placeholder="Ex.: Aluguel, Netflix, Salário..."
                 />
-                {errors.description && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.description}</div>}
+                {errorText(errors.description)}
               </div>
 
               {/* frequência */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Frequência</label>
+                <label className={labelBase}>Frequência</label>
                 <select
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.frequency}
                   onChange={(e) => setData('frequency', e.target.value)}
                 >
                   <option value="monthly">Mensal</option>
                   <option value="yearly">Anual</option>
                 </select>
-                {errors.frequency && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.frequency}</div>}
+                {errorText(errors.frequency)}
               </div>
 
               {/* intervalo */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Intervalo</label>
+                <label className={labelBase}>Intervalo</label>
                 <input
                   type="number"
                   min="1"
                   step="1"
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.interval}
                   onChange={(e) => setData('interval', e.target.value)}
                 />
-                <div className="mt-1 text-xs text-gray-500">Ex.: 1 = todo mês / todo ano</div>
-                {errors.interval && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.interval}</div>}
+                <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">Ex.: 1 = todo mês / todo ano</div>
+                {errorText(errors.interval)}
               </div>
 
               {/* próxima execução */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Próximo lançamento</label>
+                <label className={labelBase}>Próximo lançamento</label>
                 <input
                   type="date"
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.next_run_date}
                   onChange={(e) => setData('next_run_date', e.target.value)}
                 />
-                {errors.next_run_date && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.next_run_date}</div>}
+                {errorText(errors.next_run_date)}
               </div>
 
               {/* início */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Data de início (opcional)</label>
+                <label className={labelBase}>Data de início (opcional)</label>
                 <input
                   type="date"
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.start_date || ''}
                   onChange={(e) => setData('start_date', e.target.value)}
                 />
-                {errors.start_date && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.start_date}</div>}
+                {errorText(errors.start_date)}
               </div>
 
               {/* fim */}
               <div>
-                <label className="text-sm font-semibold text-gray-700">Data de fim (opcional)</label>
+                <label className={labelBase}>Data de fim (opcional)</label>
                 <input
                   type="date"
-                  className="mt-1 w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  className={inputBase}
                   value={data.end_date || ''}
                   onChange={(e) => setData('end_date', e.target.value)}
                 />
-                {errors.end_date && <div className="mt-1 text-xs font-semibold text-rose-600">{errors.end_date}</div>}
+                {errorText(errors.end_date)}
               </div>
             </div>
 
             {/* toggles */}
             <div className="mt-6 space-y-3">
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
                 <div>
-                  <div className="text-sm font-semibold text-gray-900">Gerar automaticamente</div>
-                  <div className="text-xs text-gray-500">Se ligado, o sistema cria o lançamento sozinho no dia.</div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Gerar automaticamente</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-400">
+                    Se ligado, o sistema cria o lançamento sozinho no dia.
+                  </div>
                 </div>
                 <input
                   type="checkbox"
-                  className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700"
                   checked={!!data.auto_post}
                   onChange={(e) => setData('auto_post', e.target.checked)}
                 />
               </label>
 
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+              <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
                 <div>
-                  <div className="text-sm font-semibold text-gray-900">Ativa</div>
-                  <div className="text-xs text-gray-500">Se desligado, não gera lançamentos.</div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Ativa</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-400">Se desligado, não gera lançamentos.</div>
                 </div>
                 <input
                   type="checkbox"
-                  className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+                  className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700"
                   checked={!!data.is_active}
                   onChange={(e) => setData('is_active', e.target.checked)}
                 />
@@ -244,7 +254,7 @@ export default function Form({ mode, recurring, accounts, categories }) {
             <div className="mt-6 flex items-center justify-end gap-3">
               <Link
                 href={route('recurrings.index')}
-                className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
               >
                 Cancelar
               </Link>
@@ -252,7 +262,7 @@ export default function Form({ mode, recurring, accounts, categories }) {
               <button
                 type="submit"
                 disabled={processing}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50"
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-slate-950"
               >
                 {isEdit ? 'Salvar' : 'Criar'}
               </button>
@@ -260,9 +270,13 @@ export default function Form({ mode, recurring, accounts, categories }) {
           </form>
 
           {/* dica */}
-          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-xs text-gray-500">
-            Dica: para testar rapidamente, crie uma recorrência com <b>Próximo lançamento</b> hoje e rode{' '}
-            <code className="rounded bg-white px-1 py-0.5">php artisan recurring:post</code>.
+          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-xs text-gray-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+            Dica: para testar rapidamente, crie uma recorrência com <b className="text-gray-700 dark:text-slate-200">Próximo lançamento</b>{' '}
+            hoje e rode{' '}
+            <code className="rounded bg-white px-1 py-0.5 text-gray-800 dark:bg-slate-900 dark:text-slate-100 dark:ring-1 dark:ring-slate-800">
+              php artisan recurring:post
+            </code>
+            .
           </div>
         </div>
       </div>

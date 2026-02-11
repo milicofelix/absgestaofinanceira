@@ -44,7 +44,12 @@ export default function MoneyInput({
   return (
     <div className={['relative', className].join(' ')}>
       {prefix ? (
-        <span className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm text-gray-400">
+        <span
+          className={[
+            'pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-sm font-semibold',
+            'text-gray-400 dark:text-slate-400',
+          ].join(' ')}
+        >
           {prefix}
         </span>
       ) : null}
@@ -55,8 +60,22 @@ export default function MoneyInput({
         disabled={disabled}
         inputMode={inputMode}
         className={[
-          'w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500',
+          // base
+          'w-full rounded-lg border px-3 py-2 text-sm shadow-sm',
+          'focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500',
           prefix ? 'pl-10' : 'pl-3',
+
+          // ✅ light
+          'border-gray-300 bg-white text-gray-900 placeholder:text-gray-400',
+
+          // ✅ dark
+          'dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500',
+          'dark:focus:border-emerald-400 dark:focus:ring-emerald-400/30',
+
+          // disabled
+          'disabled:opacity-70 disabled:cursor-not-allowed',
+          'disabled:bg-gray-50 dark:disabled:bg-slate-900',
+
           inputClassName,
         ].join(' ')}
         placeholder={placeholder}

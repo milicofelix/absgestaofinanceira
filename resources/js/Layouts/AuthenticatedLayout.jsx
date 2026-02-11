@@ -117,7 +117,16 @@ export default function AuthenticatedLayout({ header, children }) {
       >
         <div className="flex h-16 items-center justify-between border-b border-gray-100 dark:border-slate-800 px-4">
           <Link href={route('dashboard')} className="inline-flex items-center gap-3">
-            <img src="/images/abs_logo.png" alt="ABS Gestão Financeira" className="h-20 w-auto" />
+            <img
+              src="/images/abs_logo_light.png"
+              alt="ABS Gestão Financeira"
+              className="h-20 w-auto dark:hidden"
+            />
+            <img
+              src="/images/abs_logo_dark.png"
+              alt="ABS Gestão Financeira"
+              className="hidden h-20 w-auto dark:block"
+            />
           </Link>
 
           <button

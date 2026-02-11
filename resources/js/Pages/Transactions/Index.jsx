@@ -29,12 +29,10 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
   function exportFile() {
     const params = new URLSearchParams();
-
     Object.entries(queryParams).forEach(([k, v]) => {
       if (v === undefined || v === null || v === '') return;
       params.set(k, String(v));
     });
-
     params.set('format', exportFormat);
     window.location.href = `${route('reports.transactions.export')}?${params.toString()}`;
   }
@@ -66,13 +64,15 @@ export default function Index({ transactions, filters, categories, accounts }) {
       header={
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-gray-900">Lançamentos</h2>
-            <p className="text-sm text-gray-500">Receitas e despesas do período selecionado</p>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Lançamentos</h2>
+            <p className="text-sm text-gray-500 dark:text-slate-400">
+              Receitas e despesas do período selecionado
+            </p>
           </div>
 
           <Link
             href={route('transactions.create')}
-            className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+            className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
           >
             + Novo lançamento
           </Link>
@@ -84,13 +84,13 @@ export default function Index({ transactions, filters, categories, accounts }) {
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
           {/* Filtros */}
-          <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 sm:p-5">
+          <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 sm:p-5">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold text-gray-900">Filtros</div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Filtros</div>
 
               <button
                 type="button"
-                className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 sm:hidden"
+                className="rounded-lg border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800 sm:hidden"
                 onClick={() => setFiltersOpen((v) => !v)}
               >
                 {filtersOpen ? 'Ocultar' : 'Mostrar'}
@@ -98,22 +98,25 @@ export default function Index({ transactions, filters, categories, accounts }) {
             </div>
 
             <div className={`${filtersOpen ? 'block' : 'hidden'} mt-4 sm:block`}>
-              {/* GRID INPUTS (faltou aqui no seu código) */}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-8 sm:items-end">
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Mês</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                    Mês
+                  </label>
                   <input
                     type="month"
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     value={month}
                     onChange={(e) => setMonth(normalizeMonth(e.target.value))}
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Tipo</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                    Tipo
+                  </label>
                   <select
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     value={type}
                     onChange={(e) => setType(e.target.value)}
                   >
@@ -124,37 +127,47 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Categoria</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                    Categoria
+                  </label>
                   <select
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
                   >
                     <option value="">Todas</option>
                     {categories.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Conta</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                    Conta
+                  </label>
                   <select
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     value={accountId}
                     onChange={(e) => setAccountId(e.target.value)}
                   >
                     <option value="">Todas</option>
                     {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>{a.name}</option>
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Parcelamento</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                    Parcelamento
+                  </label>
                   <select
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     value={installmentFilter}
                     onChange={(e) => setInstallmentFilter(e.target.value)}
                   >
@@ -165,9 +178,11 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Status</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                    Status
+                  </label>
                   <select
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
                   >
@@ -178,9 +193,11 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 </div>
 
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">Busca</label>
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                    Busca
+                  </label>
                   <input
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                     placeholder="Descrição..."
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
@@ -189,9 +206,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 </div>
               </div>
 
-              {/* AÇÕES + EXPORTAR */}
               <div className="mt-4 grid grid-cols-1 gap-3 sm:flex sm:items-center sm:justify-between">
-                {/* Esquerda: Filtrar / Limpar */}
                 <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2">
                   <button
                     type="button"
@@ -204,16 +219,15 @@ export default function Index({ transactions, filters, categories, accounts }) {
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="w-full rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 sm:w-auto"
+                    className="w-full rounded-lg border border-gray-300 bg-white px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
                   >
                     Limpar
                   </button>
                 </div>
 
-                {/* Direita: Formato + Exportar */}
                 <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center sm:gap-2">
                   <select
-                    className="w-full rounded-lg border-gray-300 px-3 py-2.5 text-sm focus:border-emerald-500 focus:ring-emerald-500 sm:w-48"
+                    className="w-full rounded-lg border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 sm:w-48"
                     value={exportFormat}
                     onChange={(e) => setExportFormat(e.target.value)}
                   >
@@ -224,7 +238,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                   <button
                     type="button"
                     onClick={exportFile}
-                    className="w-full whitespace-nowrap rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-black sm:w-auto"
+                    className="w-full whitespace-nowrap rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700 sm:w-auto"
                     title="Exportar com os filtros atuais"
                   >
                     Exportar
@@ -233,61 +247,72 @@ export default function Index({ transactions, filters, categories, accounts }) {
               </div>
             </div>
           </div>
+
           {/* ✅ MOBILE: cards */}
           <div className="space-y-2 sm:hidden">
             {transactions.data.map((t) => (
-              <div key={t.id} className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200">
+              <div
+                key={t.id}
+                className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800"
+              >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="truncate font-semibold text-gray-900">
-                      {t.description || <span className="text-gray-400">(sem descrição)</span>}
+                    <div className="truncate font-semibold text-gray-900 dark:text-slate-100">
+                      {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
                     </div>
 
-                    <div className="mt-1 text-xs text-gray-500">
+                    <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                       {formatDateBR(t.date)} • {t.category?.name || '—'} • {t.account?.name || '—'}
                     </div>
 
-                    <div className="mt-2">
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
                       {t.type === 'expense' ? (
-                        <span className="inline-flex rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
+                        <span className="inline-flex rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-900/25 dark:text-rose-200">
                           Despesa
                         </span>
                       ) : (
-                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200">
                           Receita
                         </span>
                       )}
-                        {t.installment_id && (
-                        <span
-                            className={[
-                              'ml-2 inline-flex rounded-full px-2 py-1 text-xs font-semibold',
-                              t.installment?.is_active ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-700',
-                            ].join(' ')}
-                            title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
-                          >
-                            {t.installment_number}/{t.installment?.installments_count ?? '?'}
-                        </span>
-                      )}
+
+                      {t.installment_id && (
                         <span
                           className={[
                             'inline-flex rounded-full px-2 py-1 text-xs font-semibold',
-                            t.is_cleared
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : t.type === 'income'
-                                ? 'bg-sky-50 text-sky-700'
-                                : 'bg-amber-50 text-amber-900',
+                            t.installment?.is_active
+                              ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
+                              : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
                           ].join(' ')}
+                          title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
                         >
-                          {getClearedLabel(t)}
+                          {t.installment_number}/{t.installment?.installments_count ?? '?'}
                         </span>
+                      )}
+
+                      <span
+                        className={[
+                          'inline-flex rounded-full px-2 py-1 text-xs font-semibold',
+                          t.is_cleared
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200'
+                            : t.type === 'income'
+                              ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
+                              : 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200',
+                        ].join(' ')}
+                      >
+                        {getClearedLabel(t)}
+                      </span>
                     </div>
                   </div>
 
                   <div className="text-right">
                     <div
-                      className={`whitespace-nowrap text-sm font-bold ${
-                        t.type === 'expense' ? 'text-rose-700' : 'text-emerald-700'
-                      }`}
+                      className={[
+                        'whitespace-nowrap text-sm font-bold',
+                        t.type === 'expense'
+                          ? 'text-rose-700 dark:text-rose-300'
+                          : 'text-emerald-700 dark:text-emerald-300',
+                      ].join(' ')}
                     >
                       {t.type === 'expense' ? '-' : '+'}
                       {formatBRL(t.amount)}
@@ -296,7 +321,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     <div className="mt-2 flex justify-end gap-2">
                       <Link
                         href={route('transactions.edit', t.id)}
-                        className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                        className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                         title="Editar"
                       >
                         ✏️
@@ -304,7 +329,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
                       {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
                         <button
-                          className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                          className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
                           title="Cancelar parcelamento"
                           onClick={() => {
                             if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
@@ -316,12 +341,9 @@ export default function Index({ transactions, filters, categories, accounts }) {
                       )}
 
                       <button
-                        className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+                        className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
                         title="Excluir"
-                        onClick={() =>
-                          confirm('Excluir este lançamento?') &&
-                          router.delete(route('transactions.destroy', t.id))
-                        }
+                        onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}
                       >
                         🗑️
                       </button>
@@ -332,16 +354,16 @@ export default function Index({ transactions, filters, categories, accounts }) {
             ))}
 
             {transactions.data.length === 0 && (
-              <div className="rounded-2xl bg-white p-6 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-200">
+              <div className="rounded-2xl bg-white p-6 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-800">
                 Nenhum lançamento encontrado.
               </div>
             )}
           </div>
 
-          {/* ✅ DESKTOP: tabela (igual a sua, só escondida no mobile) */}
-          <div className="hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 sm:block">
+          {/* ✅ DESKTOP: tabela */}
+          <div className="hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 sm:block">
             <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-gray-600">
+              <thead className="border-b bg-gray-50 text-gray-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Data</th>
                   <th className="px-4 py-3 font-semibold">Descrição</th>
@@ -352,21 +374,24 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 </tr>
               </thead>
 
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
                 {transactions.data.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">{formatDateBR(t.date)}</td>
+                  <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/60">
+                    <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{formatDateBR(t.date)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="min-w-0">
-                          <div className="truncate">
-                            {t.description || <span className="text-gray-400">(sem descrição)</span>}
+                          <div className="truncate text-gray-900 dark:text-slate-100">
+                            {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
                           </div>
+
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <span
                               className={[
                                 'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                t.type === 'expense' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700',
+                                t.type === 'expense'
+                                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
+                                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
                               ].join(' ')}
                             >
                               {t.type === 'expense' ? 'Despesa' : 'Receita'}
@@ -376,45 +401,57 @@ export default function Index({ transactions, filters, categories, accounts }) {
                               <span
                                 className={[
                                   'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                  t.installment?.is_active ? 'bg-sky-50 text-sky-700' : 'bg-gray-100 text-gray-700',
+                                  t.installment?.is_active
+                                    ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
+                                    : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
                                 ].join(' ')}
                                 title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
                               >
                                 {t.installment_number}/{t.installment?.installments_count ?? '?'}
                               </span>
                             )}
+
                             <span
                               className={[
                                 'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                t.is_cleared ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-900',
+                                t.is_cleared
+                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200'
+                                  : 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200',
                               ].join(' ')}
                             >
-                               {getClearedLabel(t)}
+                              {getClearedLabel(t)}
                             </span>
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">{t.category?.name || '—'}</td>
-                    <td className="px-4 py-3">{t.account?.name || '—'}</td>
+
+                    <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{t.category?.name || '—'}</td>
+                    <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{t.account?.name || '—'}</td>
+
                     <td
-                      className={`px-4 py-3 text-right font-semibold ${
-                        t.type === 'expense' ? 'text-rose-600' : 'text-emerald-600'
-                      }`}
+                      className={[
+                        'px-4 py-3 text-right font-semibold',
+                        t.type === 'expense'
+                          ? 'text-rose-600 dark:text-rose-300'
+                          : 'text-emerald-600 dark:text-emerald-300',
+                      ].join(' ')}
                     >
                       {formatBRL(t.amount)}
                     </td>
+
                     <td className="px-4 py-3 text-right">
                       <div className="inline-flex gap-3">
                         <Link
-                          className="text-sm font-semibold text-emerald-700 hover:underline"
+                          className="text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-300"
                           href={route('transactions.edit', t.id)}
                         >
                           Editar
                         </Link>
+
                         {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
-                        <button
-                            className="text-sm font-semibold text-amber-700 hover:underline"
+                          <button
+                            className="text-sm font-semibold text-amber-700 hover:underline dark:text-amber-300"
                             onClick={() => {
                               if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
                               router.post(route('installments.cancel', t.installment_id));
@@ -423,12 +460,10 @@ export default function Index({ transactions, filters, categories, accounts }) {
                             Cancelar
                           </button>
                         )}
+
                         <button
-                          className="text-sm font-semibold text-rose-600 hover:underline"
-                          onClick={() =>
-                            confirm('Excluir este lançamento?') &&
-                            router.delete(route('transactions.destroy', t.id))
-                          }
+                          className="text-sm font-semibold text-rose-600 hover:underline dark:text-rose-300"
+                          onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}
                         >
                           Excluir
                         </button>
@@ -439,7 +474,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
                 {transactions.data.length === 0 && (
                   <tr>
-                    <td className="px-4 py-10 text-center text-gray-500" colSpan={6}>
+                    <td className="px-4 py-10 text-center text-gray-500 dark:text-slate-400" colSpan={6}>
                       Nenhum lançamento encontrado.
                     </td>
                   </tr>
@@ -448,7 +483,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
             </table>
           </div>
 
-          {/* ✅ paginação única (funciona pros 2 layouts) */}
+          {/* ✅ paginação única */}
           <Pagination links={transactions.links} />
         </div>
       </div>
@@ -462,8 +497,8 @@ function Pagination({ links }) {
   if (!links || links.length <= 3) return null;
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
-      <div className="flex flex-wrap items-center justify-center gap-1 border-t bg-white p-3">
+    <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
+      <div className="flex flex-wrap items-center justify-center gap-1 border-t bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
         {links.map((l, idx) => (
           <button
             key={idx}
@@ -471,7 +506,9 @@ function Pagination({ links }) {
             onClick={() => l.url && router.get(l.url, {}, { preserveState: true, replace: true })}
             className={[
               'rounded px-3 py-1 text-sm font-semibold',
-              l.active ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200',
+              l.active
+                ? 'bg-emerald-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700',
               !l.url ? 'opacity-50' : '',
             ].join(' ')}
             dangerouslySetInnerHTML={{ __html: l.label }}
@@ -495,8 +532,5 @@ function getClearedLabel(transaction) {
   if (transaction.type === 'income') {
     return transaction.is_cleared ? 'Recebida' : 'A receber';
   }
-
-  // expense
   return transaction.is_cleared ? 'Paga' : 'Em aberto';
 }
-
