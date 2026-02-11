@@ -7,7 +7,7 @@ export default function Form({ mode, account }) {
   const { data, setData, post, put, processing, errors } = useForm({
     name: account?.name ?? '',
     type: account?.type ?? 'bank',
-    initial_balance: account?.initial_balance ?? 0,
+    initial_balance: String(account?.initial_balance ?? '0.00'),
     statement_close_day: account?.statement_close_day ?? '', // ✅ NOVO
   });
 
@@ -137,7 +137,7 @@ export default function Form({ mode, account }) {
                   <div className="mt-1">
                     <MoneyInput
                       value={data.initial_balance}
-                      onChange={(value) => setData('initial_balance', value)}
+                      onValueChange={(value) => setData('initial_balance', value)}
                     />
                   </div>
 

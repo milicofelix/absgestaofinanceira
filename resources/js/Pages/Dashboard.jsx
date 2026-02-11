@@ -2,8 +2,6 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import { formatDateBR } from '@/utils/formatters';
-import MoneyInput from '@/Components/MoneyInput';
-import { useForm } from '@inertiajs/react';
 
 export default function Dashboard({
   month,
@@ -62,37 +60,6 @@ export default function Dashboard({
     if (isLowRemaining) return 'yellow';
     return 'green';
   }, [balance, isLowRemaining]);
-
-  const [openingModalOpen, setOpeningModalOpen] = useState(false);
-
-  const { data: obData, setData: setObData, post: obPost, processing: obProcessing, errors: obErrors, reset: obReset } = useForm({
-    month: selectedMonth,
-    amount: String(openingBalance ?? ''),
-  });
-
-  function openOpeningBalanceModal() {
-    setObData('month', selectedMonth);
-    setObData('amount', String(openingBalance ?? ''));
-    setOpeningModalOpen(true);
-  }
-
-  function closeOpeningBalanceModal() {
-    setOpeningModalOpen(false);
-    obReset();
-  }
-
-  function saveOpeningBalance(e) {
-    e.preventDefault();
-
-    obPost(route('opening_balances.upsert'), {
-      preserveScroll: true,
-      onSuccess: () => {
-        setOpeningModalOpen(false);
-        // Atualiza só o que precisa (opcional)
-        router.reload({ only: ['openingBalance', 'balance', 'accounts'] });
-      },
-    });
-  }
 
   return (
     <AuthenticatedLayout
@@ -237,8 +204,7 @@ export default function Dashboard({
               value={openingBalance}
               icon="balance"
               tone="blue"
-              onClick={openOpeningBalanceModal}
-              clickableLabel=""
+              href={route('transactions.index', { month: selectedMonth })}
             />
 
             <StatCard
@@ -276,46 +242,6 @@ export default function Dashboard({
               />
             )}
           </div>
-
-          {openingModalOpen && (
-            <Modal
-              title="Editar saldo inicial do mês"
-              subtitle={`Mês: ${formatMonthPtBR(selectedMonth)}`}
-              onClose={closeOpeningBalanceModal}
-            >
-              <form onSubmit={saveOpeningBalance} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Valor</label>
-                  <div className="mt-1">
-                    <MoneyInput
-                      value={obData.amount}
-                      onValueChange={(normalized) => setObData('amount', normalized)}
-                      placeholder="0,00"
-                      prefix="R$"
-                    />
-                  </div>
-                  {obErrors.amount && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{obErrors.amount}</div>}
-                </div>
-
-                <div className="flex items-center justify-between pt-2">
-                  <button
-                    type="button"
-                    onClick={closeOpeningBalanceModal}
-                    className="text-sm font-semibold text-gray-600 hover:text-gray-800 hover:underline dark:text-slate-300 dark:hover:text-slate-100"
-                  >
-                    Cancelar
-                  </button>
-
-                  <button
-                    disabled={obProcessing}
-                    className="inline-flex items-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
-                  >
-                    Salvar
-                  </button>
-                </div>
-              </form>
-            </Modal>
-          )}
 
           {/* contas */}
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
@@ -549,7 +475,7 @@ export default function Dashboard({
 /**
  * tone: green | blue | purple | yellow | red | gray
  */
-function StatCard({ title, value, icon, tone = 'green', href, subLabel, onClick, clickableLabel }) {
+function StatCard({ title, value, icon, tone = 'green', href, subLabel }) {
   const toneClasses = getPastelToneClasses(tone);
 
   const body = (
@@ -557,9 +483,10 @@ function StatCard({ title, value, icon, tone = 'green', href, subLabel, onClick,
       className={[
         'relative h-full rounded-2xl p-6 shadow-sm ring-1 transition',
         toneClasses.card,
-        (href || onClick) ? 'hover:shadow-md cursor-pointer' : '',
+        'hover:shadow-md',
       ].join(' ')}
     >
+      {/* Ícone menor no topo direito */}
       <div
         className={[
           'absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-xl ring-1',
@@ -568,15 +495,6 @@ function StatCard({ title, value, icon, tone = 'green', href, subLabel, onClick,
       >
         <Icon name={icon} size={18} />
       </div>
-
-      {clickableLabel && (
-        <div className="absolute left-4 top-4">
-          <span className="rounded-full bg-white/70 px-2 py-0.5 text-[11px] font-semibold text-gray-700 ring-1 ring-gray-200
-                           dark:bg-slate-900/60 dark:text-slate-200 dark:ring-slate-800">
-            {clickableLabel}
-          </span>
-        </div>
-      )}
 
       <div className="pr-14">
         <div className={['text-sm font-semibold leading-5', toneClasses.title].join(' ')}>
@@ -587,32 +505,18 @@ function StatCard({ title, value, icon, tone = 'green', href, subLabel, onClick,
           {formatBRL(value || 0)}
         </div>
 
-        {subLabel && (
-          <div className={['mt-2 text-xs font-semibold', toneClasses.sub].join(' ')}>
-            {subLabel}
-          </div>
-        )}
+        {subLabel && <div className={['mt-2 text-xs font-semibold', toneClasses.sub].join(' ')}>{subLabel}</div>}
       </div>
     </div>
   );
 
-  if (href) {
-    return (
-      <Link href={href} className="block h-full">
-        {body}
-      </Link>
-    );
-  }
-
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} className="block h-full w-full text-left">
-        {body}
-      </button>
-    );
-  }
-
-  return body;
+  return href ? (
+    <Link href={href} className="block h-full">
+      {body}
+    </Link>
+  ) : (
+    body
+  );
 }
 
 function getPastelToneClasses(tone) {
@@ -726,33 +630,4 @@ function formatMonthPtBR(yyyyMm) {
   const [y, m] = v.split('-');
   const d = new Date(Number(y), Number(m) - 1, 1);
   return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d);
-}
-
-function Modal({ title, subtitle, children, onClose }) {
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-            <div className="text-lg font-semibold text-gray-900 dark:text-slate-100">{title}</div>
-            {subtitle && <div className="text-xs text-gray-500 dark:text-slate-400">{subtitle}</div>}
-          </div>
-
-          <button
-            type="button"
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800"
-            onClick={onClose}
-            aria-label="Fechar"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {children}
-      </div>
-    </div>
-  );
 }
