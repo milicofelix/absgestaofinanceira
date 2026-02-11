@@ -3,6 +3,7 @@ import { Head, Link, useForm, router } from '@inertiajs/react';
 import MoneyInput from '@/Components/MoneyInput';
 import { useEffect, useMemo } from 'react';
 import Checkbox from '@/Components/Checkbox';
+import Dropdown from '@/Components/Dropdown';
 
 export default function Form({ mode, transaction, categories, accounts }) {
   const isCreate = mode === 'create';

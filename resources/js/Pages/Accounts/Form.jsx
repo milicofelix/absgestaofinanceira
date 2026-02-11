@@ -134,7 +134,7 @@ export default function Form({ mode, account }) {
                   </label>
 
                   {/* wrapper para não “estourar” estilos no dark */}
-                  <div className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400">
+                  <div className="mt-1">
                     <MoneyInput
                       value={data.initial_balance}
                       onChange={(value) => setData('initial_balance', value)}

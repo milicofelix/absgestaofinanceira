@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Faz inputs nativos (date/month/time etc.) respeitarem dark do browser */
+.dark input[type="month"],
+.dark input[type="date"],
+.dark input[type="time"] {
+  color-scheme: dark;
+}
