@@ -210,27 +210,27 @@ class TransactionController extends Controller
         return redirect()->route('transactions.index');
     }
 
-    /**
-     * ✅ Helper fica AQUI no Controller mesmo (pra não confundir).
-     * - Se não for cartão, competência = mês da data
-     * - Se for cartão e tiver statement_close_day:
-     *    - compra em dia >= close_day => próximo mês
-     *    - senão => mesmo mês
-     */
     private function computeCompetenceMonth(Account $account, string $dateYmd): string
     {
-        $d = Carbon::createFromFormat('Y-m-d', $dateYmd);
+        $purchase = Carbon::createFromFormat('Y-m-d', $dateYmd)->startOfDay();
 
         if (($account->type ?? null) !== 'credit_card' || empty($account->statement_close_day)) {
-            return $d->format('Y-m');
+            return $purchase->format('Y-m');
         }
 
-        $closeDay = (int) $account->statement_close_day;
+        $closeDay = max(1, min(28, (int) $account->statement_close_day));
 
-        if ((int) $d->day >= $closeDay) {
-            return $d->copy()->addMonthNoOverflow()->format('Y-m');
+        $closeThisMonth = $purchase->copy()
+            ->day(min($closeDay, $purchase->daysInMonth))
+            ->startOfDay();
+
+        // antes do fechamento -> mês seguinte
+        if ($purchase->lt($closeThisMonth)) {
+            return $purchase->copy()->addMonthNoOverflow()->format('Y-m');
         }
 
-        return $d->format('Y-m');
+        // no dia do fechamento ou depois -> +2 meses
+        return $purchase->copy()->addMonthsNoOverflow(2)->format('Y-m');
     }
+
 }
