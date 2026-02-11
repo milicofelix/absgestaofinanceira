@@ -24,7 +24,7 @@ class InstallmentService
       // ✅ se o front mandou first_due_date, respeita; senão calcula pelo fechamento da conta
       $firstDue = !empty($data['first_due_date'])
         ? Carbon::parse($data['first_due_date'])->startOfDay()
-        : $this->computeFirstDueByStatementCloseDay($purchase, (int) $account->statement_close_day);
+        : $this->computeFirstCompetenceMonthByStatementCloseDay($purchase, (int) $account->statement_close_day);
 
       $inst = Installment::create([
         'user_id' => $data['user_id'],
@@ -69,22 +69,21 @@ class InstallmentService
     });
   }
 
-  private function computeFirstDueByStatementCloseDay(Carbon $purchase, int $closeDay): Carbon
+  private function computeFirstCompetenceMonthByStatementCloseDay(Carbon $purchase, int $closeDay): Carbon
   {
-    // normaliza range 1..28 (evita meses sem dia 29/30/31)
-    $closeDay = max(1, min(28, $closeDay));
+      $closeDay = max(1, min(28, $closeDay));
 
-    // fechamento do mês da compra (mesmo mês)
-    $closeThisMonth = $purchase->copy()->day(min($closeDay, $purchase->daysInMonth))->startOfDay();
+      $closeThisMonth = $purchase->copy()
+          ->day(min($closeDay, $purchase->daysInMonth))
+          ->startOfDay();
 
-    // Se comprou DEPOIS do fechamento, vai pra próxima fatura (mês seguinte)
-    // if ($purchase->gt($closeThisMonth)) {
-    if ($purchase->gte($closeThisMonth)) {
-      $next = $purchase->copy()->addMonthNoOverflow();
-      return $next->day(min($closeDay, $next->daysInMonth))->startOfDay();
-    }
+      // Comprou ANTES do fechamento -> competência = mês seguinte
+      if ($purchase->lt($closeThisMonth)) {
+          return $purchase->copy()->addMonthNoOverflow()->startOfMonth();
+      }
 
-    // Se comprou ATÉ o fechamento, cai na fatura do mês
-    return $closeThisMonth;
+      // Comprou NO DIA do fechamento ou DEPOIS -> competência = +2 meses
+      return $purchase->copy()->addMonthsNoOverflow(2)->startOfMonth();
   }
+
 }
