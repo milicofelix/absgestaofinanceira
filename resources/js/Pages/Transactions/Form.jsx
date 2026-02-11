@@ -2,6 +2,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import MoneyInput from '@/Components/MoneyInput';
 import { useEffect, useMemo } from 'react';
+import Checkbox from '@/Components/Checkbox';
 
 export default function Form({ mode, transaction, categories, accounts }) {
   const isCreate = mode === 'create';
@@ -116,8 +117,8 @@ export default function Form({ mode, transaction, categories, accounts }) {
 
   const typeBadge =
     data.type === 'income'
-      ? 'bg-emerald-50 text-emerald-700'
-      : 'bg-rose-50 text-rose-700';
+      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200'
+      : 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200';
 
   // ✅ payload para installments.store (reaproveita campos)
   // 🔴 IMPORTANTE: first_due_date = null => backend calcula com statement_close_day
@@ -137,10 +138,10 @@ export default function Form({ mode, transaction, categories, accounts }) {
     <AuthenticatedLayout
       header={
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">
             {mode === 'create' ? 'Novo lançamento' : 'Editar lançamento'}
           </h2>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-slate-400">
             Registre uma {data.type === 'income' ? 'receita' : 'despesa'} com conta e categoria
           </p>
         </div>
@@ -150,23 +151,23 @@ export default function Form({ mode, transaction, categories, accounts }) {
 
       <div className="py-8">
         <div className="mx-auto max-w-xl px-4 sm:px-6 lg:px-8">
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
             {blocked && (
-              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200">
                 <div className="font-semibold">Atenção</div>
-                <div className="mt-1 text-amber-800">
+                <div className="mt-1 text-amber-800 dark:text-amber-200/90">
                   Para lançar, cadastre ao menos <b>1 categoria</b> e <b>1 conta</b>.
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Link
                     href={route('categories.create')}
-                    className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100"
+                    className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100 dark:bg-slate-950 dark:text-amber-200 dark:ring-amber-900/40 dark:hover:bg-slate-800"
                   >
                     + Criar categoria
                   </Link>
                   <Link
                     href={route('accounts.create')}
-                    className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100"
+                    className="rounded-lg bg-white px-3 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-200 hover:bg-amber-100 dark:bg-slate-950 dark:text-amber-200 dark:ring-amber-900/40 dark:hover:bg-slate-800"
                   >
                     + Criar conta
                   </Link>
@@ -175,9 +176,9 @@ export default function Form({ mode, transaction, categories, accounts }) {
             )}
 
             {isClearedLocked && (
-              <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <div className="mb-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200">
                 <div className="font-semibold">Lançamento {lockTitle}</div>
-                <div className="mt-1 text-emerald-800">{lockText}</div>
+                <div className="mt-1 text-emerald-800 dark:text-emerald-200/90">{lockText}</div>
               </div>
             )}
 
@@ -185,7 +186,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
               {/* Tipo */}
               <div>
                 <div className="flex items-center justify-between">
-                  <label className="block text-sm font-semibold text-gray-700">Tipo</label>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Tipo</label>
                   <span className={`rounded-full px-2 py-1 text-xs font-semibold ${typeBadge}`}>
                     {data.type === 'expense' ? 'Despesa' : 'Receita'}
                   </span>
@@ -193,7 +194,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
 
                 <select
                   disabled={formDisabled}
-                  className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                   value={data.type}
                   onChange={(e) => onChangeType(e.target.value)}
                 >
@@ -201,24 +202,23 @@ export default function Form({ mode, transaction, categories, accounts }) {
                   <option value="income">Receita</option>
                 </select>
 
-                {errors.type && <div className="mt-1 text-sm text-rose-600">{errors.type}</div>}
+                {errors.type && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.type}</div>}
               </div>
 
               {/* ✅ Parcelamento (somente create + expense) */}
               {canInstallment && (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-800 dark:bg-slate-950">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-gray-900">Parcelar compra</div>
-                      <div className="mt-1 text-xs text-gray-500">
+                      <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Parcelar compra</div>
+                      <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                         Gere automaticamente as parcelas futuras (ex.: 12x).
                       </div>
                     </div>
 
-                    <input
+                   <Checkbox
                       disabled={formDisabled}
-                      type="checkbox"
-                      className="mt-1 h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-70"
+                      className="mt-1"
                       checked={!!data.is_installment}
                       onChange={(e) => !formDisabled && setData('is_installment', e.target.checked)}
                     />
@@ -227,25 +227,27 @@ export default function Form({ mode, transaction, categories, accounts }) {
                   {data.is_installment && (
                     <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700">Qtd parcelas</label>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                          Qtd parcelas
+                        </label>
                         <input
                           disabled={formDisabled}
                           type="number"
                           min="2"
                           max="60"
                           step="1"
-                          className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
+                          className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-900"
                           value={data.installments_count}
                           onChange={(e) => !formDisabled && setData('installments_count', Number(e.target.value))}
                         />
                         {errors.installments_count && (
-                          <div className="mt-1 text-sm text-rose-600">{errors.installments_count}</div>
+                          <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.installments_count}</div>
                         )}
                       </div>
 
                       {/* ✅ removido o input de 1º vencimento: backend calcula automático */}
                       <div className="sm:col-span-2">
-                        <div className="rounded-lg bg-white px-3 py-2 text-xs text-gray-700 ring-1 ring-gray-200">
+                        <div className="rounded-lg bg-white px-3 py-2 text-xs text-gray-700 ring-1 ring-gray-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-800">
                           {isCreditCard && closeDay ? (
                             <>
                               Fechamento do cartão: <b>dia {closeDay}</b>. A <b>1ª parcela</b> será calculada automaticamente com base na data da compra.
@@ -259,7 +261,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
                       </div>
 
                       <div className="sm:col-span-2">
-                        <div className="rounded-lg bg-white px-3 py-2 text-xs text-gray-600 ring-1 ring-gray-200">
+                        <div className="rounded-lg bg-white px-3 py-2 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-800">
                           Observação: o valor total será dividido e a última parcela ajusta centavos automaticamente.
                         </div>
                       </div>
@@ -271,7 +273,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
               {/* Valor + Data */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
                     {canInstallment && data.is_installment ? 'Valor total' : 'Valor'}
                   </label>
 
@@ -285,51 +287,55 @@ export default function Form({ mode, transaction, categories, accounts }) {
                     />
                   </div>
 
-                  {errors.amount && <div className="mt-1 text-sm text-rose-600">{errors.amount}</div>}
-                  {errors.total_amount && <div className="mt-1 text-sm text-rose-600">{errors.total_amount}</div>}
+                  {errors.amount && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.amount}</div>}
+                  {errors.total_amount && (
+                    <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.total_amount}</div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
                     {canInstallment && data.is_installment ? 'Data da compra' : 'Data'}
                   </label>
                   <input
                     type="date"
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                     value={data.date}
                     onChange={(e) => !formDisabled && setData('date', e.target.value)}
                     disabled={formDisabled}
                   />
 
-                  <div className="mt-1 text-xs text-gray-500">
+                  <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                     {canInstallment && data.is_installment
                       ? 'Data da compra (usada para calcular a fatura do cartão).'
                       : 'Data do lançamento.'}
                   </div>
 
-                  {errors.date && <div className="mt-1 text-sm text-rose-600">{errors.date}</div>}
+                  {errors.date && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.date}</div>}
                 </div>
               </div>
 
               {/* Descrição */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700">Descrição</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Descrição</label>
                 <input
                   disabled={formDisabled}
-                  className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                   placeholder="Ex: Mercado, aluguel, salário..."
                   value={data.description}
                   onChange={(e) => !formDisabled && setData('description', e.target.value)}
                 />
-                {errors.description && <div className="mt-1 text-sm text-rose-600">{errors.description}</div>}
+                {errors.description && (
+                  <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.description}</div>
+                )}
               </div>
 
               {/* Categoria + Conta */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">Categoria</label>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Categoria</label>
                   <select
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                     value={data.category_id}
                     onChange={(e) => !formDisabled && setData('category_id', e.target.value)}
                     disabled={formDisabled || categories.length === 0}
@@ -344,13 +350,15 @@ export default function Form({ mode, transaction, categories, accounts }) {
                       ))
                     )}
                   </select>
-                  {errors.category_id && <div className="mt-1 text-sm text-rose-600">{errors.category_id}</div>}
+                  {errors.category_id && (
+                    <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.category_id}</div>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">Conta</label>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Conta</label>
                   <select
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                     value={data.account_id}
                     onChange={(e) => !formDisabled && setData('account_id', e.target.value)}
                     disabled={formDisabled || accounts.length === 0}
@@ -361,22 +369,26 @@ export default function Form({ mode, transaction, categories, accounts }) {
                       </option>
                     ))}
                   </select>
-                  {errors.account_id && <div className="mt-1 text-sm text-rose-600">{errors.account_id}</div>}
+                  {errors.account_id && (
+                    <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.account_id}</div>
+                  )}
                 </div>
               </div>
 
               {/* Forma de pagamento */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700">Forma de pagamento</label>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                  Forma de pagamento
+                </label>
 
                 {/* ✅ quando parcelado: fixa Cartão e não deixa errar */}
                 {canInstallment && data.is_installment ? (
-                  <div className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-200">
+                  <div className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
                     Cartão (automático)
                   </div>
                 ) : (
                   <select
-                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                     value={data.payment_method}
                     onChange={(e) => !formDisabled && setData('payment_method', e.target.value)}
                     disabled={formDisabled}
@@ -390,38 +402,39 @@ export default function Form({ mode, transaction, categories, accounts }) {
                 )}
               </div>
 
-              {/* ✅ Pago/Recebido (somente edit) - separado */}
+              {/* ✅ Pago/Recebido (somente edit) */}
               {mode === 'edit' && (
                 <label
                   className={[
                     'flex items-center justify-between gap-3 rounded-xl border px-4 py-3',
-                    isClearedLocked ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-gray-50',
+                    isClearedLocked
+                      ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-900/20'
+                      : 'border-gray-200 bg-gray-50 dark:border-slate-800 dark:bg-slate-950',
                   ].join(' ')}
                 >
                   <div>
-                    <div className="text-sm font-semibold text-gray-900">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">
                       {data.type === 'income' ? 'Recebido' : 'Pago'}
                     </div>
 
-                    <div className="text-xs text-gray-600">
+                    <div className="text-xs text-gray-600 dark:text-slate-400">
                       {isClearedLocked ? clearedHint : 'Marque quando este lançamento estiver quitado.'}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
                     {isClearedLocked && (
-                      <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200">
+                      <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 dark:bg-slate-900 dark:text-emerald-200 dark:ring-emerald-900/40">
                         {clearedLabel}
                       </span>
                     )}
 
-                    <input
-                      type="checkbox"
-                      className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 disabled:opacity-70"
+                    <Checkbox
                       checked={!!data.is_cleared}
                       disabled={isClearedLocked}
                       onChange={(e) => !isClearedLocked && setData('is_cleared', e.target.checked)}
                     />
+
                   </div>
                 </label>
               )}
@@ -430,14 +443,14 @@ export default function Form({ mode, transaction, categories, accounts }) {
               <div className="flex items-center justify-between pt-4">
                 <Link
                   href={route('transactions.index')}
-                  className="text-sm font-semibold text-gray-600 hover:text-gray-800 hover:underline"
+                  className="text-sm font-semibold text-gray-600 hover:text-gray-800 hover:underline dark:text-slate-300 dark:hover:text-slate-100"
                 >
                   Voltar
                 </Link>
 
                 <button
                   disabled={processing || formDisabled}
-                  className="inline-flex items-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 disabled:opacity-60"
+                  className="inline-flex items-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-60"
                 >
                   Salvar
                 </button>
@@ -445,7 +458,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
             </form>
           </div>
 
-          <div className="mt-4 text-xs text-gray-400">
+          <div className="mt-4 text-xs text-gray-400 dark:text-slate-500">
             Dica: use categorias separadas para despesas e receitas — fica bem melhor no dashboard.
           </div>
         </div>
