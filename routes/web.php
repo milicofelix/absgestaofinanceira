@@ -14,6 +14,7 @@ use App\Http\Controllers\TransferContactController;
 use App\Http\Controllers\RecurringTransactionController;
 use App\Http\Controllers\InstallmentController;
 use App\Http\Controllers\CategoryBudgetController;
+use App\Http\Controllers\ThemeSettingsController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -31,6 +32,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::resource('transactions', TransactionController::class)->except(['show']);
 
+    // Transferências
     Route::get('/transfers/create', [TransferController::class, 'create'])->name('transfers.create');
     Route::post('/transfers', [TransferController::class, 'store'])->name('transfers.store');
     // 🔎 buscar contas do destinatário (somente contatos permitidos)
@@ -45,23 +47,29 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/transfer-contacts/users', [TransferContactController::class, 'userSearch'])
         ->name('transfer_contacts.userSearch'); // busca users por email p/ adicionar contato
 
+    // Relatórios
     Route::get('/reports/transactions', [ReportTransactionController::class, 'index'])->name('reports.transactions.index');
     Route::get('/reports/transactions/export', [ReportTransactionController::class, 'export'])->name('reports.transactions.export');
 
+    // Recorrentes
     Route::resource('recurrings', RecurringTransactionController::class)->except(['show']);
     Route::post('/installments', [InstallmentController::class, 'store'])->name('installments.store');
     Route::post('/installments/{installment}/cancel', [\App\Http\Controllers\InstallmentController::class, 'cancel'])
         ->name('installments.cancel');
 
+    // Orcamentos
     Route::get('/budgets', [CategoryBudgetController::class, 'index'])->name('budgets.index');
     Route::post('/budgets', [CategoryBudgetController::class, 'store'])->name('budgets.store');
     Route::put('/budgets/{budget}', [CategoryBudgetController::class, 'update'])->name('budgets.update');
     Route::delete('/budgets/{budget}', [CategoryBudgetController::class, 'destroy'])->name('budgets.destroy');
 
+    // Configurações
+    Route::get('/settings/theme', [ThemeSettingsController::class, 'edit'])->name('settings.theme.edit');
+    Route::put('/settings/theme', [ThemeSettingsController::class, 'update'])->name('settings.theme.update');
 
 });
 
-
+// Perfil
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');

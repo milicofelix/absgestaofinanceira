@@ -7,6 +7,7 @@ export default function AuthenticatedLayout({ header, children }) {
   const page = usePage();
   const user = page.props?.auth?.user ?? null; // ✅ evita crash quando não tiver auth
   const navBadge = page.props?.nav?.budgets_badge ?? null;
+  const theme = page.props?.settings?.theme ?? null; // null|light|dark
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
@@ -18,8 +19,13 @@ export default function AuthenticatedLayout({ header, children }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    const root = document.documentElement; // <html>
+
+    root.classList.remove('dark');
+    if (theme === 'dark') root.classList.add('dark');
+
     window.localStorage.setItem('sidebarCollapsed', sidebarCollapsed ? '1' : '0');
-  }, [sidebarCollapsed]);
+  }, [sidebarCollapsed, theme]);
 
   const navItems = useMemo(
     () => [
@@ -50,24 +56,36 @@ export default function AuthenticatedLayout({ header, children }) {
         badge: navBadge?.total ? String(navBadge.total) : null,
         badgeTone: navBadge?.exceeded ? 'red' : navBadge?.warning ? 'yellow' : 'gray',
       },
+
+      {
+        name: 'Configurações',
+        href: route('settings.theme.edit'),
+        active: route().current('settings.*'),
+        children: [
+          {
+            name: 'Tema',
+            href: route('settings.theme.edit'),
+            active: route().current('settings.theme.*') || route().current('settings.theme.edit'),
+          },
+        ],
+      },
     ],
     [navBadge],
   );
 
-  // ✅ se por algum motivo renderizar sem user, não quebra (mas ideal é nunca usar layout nessas páginas)
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 transition-colors">
         <div className="mx-auto max-w-3xl px-4 py-10">
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-            <div className="text-sm font-semibold text-gray-900">Sessão não encontrada</div>
-            <div className="mt-1 text-sm text-gray-600">
+          <div className="rounded-2xl bg-white dark:bg-slate-900 p-6 shadow-sm ring-1 ring-gray-200 dark:ring-slate-800">
+            <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Sessão não encontrada</div>
+            <div className="mt-1 text-sm text-gray-600 dark:text-slate-300">
               Esta página requer autenticação. Volte e faça login.
             </div>
             <div className="mt-4">
               <Link
                 href={route('login')}
-                className="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+                className="inline-flex items-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
               >
                 Ir para login
               </Link>
@@ -79,7 +97,7 @@ export default function AuthenticatedLayout({ header, children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 overflow-x-hidden">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 overflow-x-hidden transition-colors">
       {/* Overlay mobile */}
       <div
         className={`fixed left-0 right-0 top-0 bottom-0 z-40 bg-black/40 transition-opacity sm:hidden ${
@@ -87,22 +105,23 @@ export default function AuthenticatedLayout({ header, children }) {
         }`}
         onClick={() => setSidebarOpen(false)}
       />
+
       {/* Sidebar */}
       <aside
         className={[
-          'fixed left-0 top-0 z-50 h-full w-72 transform border-r border-gray-200 bg-white transition-transform',
+          'fixed left-0 top-0 z-50 h-full w-72 transform border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-transform',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full',
           sidebarCollapsed ? 'sm:-translate-x-full' : 'sm:translate-x-0',
           'sm:block',
         ].join(' ')}
       >
-        <div className="flex h-16 items-center justify-between border-b border-gray-100 px-4">
+        <div className="flex h-16 items-center justify-between border-b border-gray-100 dark:border-slate-800 px-4">
           <Link href={route('dashboard')} className="inline-flex items-center gap-3">
             <img src="/images/abs_logo.png" alt="ABS Gestão Financeira" className="h-20 w-auto" />
           </Link>
 
           <button
-            className="rounded-md p-2 text-gray-500 hover:bg-gray-100 sm:hidden"
+            className="rounded-md p-2 text-gray-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 sm:hidden"
             onClick={() => setSidebarOpen(false)}
             aria-label="Fechar menu"
           >
@@ -113,7 +132,9 @@ export default function AuthenticatedLayout({ header, children }) {
         </div>
 
         <div className="px-3 py-4">
-          <div className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Menu</div>
+          <div className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-400">
+            Menu
+          </div>
 
           <nav className="space-y-1">
             {navItems.map((item) => {
@@ -145,14 +166,10 @@ export default function AuthenticatedLayout({ header, children }) {
             })}
           </nav>
 
-          <div className="mt-6 border-t border-gray-100 pt-4">
+          <div className="mt-6 border-t border-gray-100 dark:border-slate-800 pt-4">
             <div className="px-2">
-             {user && (
-                <>
-                  <div className="text-sm font-semibold text-gray-900">{user.name}</div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
-                </>
-              )}
+              <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">{user.name}</div>
+              <div className="text-xs text-gray-500 dark:text-slate-400">{user.email}</div>
             </div>
 
             <div className="mt-3 space-y-1">
@@ -164,7 +181,7 @@ export default function AuthenticatedLayout({ header, children }) {
                 href={route('logout')}
                 method="post"
                 as="button"
-                className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50"
+                className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
               >
                 Sair
               </Link>
@@ -176,14 +193,14 @@ export default function AuthenticatedLayout({ header, children }) {
       {/* Main area */}
       <div className={sidebarCollapsed ? 'sm:pl-0' : 'sm:pl-72'}>
         {/* Top bar */}
-        <nav className="sticky top-0 z-30 border-b border-gray-100 bg-white/80 backdrop-blur">
+        <nav className="sticky top-0 z-30 border-b border-gray-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur transition-colors">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex h-16 items-center justify-between">
               <div className="flex items-center gap-3">
                 {/* Mobile hamburger */}
                 <button
                   onClick={() => setSidebarOpen(true)}
-                  className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100 sm:hidden"
+                  className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 sm:hidden"
                   aria-label="Abrir menu"
                 >
                   <svg className="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
@@ -195,7 +212,7 @@ export default function AuthenticatedLayout({ header, children }) {
                 <button
                   type="button"
                   onClick={() => setSidebarCollapsed((v) => !v)}
-                  className="hidden sm:inline-flex items-center justify-center rounded-md p-2 text-gray-600 hover:bg-gray-100"
+                  className="hidden sm:inline-flex items-center justify-center rounded-md p-2 text-gray-600 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800"
                   aria-label={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
                   title={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
                 >
@@ -212,8 +229,8 @@ export default function AuthenticatedLayout({ header, children }) {
 
                 {/* Title */}
                 <div className="hidden sm:block">
-                  <div className="text-sm font-semibold text-gray-900">ABS Gestão Financeira</div>
-                  <div className="text-xs text-gray-500">Controle de gastos</div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">ABS Gestão Financeira</div>
+                  <div className="text-xs text-gray-500 dark:text-slate-400">Controle de gastos</div>
                 </div>
               </div>
 
@@ -221,7 +238,7 @@ export default function AuthenticatedLayout({ header, children }) {
               <div className="hidden items-center gap-2 sm:flex">
                 <Link
                   href={route('transactions.create')}
-                  className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                  className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
                 >
                   Lançamento
                 </Link>
@@ -235,10 +252,15 @@ export default function AuthenticatedLayout({ header, children }) {
                       <span className="inline-flex rounded-md">
                         <button
                           type="button"
-                          className="inline-flex items-center rounded-md border border-transparent bg-white px-3 py-2 text-sm font-semibold leading-4 text-gray-600 transition hover:text-gray-900 focus:outline-none"
+                          className="inline-flex items-center rounded-md border border-transparent bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold leading-4 text-gray-600 dark:text-slate-200 transition hover:text-gray-900 dark:hover:text-white focus:outline-none"
                         >
                           {user.name}
-                          <svg className="-me-0.5 ms-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                          <svg
+                            className="-me-0.5 ms-2 h-4 w-4"
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
                             <path
                               fillRule="evenodd"
                               d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
@@ -262,7 +284,7 @@ export default function AuthenticatedLayout({ header, children }) {
           </div>
 
           {/* Mobile quick links */}
-          <div className="border-t border-gray-100 px-4 py-2 sm:hidden">
+          <div className="border-t border-gray-100 dark:border-slate-800 px-4 py-2 sm:hidden">
             <div className="flex gap-3">
               <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')}>
                 Dashboard
@@ -284,8 +306,8 @@ export default function AuthenticatedLayout({ header, children }) {
                   className={[
                     'inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition',
                     route().current('transfers.*') || route().current('transfer_contacts.*')
-                      ? 'bg-emerald-50 text-emerald-800'
-                      : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                      : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
                   ].join(' ')}
                 >
                   Transferências
@@ -295,12 +317,14 @@ export default function AuthenticatedLayout({ header, children }) {
                 </button>
 
                 {openGroup === '__top_transfers__' && (
-                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl bg-white p-1 shadow-lg ring-1 ring-gray-200">
+                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 p-1 shadow-lg ring-1 ring-gray-200 dark:ring-slate-800">
                     <Link
                       href={route('transfers.create')}
                       className={[
                         'block rounded-lg px-3 py-2 text-sm font-semibold transition',
-                        route().current('transfers.*') ? 'bg-emerald-50 text-emerald-800' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                        route().current('transfers.*')
+                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                          : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
                       ].join(' ')}
                       onClick={() => setOpenGroup(null)}
                     >
@@ -310,7 +334,9 @@ export default function AuthenticatedLayout({ header, children }) {
                       href={route('transfer_contacts.index')}
                       className={[
                         'block rounded-lg px-3 py-2 text-sm font-semibold transition',
-                        route().current('transfer_contacts.*') ? 'bg-emerald-50 text-emerald-800' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                        route().current('transfer_contacts.*')
+                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                          : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
                       ].join(' ')}
                       onClick={() => setOpenGroup(null)}
                     >
@@ -325,7 +351,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
         {/* Header */}
         {header && (
-          <header className="bg-white shadow-sm">
+          <header className="bg-white dark:bg-slate-900 shadow-sm ring-1 ring-transparent dark:ring-slate-800 transition-colors">
             <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{header}</div>
           </header>
         )}
@@ -339,10 +365,10 @@ export default function AuthenticatedLayout({ header, children }) {
 function SidebarLink({ href, active, children, onClick, badge, badgeTone = 'gray' }) {
   const badgeClass =
     badgeTone === 'red'
-      ? 'bg-rose-100 text-rose-800 ring-rose-200'
+      ? 'bg-rose-100 text-rose-800 ring-rose-200 dark:bg-rose-900/30 dark:text-rose-200 dark:ring-rose-900/40'
       : badgeTone === 'yellow'
-        ? 'bg-amber-100 text-amber-900 ring-amber-200'
-        : 'bg-gray-100 text-gray-700 ring-gray-200';
+        ? 'bg-amber-100 text-amber-900 ring-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:ring-amber-900/40'
+        : 'bg-gray-100 text-gray-700 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700';
 
   return (
     <Link
@@ -350,7 +376,9 @@ function SidebarLink({ href, active, children, onClick, badge, badgeTone = 'gray
       onClick={onClick}
       className={[
         'flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition',
-        active ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+        active
+          ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-900/40'
+          : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
       ].join(' ')}
     >
       <span className="truncate">{children}</span>
@@ -372,7 +400,9 @@ function SidebarGroup({ item, open, onToggle, onNavigate }) {
         onClick={onToggle}
         className={[
           'flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold transition',
-          item.active ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+          item.active
+            ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-900/40'
+            : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
         ].join(' ')}
         aria-expanded={open}
       >
@@ -383,17 +413,17 @@ function SidebarGroup({ item, open, onToggle, onNavigate }) {
       </button>
 
       {open && (
-        <div className="ml-2 space-y-1 border-l border-gray-100 pl-2">
+        <div className="ml-2 space-y-1 border-l border-gray-100 dark:border-slate-800 pl-2">
           {item.children.map((child) => (
             <Link
               key={child.name}
               href={child.href}
-              onClick={() => {
-                onNavigate?.();
-              }}
+              onClick={() => onNavigate?.()}
               className={[
                 'flex items-center rounded-lg px-3 py-2 text-sm font-semibold transition',
-                child.active ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100' : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900',
+                child.active
+                  ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-200 dark:ring-emerald-900/40'
+                  : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
               ].join(' ')}
             >
               <span className="truncate">{child.name}</span>
