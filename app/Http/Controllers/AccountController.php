@@ -34,8 +34,8 @@ class AccountController extends Controller
     {
         Account::create([
             'user_id' => $request->user()->id,
-            'name' => $request->string('name'),
-            'type' => $request->string('type'),
+            'name' => $request->string('name')->toString(),
+            'type' => $request->string('type')->toString(),
             'initial_balance' => $request->input('initial_balance', 0),
             'statement_close_day' => $request->input('statement_close_day') ?: null,
             'statement_close_month' => $request->input('statement_close_month') ?: null,
