@@ -20,6 +20,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
     // ✅ parcelamento (somente create/expense)
     is_installment: false,
     installments_count: 12,
+    // (mantemos no state por compat, mas NÃO será enviado no payload parcelado)
     first_due_date: new Date().toISOString().slice(0, 10),
   });
 
@@ -29,7 +30,6 @@ export default function Form({ mode, transaction, categories, accounts }) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, transaction?.id]);
-
 
   const blocked = categories.length === 0 || accounts.length === 0;
 
@@ -57,6 +57,22 @@ export default function Form({ mode, transaction, categories, accounts }) {
       ? 'Este lançamento já foi marcado como recebido. Para manter o histórico correto, a edição foi bloqueada.'
       : 'Este lançamento já foi marcado como pago. Para manter o histórico correto, a edição foi bloqueada.';
 
+  // ✅ conta selecionada (para mostrar fechamento do cartão)
+  const selectedAccount = useMemo(() => {
+    return (accounts || []).find((a) => String(a.id) === String(data.account_id));
+  }, [accounts, data.account_id]);
+
+  const isCreditCard = (selectedAccount?.type ?? null) === 'credit_card';
+  const closeDay = Number(selectedAccount?.statement_close_day || 0) || null;
+
+  // ✅ ao marcar parcelado: força "Cartão"
+  useEffect(() => {
+    if (canInstallment && data.is_installment) {
+      setData('payment_method', 'card');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [canInstallment, data.is_installment]);
+
   function submit(e) {
     e.preventDefault();
 
@@ -69,13 +85,12 @@ export default function Form({ mode, transaction, categories, accounts }) {
     }
 
     // CREATE: se parcelado, manda payload direto
-
     if (canInstallment && data.is_installment) {
-    return router.post(route('installments.store'), installmentPayload, {
-      preserveScroll: true,
-      onError: () => {},
-    });
-  }
+      return router.post(route('installments.store'), installmentPayload, {
+        preserveScroll: true,
+        onError: () => {},
+      });
+    }
 
     // CREATE normal
     return post(route('transactions.store'));
@@ -105,6 +120,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
       : 'bg-rose-50 text-rose-700';
 
   // ✅ payload para installments.store (reaproveita campos)
+  // 🔴 IMPORTANTE: first_due_date = null => backend calcula com statement_close_day
   const installmentPayload = useMemo(() => {
     return {
       account_id: data.account_id,
@@ -115,7 +131,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
       purchase_date: data.date,
       first_due_date: null,
     };
-  }, [data.account_id, data.category_id, data.description, data.amount, data.installments_count, data.date, data.first_due_date]);
+  }, [data.account_id, data.category_id, data.description, data.amount, data.installments_count, data.date]);
 
   return (
     <AuthenticatedLayout
@@ -166,7 +182,6 @@ export default function Form({ mode, transaction, categories, accounts }) {
             )}
 
             <form onSubmit={submit} className="space-y-5">
-
               {/* Tipo */}
               <div>
                 <div className="flex items-center justify-between">
@@ -228,18 +243,19 @@ export default function Form({ mode, transaction, categories, accounts }) {
                         )}
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700">1º vencimento</label>
-                        <input
-                          disabled={formDisabled}
-                          type="date"
-                          className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
-                          value={data.first_due_date}
-                          onChange={(e) => !formDisabled && setData('first_due_date', e.target.value)}
-                        />
-                        {errors.first_due_date && (
-                          <div className="mt-1 text-sm text-rose-600">{errors.first_due_date}</div>
-                        )}
+                      {/* ✅ removido o input de 1º vencimento: backend calcula automático */}
+                      <div className="sm:col-span-2">
+                        <div className="rounded-lg bg-white px-3 py-2 text-xs text-gray-700 ring-1 ring-gray-200">
+                          {isCreditCard && closeDay ? (
+                            <>
+                              Fechamento do cartão: <b>dia {closeDay}</b>. A <b>1ª parcela</b> será calculada automaticamente com base na data da compra.
+                            </>
+                          ) : (
+                            <>
+                              A <b>1ª parcela</b> será calculada automaticamente (configure o fechamento na conta do cartão para ficar certinho).
+                            </>
+                          )}
+                        </div>
                       </div>
 
                       <div className="sm:col-span-2">
@@ -275,20 +291,22 @@ export default function Form({ mode, transaction, categories, accounts }) {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700">
-                    {canInstallment && data.is_installment ? 'Data (opcional)' : 'Data'}
+                    {canInstallment && data.is_installment ? 'Data da compra' : 'Data'}
                   </label>
                   <input
                     type="date"
                     className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
                     value={data.date}
                     onChange={(e) => !formDisabled && setData('date', e.target.value)}
-                    disabled={formDisabled || (canInstallment && data.is_installment)}
+                    disabled={formDisabled}
                   />
+
                   <div className="mt-1 text-xs text-gray-500">
                     {canInstallment && data.is_installment
-                      ? 'Ao parcelar, a data usada é o 1º vencimento.'
+                      ? 'Data da compra (usada para calcular a fatura do cartão).'
                       : 'Data do lançamento.'}
                   </div>
+
                   {errors.date && <div className="mt-1 text-sm text-rose-600">{errors.date}</div>}
                 </div>
               </div>
@@ -350,23 +368,25 @@ export default function Form({ mode, transaction, categories, accounts }) {
               {/* Forma de pagamento */}
               <div>
                 <label className="block text-sm font-semibold text-gray-700">Forma de pagamento</label>
-                <select
-                  className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
-                  value={data.payment_method}
-                  onChange={(e) => !formDisabled && setData('payment_method', e.target.value)}
-                  disabled={formDisabled || (canInstallment && data.is_installment)}
-                >
-                  <option value="pix">Pix</option>
-                  <option value="card">Cartão</option>
-                  <option value="cash">Dinheiro</option>
-                  <option value="transfer">Transferência</option>
-                  <option value="other">Outro</option>
-                </select>
 
-                {canInstallment && data.is_installment && (
-                  <div className="mt-1 text-xs text-gray-500">
-                    Ao parcelar, a forma de pagamento pode ser tratada depois (se quiser, podemos gravar no installment também).
+                {/* ✅ quando parcelado: fixa Cartão e não deixa errar */}
+                {canInstallment && data.is_installment ? (
+                  <div className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-200">
+                    Cartão (automático)
                   </div>
+                ) : (
+                  <select
+                    className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50"
+                    value={data.payment_method}
+                    onChange={(e) => !formDisabled && setData('payment_method', e.target.value)}
+                    disabled={formDisabled}
+                  >
+                    <option value="pix">Pix</option>
+                    <option value="card">Cartão</option>
+                    <option value="cash">Dinheiro</option>
+                    <option value="transfer">Transferência</option>
+                    <option value="other">Outro</option>
+                  </select>
                 )}
               </div>
 
