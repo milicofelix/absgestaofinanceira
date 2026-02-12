@@ -157,19 +157,26 @@ class DashboardController extends Controller
 
         $openingBalance = (float) $accounts->sum('opening_balance');
 
-        // Receitas acumuladas (até o mês selecionado) - por competência
-        $lifetimeIncome = (float) Transaction::query()
+        // Soma do saldo inicial (ignora cartão de crédito)
+        $initialTotal = (float) Account::query()
+            ->where('user_id', $userId)
+            ->where('type', '!=', 'credit_card')
+            ->sum('initial_balance');
+
+        // Receitas acumuladas (até o mês selecionado) + saldo inicial
+        $lifetimeIncome = $initialTotal + (float) Transaction::query()
             ->where('user_id', $userId)
             ->where('type', 'income')
             ->where('is_transfer', false)
             ->where(function ($q) use ($month, $end) {
                 $q->where('competence_month', '<=', $month)
-                  ->orWhere(function ($q2) use ($end) {
-                      $q2->whereNull('competence_month')
-                         ->whereDate('date', '<=', $end->toDateString());
-                  });
+                ->orWhere(function ($q2) use ($end) {
+                    $q2->whereNull('competence_month')
+                        ->whereDate('date', '<=', $end->toDateString());
+                });
             })
             ->sum('amount');
+
 
         // Badge de metas do mês selecionado (exceeded/warning de verdade)
         $year = (int) substr($month, 0, 4);

@@ -19,7 +19,10 @@ class TransferController extends Controller
     {
         $userId = $request->user()->id;
 
-        $accounts = Account::where('user_id', $userId)->orderBy('name')->get(['id','name']);
+        $accounts = Account::where('user_id', $userId)
+            ->where('type', 'bank')
+            ->orderBy('name')
+            ->get(['id', 'name', 'type']);
 
         // contatos permitidos
         $contacts = User::query()
@@ -54,7 +57,10 @@ class TransferController extends Controller
 
         abort_unless($allowed, 403);
 
-        $accounts = Account::where('user_id', $recipientUserId)->orderBy('name')->get(['id','name']);
+        $accounts = Account::where('user_id', $recipientUserId)
+            ->where('type', 'bank')
+            ->orderBy('name')
+            ->get(['id', 'name', 'type']);
 
         return response()->json(['accounts' => $accounts]);
     }
@@ -68,7 +74,7 @@ class TransferController extends Controller
 
             'from_account_id' => [
                 'required', 'integer',
-                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('user_id', $userId)),
+                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('user_id', $userId)->where('type', 'bank')),
             ],
 
             // self: conta destino também é do usuário logado
@@ -94,7 +100,7 @@ class TransferController extends Controller
             $request->validate([
                 'to_account_id' => [
                     'required', 'integer', 'different:from_account_id',
-                    Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('user_id', $userId)),
+                    Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('user_id', $userId)->where('type', 'bank')),
                 ],
             ]);
 
@@ -159,6 +165,7 @@ class TransferController extends Controller
             $toOk = Account::query()
                 ->where('id', (int) $data['to_account_id'])
                 ->where('user_id', $recipientUserId)
+                ->where('type', 'bank')
                 ->exists();
 
             abort_unless($toOk, 422);
