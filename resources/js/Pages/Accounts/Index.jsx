@@ -107,6 +107,7 @@ export default function Index({ accounts }) {
 function labelType(v) {
   if (v === 'cash') return 'Dinheiro';
   if (v === 'bank') return 'Banco';
+  if (v === 'debit') return 'Débito';
   if (v === 'credit_card') return 'Cartão';
   return 'Outro';
 }

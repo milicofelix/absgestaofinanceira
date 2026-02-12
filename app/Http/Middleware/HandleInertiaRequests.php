@@ -41,6 +41,11 @@ class HandleInertiaRequests extends Middleware
             'theme' => $request->user()?->theme ?? 'default', // null|light|dark
             ],
 
+            'flash' => [
+                'success' => fn () => $request->session()->get('success'),
+                'error'   => fn () => $request->session()->get('error'),
+            ],
+
             // ✅ nav sempre existe + budgets_badge sempre existe (com fallback)
             'nav' => function () use ($request) {
                 $user = $request->user();

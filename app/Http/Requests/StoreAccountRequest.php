@@ -13,7 +13,7 @@ class StoreAccountRequest extends FormRequest
     {
         return [
             'name'            => ['required', 'string', 'max:80'],
-            'type'            => ['required', Rule::in(['cash','bank','credit_card','other'])],
+            'type'            => ['required', Rule::in(['cash','bank','credit_card','other','debit'])],
             'initial_balance' => ['nullable', 'numeric'],
         ];
     }

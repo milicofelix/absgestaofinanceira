@@ -70,9 +70,12 @@ class CategoryController extends Controller
     {
         abort_unless($category->user_id === $request->user()->id, 403);
 
-        if ($category->transactions()->exists()) {
-            return back()->with('error', 'Não é possível excluir: existem transações usando essa categoria.');
+        $count = $category->transactions()->count();
+        $msg =  $count == 1 ? 'transação' : 'transações';
+        if ($count > 0) {
+            return back()->with('error', "Não é possível excluir: existem {$count} $msg usando essa categoria.");
         }
+
 
         $category->delete();
         return redirect()->route('categories.index')->with('success', 'Categoria excluída.');
