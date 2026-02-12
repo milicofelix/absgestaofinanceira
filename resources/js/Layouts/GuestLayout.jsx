@@ -8,7 +8,7 @@ export default function GuestLayout({ children }) {
           <div className="mb-6 flex justify-center">
             <Link href="/" className="inline-flex items-center">
               <img
-                src="/images/abs_logo.png"
+                src="/images/abs_logo_light.png"
                 alt="ABS Gestão Financeira"
                 className="h-20 w-auto drop-shadow-sm"
               />

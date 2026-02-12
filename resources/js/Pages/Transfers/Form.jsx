@@ -25,10 +25,30 @@ export default function TransferForm({ accounts, defaultDate, defaultRecipientMo
   // contas do destinatário (quando other)
   const [recipientAccounts, setRecipientAccounts] = useState([]);
 
-  // opções do select "Para"
+  // ✅ opções do select "Para"
   const toAccountOptions = useMemo(() => {
-    return data.recipient_mode === 'other' ? recipientAccounts : (accounts || []);
-  }, [data.recipient_mode, recipientAccounts, accounts]);
+    const base = data.recipient_mode === 'other' ? (recipientAccounts || []) : (accounts || []);
+
+    // ✅ quando for "Minhas contas", não permite o mesmo id no destino
+    if (data.recipient_mode === 'self') {
+      return base.filter((a) => String(a.id) !== String(data.from_account_id));
+    }
+
+    return base;
+  }, [data.recipient_mode, recipientAccounts, accounts, data.from_account_id]);
+
+  // ✅ quando trocar a conta origem no modo self, garante destino diferente
+  useEffect(() => {
+    if (data.recipient_mode !== 'self') return;
+    if (!data.from_account_id) return;
+
+    // se destino está vazio, ou ficou igual ao origem, escolhe a primeira conta diferente
+    if (!data.to_account_id || String(data.to_account_id) === String(data.from_account_id)) {
+      const fallback = (accounts || []).find((a) => String(a.id) !== String(data.from_account_id));
+      setData('to_account_id', fallback?.id ?? '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.from_account_id, data.recipient_mode]);
 
   // limpar estado ao trocar modo
   useEffect(() => {
@@ -37,10 +57,13 @@ export default function TransferForm({ accounts, defaultDate, defaultRecipientMo
       setRecipientOptions([]);
       setRecipientAccounts([]);
 
-      // garante que to_account_id volte para uma conta do usuário (se possível)
-      const fallback = accounts?.[1]?.id ?? accounts?.[0]?.id ?? '';
+      // garante que from e to fiquem diferentes (se possível)
+      const from = accounts?.[0]?.id ?? '';
+      const to = (accounts || []).find((a) => String(a.id) !== String(from))?.id ?? '';
+
       setData('recipient_user_id', '');
-      setData('to_account_id', fallback);
+      setData('from_account_id', from);
+      setData('to_account_id', to);
     } else {
       // modo other: limpa destino até escolher alguém
       setRecipientAccounts([]);
@@ -125,7 +148,14 @@ export default function TransferForm({ accounts, defaultDate, defaultRecipientMo
   const missingRecipient = needsRecipient && !data.recipient_user_id;
   const missingToAccount = needsRecipient && !data.to_account_id;
 
-  const uiBlocked = blocked || missingRecipient || missingToAccount;
+  // ✅ proteção extra: no modo self, não deixa enviar se for igual
+  const sameAccountSelf =
+    data.recipient_mode === 'self' &&
+    data.from_account_id &&
+    data.to_account_id &&
+    String(data.from_account_id) === String(data.to_account_id);
+
+  const uiBlocked = blocked || missingRecipient || missingToAccount || sameAccountSelf;
 
   function submit(e) {
     e.preventDefault();
@@ -293,6 +323,12 @@ export default function TransferForm({ accounts, defaultDate, defaultRecipientMo
                     ))}
                   </select>
 
+                  {sameAccountSelf && (
+                    <div className="mt-1 text-sm text-rose-600">
+                      A conta destino deve ser diferente da conta origem.
+                    </div>
+                  )}
+
                   {missingToAccount && <div className="mt-1 text-sm text-rose-600">Selecione a conta do destinatário.</div>}
                   {errors.to_account_id && <div className="mt-1 text-sm text-rose-600">{errors.to_account_id}</div>}
                 </div>
@@ -309,7 +345,6 @@ export default function TransferForm({ accounts, defaultDate, defaultRecipientMo
                       disabled={blocked}
                       placeholder="0,00"
                       prefix="R$"
-                      // ✅ deixa o MoneyInput controlar o estilo (agora ele já tem dark)
                       inputClassName=""
                     />
                   </div>
