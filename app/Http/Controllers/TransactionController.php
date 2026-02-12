@@ -37,7 +37,7 @@ class TransactionController extends Controller
             })
             ->with([
                 'category:id,name',
-                'account:id,name',
+                'account:id,name,type',
                 'installment:id,installments_count,is_active'
             ])
 

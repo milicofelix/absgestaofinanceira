@@ -1,8 +1,9 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 
 export default function Index({ categories }) {
-  return (
+    const { flash } = usePage().props;
+    return (
     <AuthenticatedLayout
       header={
         <div className="flex items-center justify-between">
@@ -22,6 +23,17 @@ export default function Index({ categories }) {
         </div>
       }
     >
+       {flash?.error && (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200">
+            {flash.error}
+          </div>
+        )}
+
+        {flash?.success && (
+          <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200">
+            {flash.success}
+          </div>
+        )}
       <Head title="Categorias" />
 
       <div className="py-6 sm:py-8">
