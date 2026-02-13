@@ -1,3 +1,4 @@
+// resources/js/Pages/Transactions/Index.jsx
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
@@ -65,9 +66,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Lançamentos</h2>
-            <p className="text-sm text-gray-500 dark:text-slate-400">
-              Receitas e despesas do período selecionado
-            </p>
+            <p className="text-sm text-gray-500 dark:text-slate-400">Receitas e despesas do período selecionado</p>
           </div>
 
           <Link
@@ -256,26 +255,52 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800"
               >
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold text-gray-900 dark:text-slate-100">
-                      {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
+                  <div className="min-w-0 flex-1">
+                    {/* header app-like */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
+                        <PaymentIcon method={t.payment_method} />
+                      </div>
+
+                      <div className="min-w-0">
+                        <div className="truncate font-semibold text-gray-900 dark:text-slate-100">
+                          {t.description || (
+                            <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>
+                          )}
+                        </div>
+
+                        <div className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
+                          {formatDateBR(t.date)} • {t.category?.name || '—'}
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                      {formatDateBR(t.date)} • {t.category?.name || '—'} • {t.account?.name || '—'}
+                    <div className="mt-2 text-xs text-gray-500 dark:text-slate-400 flex items-center gap-2">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
+                        <AccountTypeIcon type={t.account?.type} />
+                        <span className="truncate max-w-[180px]">{t.account?.name || '—'}</span>
+                      </span>
+
+                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
+                        <PaymentIcon method={t.payment_method} />
+                        {PaymentLabel(t.payment_method)}
+                      </span>
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {t.type === 'expense' ? (
-                        <span className="inline-flex rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-900/25 dark:text-rose-200">
-                          Despesa
-                        </span>
-                      ) : (
-                        <span className="inline-flex rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200">
-                          Receita
-                        </span>
-                      )}
+                      {/* tipo */}
+                      <span
+                        className={[
+                          'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold',
+                          t.type === 'expense'
+                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
+                            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
+                        ].join(' ')}
+                      >
+                        {t.type === 'expense' ? 'Despesa' : 'Receita'}
+                      </span>
 
+                      {/* parcelamento */}
                       {t.installment_id && (
                         <span
                           className={[
@@ -290,21 +315,12 @@ export default function Index({ transactions, filters, categories, accounts }) {
                         </span>
                       )}
 
-                      <span
-                        className={[
-                          'inline-flex rounded-full px-2 py-1 text-xs font-semibold',
-                          t.is_cleared
-                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200'
-                            : t.type === 'income'
-                              ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
-                              : 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200',
-                        ].join(' ')}
-                      >
-                        {getClearedLabel(t)}
-                      </span>
+                      {/* status */}
+                      <StatusBadge t={t} />
                     </div>
                   </div>
 
+                  {/* valor + ações */}
                   <div className="text-right">
                     <div
                       className={[
@@ -321,31 +337,36 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     <div className="mt-2 flex justify-end gap-2">
                       <Link
                         href={route('transactions.edit', t.id)}
-                        className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+                        className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                         title="Editar"
                       >
-                        ✏️
+                        <IconEdit />
                       </Link>
 
                       {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
                         <button
-                          className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                          className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
                           title="Cancelar parcelamento"
                           onClick={() => {
-                            if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
+                            if (
+                              !confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')
+                            )
+                              return;
                             router.post(route('installments.cancel', t.installment_id));
                           }}
                         >
-                          ⛔
+                          <IconBlock />
                         </button>
                       )}
 
                       <button
-                        className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
+                        className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
                         title="Excluir"
-                        onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}
+                        onClick={() =>
+                          confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))
+                        }
                       >
-                        🗑️
+                        <IconTrash />
                       </button>
                     </div>
                   </div>
@@ -369,6 +390,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                   <th className="px-4 py-3 font-semibold">Descrição</th>
                   <th className="px-4 py-3 font-semibold">Categoria</th>
                   <th className="px-4 py-3 font-semibold">Conta</th>
+                  <th className="px-4 py-3 font-semibold">Pagamento</th>
                   <th className="px-4 py-3 text-right font-semibold">Valor</th>
                   <th className="px-4 py-3 text-right font-semibold">Ações</th>
                 </tr>
@@ -378,11 +400,18 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 {transactions.data.map((t) => (
                   <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/60">
                     <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{formatDateBR(t.date)}</td>
+
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-start gap-3">
+                        <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
+                          <PaymentIcon method={t.payment_method} />
+                        </div>
+
                         <div className="min-w-0">
-                          <div className="truncate text-gray-900 dark:text-slate-100">
-                            {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
+                          <div className="truncate text-gray-900 dark:text-slate-100 font-semibold">
+                            {t.description || (
+                              <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>
+                            )}
                           </div>
 
                           <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -411,23 +440,31 @@ export default function Index({ transactions, filters, categories, accounts }) {
                               </span>
                             )}
 
-                            <span
-                              className={[
-                                'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                t.is_cleared
-                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200'
-                                  : 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200',
-                              ].join(' ')}
-                            >
-                              {getClearedLabel(t)}
-                            </span>
+                            <StatusBadge t={t} />
                           </div>
                         </div>
                       </div>
                     </td>
 
                     <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{t.category?.name || '—'}</td>
-                    <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{t.account?.name || '—'}</td>
+
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
+                          <AccountTypeIcon type={t.account?.type} />
+                        </span>
+                        <span className="min-w-0 truncate">{t.account?.name || '—'}</span>
+                      </div>
+                    </td>
+
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
+                          <PaymentIcon method={t.payment_method} />
+                        </span>
+                        <span className="font-semibold">{PaymentLabel(t.payment_method)}</span>
+                      </div>
+                    </td>
 
                     <td
                       className={[
@@ -441,31 +478,42 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     </td>
 
                     <td className="px-4 py-3 text-right">
-                      <div className="inline-flex gap-3">
+                      <div className="inline-flex items-center gap-2">
                         <Link
-                          className="text-sm font-semibold text-emerald-700 hover:underline dark:text-emerald-300"
+                          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                           href={route('transactions.edit', t.id)}
+                          title="Editar"
                         >
-                          Editar
+                          <IconEdit />
+                          <span className="hidden md:inline">Editar</span>
                         </Link>
 
                         {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
                           <button
-                            className="text-sm font-semibold text-amber-700 hover:underline dark:text-amber-300"
+                            className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                            title="Cancelar parcelamento"
                             onClick={() => {
-                              if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
+                              if (
+                                !confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')
+                              )
+                                return;
                               router.post(route('installments.cancel', t.installment_id));
                             }}
                           >
-                            Cancelar
+                            <IconBlock />
+                            <span className="hidden md:inline">Cancelar</span>
                           </button>
                         )}
 
                         <button
-                          className="text-sm font-semibold text-rose-600 hover:underline dark:text-rose-300"
-                          onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}
+                          className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
+                          title="Excluir"
+                          onClick={() =>
+                            confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))
+                          }
                         >
-                          Excluir
+                          <IconTrash />
+                          <span className="hidden md:inline">Excluir</span>
                         </button>
                       </div>
                     </td>
@@ -474,7 +522,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
                 {transactions.data.length === 0 && (
                   <tr>
-                    <td className="px-4 py-10 text-center text-gray-500 dark:text-slate-400" colSpan={6}>
+                    <td className="px-4 py-10 text-center text-gray-500 dark:text-slate-400" colSpan={7}>
                       Nenhum lançamento encontrado.
                     </td>
                   </tr>
@@ -533,4 +581,155 @@ function getClearedLabel(transaction) {
     return transaction.is_cleared ? 'Recebida' : 'A receber';
   }
   return transaction.is_cleared ? 'Paga' : 'Em aberto';
+}
+
+/* ---------- UI bits: payment/account/status + icons ---------- */
+
+function PaymentIcon({ method, className = '' }) {
+  const m = String(method || '').toLowerCase();
+  if (m === 'pix') return <IconPix className={className} />;
+  if (m === 'credit_card' || m === 'debit_card' || m === 'card') return <IconCard className={className} />;
+  if (m === 'cash') return <IconCash className={className} />;
+  if (m === 'transfer') return <IconTransfer className={className} />;
+  return <IconDots className={className} />;
+}
+
+function PaymentLabel(method) {
+  const m = String(method || '').toLowerCase();
+  if (m === 'pix') return 'Pix';
+  if (m === 'credit_card') return 'Crédito';
+  if (m === 'debit_card') return 'Débito';
+  if (m === 'card') return 'Cartão';
+  if (m === 'cash') return 'Dinheiro';
+  if (m === 'transfer') return 'Transfer.';
+  return 'Outro';
+}
+
+function AccountTypeIcon({ type, className = '' }) {
+  const t = String(type || '').toLowerCase();
+  if (t === 'credit_card') return <IconCard className={className} />;
+  return <IconBank className={className} />;
+}
+
+function StatusBadge({ t }) {
+  const label = getClearedLabel(t);
+
+  const tone = t.is_cleared ? 'emerald' : t.type === 'income' ? 'sky' : 'amber';
+
+  const toneCls =
+    tone === 'emerald'
+      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200 ring-emerald-200/60 dark:ring-emerald-900/40'
+      : tone === 'sky'
+        ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200 ring-sky-200/60 dark:ring-sky-900/40'
+        : 'bg-amber-50 text-amber-900 dark:bg-amber-900/20 dark:text-amber-200 ring-amber-200/60 dark:ring-amber-900/35';
+
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ${toneCls}`}>
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+      {label}
+    </span>
+  );
+}
+
+/* ---------- Inline SVGs (no libs needed) ---------- */
+
+function IconBase({ children, className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`h-4 w-4 ${className}`} fill="none" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+
+function IconPix({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path d="M7 7l10 10M17 7L7 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 3l2.5 2.5L12 8 9.5 5.5 12 3Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 16l2.5 2.5L12 21l-2.5-2.5L12 16Z" stroke="currentColor" strokeWidth="2" />
+    </IconBase>
+  );
+}
+
+function IconCard({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path d="M3 7h18v10H3V7Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M3 10h18" stroke="currentColor" strokeWidth="2" />
+      <path d="M7 14h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+function IconCash({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path d="M4 8h16v10H4V8Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M7 11h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 15h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+function IconTransfer({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path d="M7 7h12l-2-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M17 17H5l2 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19 7v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M5 17v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+function IconBank({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path d="M4 9h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M6 9v10M10 9v10M14 9v10M18 9v10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M3 9l9-5 9 5" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M4 19h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+function IconDots({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path d="M6 12h.01M12 12h.01M18 12h.01" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+function IconEdit({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path
+        d="M4 20h4l10.5-10.5a2 2 0 0 0-4-4L4 16v4Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <path d="M13.5 6.5l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </IconBase>
+  );
+}
+
+function IconTrash({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path d="M6 7h12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 7V5h6v2" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M8 7l1 14h6l1-14" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
+    </IconBase>
+  );
+}
+
+function IconBlock({ className = '' }) {
+  return (
+    <IconBase className={className}>
+      <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M7 7l10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </IconBase>
+  );
 }
