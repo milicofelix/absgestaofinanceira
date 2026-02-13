@@ -79,6 +79,7 @@ class InstallmentService
                   'competence_month' => $competence->format('Y-m'), // ✅ mês correto
                   'installment_id' => $inst->id,
                   'installment_number' => $i,
+                  'payment_method' => 'credit_card',
               ]);
 
               $competence->addMonthsNoOverflow(1);
