@@ -18,7 +18,7 @@ class StoreTransactionRequest extends FormRequest
             'description'   => ['nullable', 'string', 'max:255'],
             'category_id'   => ['required', 'integer'],
             'account_id'    => ['required', 'integer'],
-            'payment_method'=> ['nullable', Rule::in(['pix','card','cash','transfer','other'])],
+            'payment_method'=> ['required', Rule::in(['pix','debit_card','credit_card','cash','transfer','other'])],
         ];
     }
 }
