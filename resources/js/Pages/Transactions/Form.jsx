@@ -37,6 +37,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
   }, [categories, data.type]);
 
   const canInstallment = isCreate && data.type === 'expense';
+ 
 
   // guarda a última conta NÃO-cartão selecionada, pra voltar quando desmarcar parcelado
   const lastNonCCAccountIdRef = useRef(null);
@@ -46,9 +47,9 @@ export default function Form({ mode, transaction, categories, accounts }) {
     const acc = (accounts || []).find((a) => String(a.id) === String(data.account_id));
     if (acc && acc.type !== 'credit_card') {
       lastNonCCAccountIdRef.current = String(acc.id);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data.account_id, accounts?.length]);
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [data.account_id, accounts?.length]);
 
   // ✅ listas de contas
   const creditCardAccounts = useMemo(() => {
@@ -63,16 +64,14 @@ export default function Form({ mode, transaction, categories, accounts }) {
   const isCreditCard = (selectedAccount?.type ?? null) === 'credit_card';
   const closeDay = Number(selectedAccount?.statement_close_day || 0) || null;
 
+  const isPayingWithCreditCard = data.payment_method === 'credit_card';
+  const showInstallmentBox = canInstallment && isPayingWithCreditCard;
+
+  // contas visíveis no combo "Conta"
   const visibleAccounts = useMemo(() => {
-    // ✅ fonte da verdade:
-    // - se está parcelando -> mostra cartões
-    // - ou se a conta selecionada é cartão -> mostra cartões
-    const wantsCard = (canInstallment && data.is_installment) || isCreditCard;
-
-    if (wantsCard) return creditCardAccounts;
-
+    if (isPayingWithCreditCard) return creditCardAccounts;
     return (accounts || []).filter((a) => a.type !== 'credit_card');
-  }, [accounts, creditCardAccounts, canInstallment, data.is_installment, isCreditCard]);
+  }, [accounts, creditCardAccounts, isPayingWithCreditCard]);
 
   const clearedLabel = data.type === 'income' ? 'Recebida' : 'Paga';
   const clearedHint =
@@ -94,30 +93,40 @@ export default function Form({ mode, transaction, categories, accounts }) {
 
     // ✅ ao desmarcar parcelado: se estava num cartão, volta pra uma conta "normal"
     useEffect(() => {
-    if (formDisabled) return;
-    if (!canInstallment) return;
+      if (formDisabled) return;
 
-    // só interessa quando DESMARCOU
-    if (data.is_installment) return;
+      // Ligou "cartão de crédito" -> garante que account_id seja um cartão
+      if (isPayingWithCreditCard) {
+        const acc = (accounts || []).find((a) => String(a.id) === String(data.account_id));
+        const currentIsCC = (acc?.type ?? null) === 'credit_card';
 
-    // se ainda estiver em cartão, volta pra conta normal anterior
-    if (isCreditCard) {
-      const preferred = lastNonCCAccountIdRef.current;
-      const existsPreferred = preferred && (accounts || []).some((a) => String(a.id) === String(preferred) && a.type !== 'credit_card');
+        if (!currentIsCC) {
+          const firstCC = creditCardAccounts?.[0];
+          if (firstCC) setData('account_id', String(firstCC.id));
+        }
+        return;
+      }
 
-      const fallbackNonCC = (accounts || []).find((a) => a.type !== 'credit_card');
+      // Desligou "cartão de crédito" -> se estava em cartão, volta pra última conta normal
+      const acc = (accounts || []).find((a) => String(a.id) === String(data.account_id));
+      const currentIsCC = (acc?.type ?? null) === 'credit_card';
 
-      const nextId = existsPreferred ? preferred : (fallbackNonCC ? String(fallbackNonCC.id) : null);
-      if (nextId) setData('account_id', nextId);
-    }
+      if (currentIsCC) {
+        const preferred = lastNonCCAccountIdRef.current;
+        const existsPreferred =
+          preferred && (accounts || []).some((a) => String(a.id) === String(preferred) && a.type !== 'credit_card');
 
-    // solta o payment_method do cartão (pra não ficar com "cartão" selecionado sem motivo)
-    if (data.payment_method === 'credit_card') {
-      setData('payment_method', 'pix');
-    }
+        const fallbackNonCC = (accounts || []).find((a) => a.type !== 'credit_card');
+        const nextId = existsPreferred ? preferred : (fallbackNonCC ? String(fallbackNonCC.id) : null);
 
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canInstallment, data.is_installment, formDisabled, isCreditCard, accounts?.length]);
+        if (nextId) setData('account_id', nextId);
+      }
+
+      // ao sair do cartão, também desligamos parcelamento (não faz sentido manter)
+      if (data.is_installment) setData('is_installment', false);
+
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPayingWithCreditCard, formDisabled, accounts?.length, creditCardAccounts?.length]);
 
   // ✅ ao marcar parcelado: força "credit_card" (porque parcelamento é só no crédito)
   useEffect(() => {
@@ -253,8 +262,45 @@ export default function Form({ mode, transaction, categories, accounts }) {
                 {errors.type && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.type}</div>}
               </div>
 
+               {/* ✅ Toggle: pagar com cartão de crédito */}
+              {isCreate && data.type === 'expense' && (
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Pagar com cartão de crédito</div>
+                      <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                        Se marcado, a conta deve ser um cartão. Você pode escolher “à vista” ou “parcelado”.
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      disabled={formDisabled}
+                      role="switch"
+                      aria-checked={isPayingWithCreditCard}
+                      onClick={() => {
+                        if (formDisabled) return;
+                        setData('payment_method', isPayingWithCreditCard ? 'pix' : 'credit_card');
+                      }}
+                      className={[
+                        'relative inline-flex h-7 w-12 items-center rounded-full transition',
+                        formDisabled ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer',
+                        isPayingWithCreditCard ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-slate-700',
+                      ].join(' ')}
+                    >
+                      <span
+                        className={[
+                          'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
+                          isPayingWithCreditCard ? 'translate-x-6' : 'translate-x-1',
+                        ].join(' ')}
+                      />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* ✅ Parcelamento (somente create + expense) */}
-              {canInstallment && (
+              {canInstallment && isPayingWithCreditCard && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-800 dark:bg-slate-950">
                   <div className="flex items-start justify-between gap-3">
                     <div>
