@@ -265,7 +265,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
                {/* ✅ Toggle: pagar com cartão de crédito */}
               {isCreate && data.type === 'expense' && (
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-                  <div className="flex items-start justify-between gap-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Pagar com cartão de crédito</div>
                       <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
