@@ -89,21 +89,23 @@ class InstallmentService
       });
   }
 
-  private function computeFirstCompetenceMonthByStatementCloseDay(Carbon $purchase, int $closeDay): Carbon
-  {
-      $closeDay = max(1, min(28, $closeDay));
+    private function computeFirstCompetenceMonthByStatementCloseDay(Carbon $purchase, int $closeDay): Carbon
+    {
+        $closeDay = max(1, min(28, $closeDay));
 
-      $closeThisMonth = $purchase->copy()
-          ->day(min($closeDay, $purchase->daysInMonth))
-          ->startOfDay();
+        // ✅ próximo fechamento
+        $nextClose = $purchase->copy()
+            ->day(min($closeDay, $purchase->daysInMonth))
+            ->startOfDay();
 
-      // Comprou ANTES do fechamento -> competência = mês seguinte
-      if ($purchase->lt($closeThisMonth)) {
-          return $purchase->copy()->addMonthNoOverflow()->startOfMonth();
-      }
+        if ($purchase->gte($nextClose)) {
+            $nextClose = $purchase->copy()
+                ->addMonthNoOverflow()
+                ->day($closeDay)
+                ->startOfDay();
+        }
 
-      // Comprou NO DIA do fechamento ou DEPOIS -> competência = +2 meses
-      return $purchase->copy()->addMonthsNoOverflow(2)->startOfMonth();
-  }
+        return $nextClose->startOfMonth();
+    }
 
 }

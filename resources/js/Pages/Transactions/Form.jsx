@@ -1,7 +1,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
 import MoneyInput from '@/Components/MoneyInput';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Checkbox from '@/Components/Checkbox';
 
 export default function Form({ mode, transaction, categories, accounts }) {
@@ -38,6 +38,42 @@ export default function Form({ mode, transaction, categories, accounts }) {
 
   const canInstallment = isCreate && data.type === 'expense';
 
+  // guarda a última conta NÃO-cartão selecionada, pra voltar quando desmarcar parcelado
+  const lastNonCCAccountIdRef = useRef(null);
+
+  // sempre que a conta atual for não-cartão, salva ela como "última normal"
+  useEffect(() => {
+    const acc = (accounts || []).find((a) => String(a.id) === String(data.account_id));
+    if (acc && acc.type !== 'credit_card') {
+      lastNonCCAccountIdRef.current = String(acc.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.account_id, accounts?.length]);
+
+  // ✅ listas de contas
+  const creditCardAccounts = useMemo(() => {
+      return (accounts || []).filter((a) => a.type === 'credit_card');
+  }, [accounts]);
+
+  // ✅ conta selecionada (para mostrar fechamento do cartão)
+  const selectedAccount = useMemo(() => {
+    return (accounts || []).find((a) => String(a.id) === String(data.account_id));
+  }, [accounts, data.account_id]);
+
+  const isCreditCard = (selectedAccount?.type ?? null) === 'credit_card';
+  const closeDay = Number(selectedAccount?.statement_close_day || 0) || null;
+
+  const visibleAccounts = useMemo(() => {
+    // ✅ fonte da verdade:
+    // - se está parcelando -> mostra cartões
+    // - ou se a conta selecionada é cartão -> mostra cartões
+    const wantsCard = (canInstallment && data.is_installment) || isCreditCard;
+
+    if (wantsCard) return creditCardAccounts;
+
+    return (accounts || []).filter((a) => a.type !== 'credit_card');
+  }, [accounts, creditCardAccounts, canInstallment, data.is_installment, isCreditCard]);
+
   const clearedLabel = data.type === 'income' ? 'Recebida' : 'Paga';
   const clearedHint =
     data.type === 'income'
@@ -56,30 +92,32 @@ export default function Form({ mode, transaction, categories, accounts }) {
       ? 'Este lançamento já foi marcado como recebido. Para manter o histórico correto, a edição foi bloqueada.'
       : 'Este lançamento já foi marcado como pago. Para manter o histórico correto, a edição foi bloqueada.';
 
-  // ✅ conta selecionada (para mostrar fechamento do cartão)
-  const selectedAccount = useMemo(() => {
-    return (accounts || []).find((a) => String(a.id) === String(data.account_id));
-  }, [accounts, data.account_id]);
-
-  const isCreditCard = (selectedAccount?.type ?? null) === 'credit_card';
-  const closeDay = Number(selectedAccount?.statement_close_day || 0) || null;
-
-  // ✅ regra do design novo:
-  // - Se conta é cartão de crédito => forma de pagamento fica travada como "credit_card"
-  // - Se não é cartão => usuário pode escolher e tem opção "debit_card"
-  useEffect(() => {
+    // ✅ ao desmarcar parcelado: se estava num cartão, volta pra uma conta "normal"
+    useEffect(() => {
     if (formDisabled) return;
+    if (!canInstallment) return;
 
+    // só interessa quando DESMARCOU
+    if (data.is_installment) return;
+
+    // se ainda estiver em cartão, volta pra conta normal anterior
     if (isCreditCard) {
-      setData('payment_method', 'credit_card');
-    } else {
-      // opcional: se veio do cartão e estava travado, volta pra pix
-      if (data.payment_method === 'credit_card') {
-        setData('payment_method', 'pix');
-      }
+      const preferred = lastNonCCAccountIdRef.current;
+      const existsPreferred = preferred && (accounts || []).some((a) => String(a.id) === String(preferred) && a.type !== 'credit_card');
+
+      const fallbackNonCC = (accounts || []).find((a) => a.type !== 'credit_card');
+
+      const nextId = existsPreferred ? preferred : (fallbackNonCC ? String(fallbackNonCC.id) : null);
+      if (nextId) setData('account_id', nextId);
     }
+
+    // solta o payment_method do cartão (pra não ficar com "cartão" selecionado sem motivo)
+    if (data.payment_method === 'credit_card') {
+      setData('payment_method', 'pix');
+    }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isCreditCard, formDisabled]);
+  }, [canInstallment, data.is_installment, formDisabled, isCreditCard, accounts?.length]);
 
   // ✅ ao marcar parcelado: força "credit_card" (porque parcelamento é só no crédito)
   useEffect(() => {
@@ -339,13 +377,14 @@ export default function Form({ mode, transaction, categories, accounts }) {
 
               {/* Categoria + Conta */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {/* Categoria */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Categoria</label>
                   <select
                     className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                     value={data.category_id}
                     onChange={(e) => !formDisabled && setData('category_id', e.target.value)}
-                    disabled={formDisabled || (categories?.length ?? 0) === 0}
+                    disabled={formDisabled || (filteredCategories?.length ?? 0) === 0}
                   >
                     {filteredCategories.length === 0 ? (
                       <option value="">(sem categorias para este tipo)</option>
@@ -357,25 +396,43 @@ export default function Form({ mode, transaction, categories, accounts }) {
                       ))
                     )}
                   </select>
+
                   {errors.category_id && (
                     <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.category_id}</div>
                   )}
                 </div>
 
+                {/* Conta */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Conta</label>
                   <select
                     className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                     value={data.account_id}
                     onChange={(e) => !formDisabled && setData('account_id', e.target.value)}
-                    disabled={formDisabled || (accounts?.length ?? 0) === 0}
+                    disabled={formDisabled || (visibleAccounts?.length ?? 0) === 0}
                   >
-                    {(accounts || []).map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
+                    {visibleAccounts.length === 0 ? (
+                      <option value="">
+                        {(canInstallment && data.is_installment) || data.payment_method === 'credit_card'
+                          ? '(cadastre uma conta do tipo cartão de crédito)'
+                          : '(cadastre uma conta bancária)'}
                       </option>
-                    ))}
+                    ) : (
+                      visibleAccounts.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))
+                    )}
                   </select>
+
+                  {/* Hint “inteligente” */}
+                  {((canInstallment && data.is_installment) || data.payment_method === 'credit_card') && (
+                    <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                      Mostrando apenas contas do tipo <b>cartão de crédito</b>.
+                    </div>
+                  )}
+
                   {errors.account_id && (
                     <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.account_id}</div>
                   )}
