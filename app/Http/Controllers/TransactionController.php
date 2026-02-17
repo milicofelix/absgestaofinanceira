@@ -220,17 +220,20 @@ class TransactionController extends Controller
 
         $closeDay = max(1, min(28, (int) $account->statement_close_day));
 
-        $closeThisMonth = $purchase->copy()
+        // Próximo fechamento (no mês atual)
+        $nextClose = $purchase->copy()
             ->day(min($closeDay, $purchase->daysInMonth))
             ->startOfDay();
 
-        // antes do fechamento -> mês seguinte
-        if ($purchase->lt($closeThisMonth)) {
-            return $purchase->copy()->addMonthNoOverflow()->format('Y-m');
+        // Se a compra foi depois do fechamento deste mês, próximo fechamento é no mês seguinte
+        if ($purchase->gte($nextClose)) {
+            $nextClose = $purchase->copy()
+                ->addMonthNoOverflow()
+                ->day($closeDay)
+                ->startOfDay();
         }
 
-        // no dia do fechamento ou depois -> +2 meses
-        return $purchase->copy()->addMonthsNoOverflow(2)->format('Y-m');
+        // Competência = mês do próximo fechamento
+        return $nextClose->format('Y-m');
     }
-
 }
