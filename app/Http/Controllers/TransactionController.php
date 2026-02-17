@@ -137,6 +137,7 @@ class TransactionController extends Controller
             'type' => $request->string('type'),
             'amount' => $request->input('amount'),
             'date' => $dateYmd,
+            'purchase_date' => $dateYmd,
             'competence_month' => $competenceMonth, // ✅ NOVO
             'description' => $request->input('description'),
             'category_id' => $request->integer('category_id'),
@@ -161,6 +162,7 @@ class TransactionController extends Controller
                 'type' => $transaction->type,
                 'amount' => (float)$transaction->amount,
                 'date' => $transaction->date->format('Y-m-d'),
+                'purchase_date' => $transaction->purchase_date->format('Y-m-d'),
                 'description' => $transaction->description,
                 'category_id' => $transaction->category_id,
                 'account_id' => $transaction->account_id,
@@ -191,6 +193,10 @@ class TransactionController extends Controller
             'type' => $request->string('type'),
             'amount' => $request->input('amount'),
             'date' => $dateYmd,
+            // ✅ regra simples:
+            // - se for lançamento normal (sem installment_id), atualiza purchase_date junto
+            // - se for parcela, não mexe (evita bagunçar histórico)
+            'purchase_date' => $transaction->installment_id ? $transaction->purchase_date : $dateYmd,
             'competence_month' => $competenceMonth, // ✅ NOVO
             'description' => $request->input('description'),
             'category_id' => $request->integer('category_id'),

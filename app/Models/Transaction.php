@@ -14,6 +14,7 @@ class Transaction extends Model
         'type',
         'amount',
         'date',
+        'purchase_date',
         'note',
         'description',
         'category_id',
@@ -35,6 +36,7 @@ class Transaction extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'date' => 'date:Y-m-d',
+        'purchase_date' => 'date',
         'is_transfer' => 'boolean',
         'is_cleared' => 'boolean',
     ];

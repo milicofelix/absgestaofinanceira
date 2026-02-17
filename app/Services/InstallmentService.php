@@ -75,6 +75,7 @@ class InstallmentService
                   'type' => 'expense',
                   'description' => $inst->description ? "{$inst->description} ({$i}/{$n})" : "Parcela {$i}/{$n}",
                   'amount' => $amount,
+                  'purchase_date' => $purchase->toDateString(),  // ✅  data real da compra (fixa)
                   'date' => $date->toDateString(),                 // ✅ dia da compra (clamp no fim do mês)
                   'competence_month' => $competence->format('Y-m'), // ✅ mês correto
                   'installment_id' => $inst->id,
