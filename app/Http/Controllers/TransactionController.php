@@ -113,6 +113,7 @@ class TransactionController extends Controller
         return Inertia::render('Transactions/Form', [
             'mode' => 'create',
             'transaction' => null,
+            'return_month' => $request->query('month'),
             'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
             // (opcional) traz type e statement_close_day caso você queira exibir/ajudar no front
             'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
@@ -157,6 +158,7 @@ class TransactionController extends Controller
 
         return Inertia::render('Transactions/Form', [
             'mode' => 'edit',
+            'return_month' => $request->query('month'),
             'transaction' => [
                 'id' => $transaction->id,
                 'type' => $transaction->type,
@@ -211,9 +213,18 @@ class TransactionController extends Controller
     public function destroy(Transaction $transaction, Request $request)
     {
         abort_unless($transaction->user_id === $request->user()->id, 403);
+         // ✅ mês de contexto (tela/lista que o usuário estava)
+        $returnMonth = $request->query('month');
+
+        // fallback: mês do próprio lançamento (se não veio month)
+        $fallbackMonth = $transaction->competence_month
+            ?: $transaction->date->format('Y-m');
+
         $transaction->delete();
 
-        return redirect()->route('transactions.index');
+        return redirect()->route('transactions.index', [
+            'month' => $returnMonth ?: $fallbackMonth,
+        ]);
     }
 
     private function computeCompetenceMonth(Account $account, string $dateYmd): string
