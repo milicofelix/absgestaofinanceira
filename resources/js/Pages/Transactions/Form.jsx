@@ -4,7 +4,7 @@ import MoneyInput from '@/Components/MoneyInput';
 import { useEffect, useMemo, useRef } from 'react';
 import Checkbox from '@/Components/Checkbox';
 
-export default function Form({ mode, transaction, categories, accounts }) {
+export default function Form({ mode, transaction, categories, accounts, return_month }) {
   const isCreate = mode === 'create';
 
   const { data, setData, post, put, processing, errors } = useForm({
@@ -551,7 +551,7 @@ export default function Form({ mode, transaction, categories, accounts }) {
               {/* Actions */}
               <div className="flex items-center justify-between pt-4">
                 <Link
-                  href={route('transactions.index')}
+                  href={route('transactions.index', return_month ? { month: return_month } : {})}
                   className="text-sm font-semibold text-gray-600 hover:text-gray-800 hover:underline dark:text-slate-300 dark:hover:text-slate-100"
                 >
                   Voltar

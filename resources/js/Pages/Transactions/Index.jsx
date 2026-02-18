@@ -70,7 +70,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
           </div>
 
           <Link
-            href={route('transactions.create')}
+            href={route('transactions.create', { month })}
             className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
           >
             + Novo lançamento
@@ -346,7 +346,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
                     <div className="mt-2 flex justify-end gap-2">
                       <Link
-                        href={route('transactions.edit', t.id)}
+                        href={route('transactions.edit', { transaction: t.id, month })}
                         className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                         title="Editar"
                       >
@@ -496,7 +496,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                       <div className="inline-flex items-center gap-2">
                         <Link
                           className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-                          href={route('transactions.edit', t.id)}
+                          href={route('transactions.edit', { transaction: t.id, month })}
                           title="Editar"
                         >
                           <IconEdit />
@@ -524,7 +524,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
                           title="Excluir"
                           onClick={() =>
-                            confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))
+                            confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', { transaction: t.id, month }))
                           }
                         >
                           <IconTrash />
