@@ -2,6 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useMemo } from 'react';
+import MoneyInput from '@/Components/MoneyInput';
 
 function formatBRLInput(v) {
   // mantém string (não formata pra não atrapalhar digitação)
@@ -92,18 +93,19 @@ export default function Form({ mode, recurring, accounts, categories }) {
 
               {/* valor */}
               <div>
-                <label className={labelBase}>Valor</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  inputMode="decimal"
-                  className={inputBase}
-                  value={formatBRLInput(data.amount)}
-                  onChange={(e) => setData('amount', e.target.value)}
+              <label className={labelBase}>Valor</label>
+
+              <div className="mt-1">
+                <MoneyInput
+                  value={data.amount}
+                  onValueChange={(normalized) => setData('amount', normalized)} // ex: "4077.00"
+                  placeholder="0,00"
+                  prefix="R$"
                 />
-                {errorText(errors.amount)}
               </div>
 
+              {errorText(errors.amount)}
+            </div>
               {/* conta */}
               <div>
                 <label className={labelBase}>Conta</label>
