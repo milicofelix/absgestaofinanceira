@@ -14,7 +14,7 @@ class StoreTransactionRequest extends FormRequest
         return [
             'type'          => ['required', Rule::in(['income','expense'])],
             'amount'        => ['required', 'numeric', 'gt:0'],
-            'date'          => ['required', 'date'],
+            'date'          => ['required', 'date_format:Y-m-d'],
             'description'   => ['nullable', 'string', 'max:255'],
             'category_id'   => ['required', 'integer'],
             'account_id'    => ['required', 'integer'],

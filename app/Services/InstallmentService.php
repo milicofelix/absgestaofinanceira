@@ -20,16 +20,17 @@ class InstallmentService
               ->where('user_id', $data['user_id'])
               ->firstOrFail();
 
-          $purchase = Carbon::parse($data['purchase_date'])->startOfDay();
+          //$purchase = Carbon::parse($data['purchase_date'])->startOfDay();
+          $purchase = Carbon::createFromFormat('Y-m-d', $data['purchase_date'], config('app.timezone'))->startOfDay();
 
           // Dia base para lançar (mantém o dia da compra por padrão)
           $dayBase = $purchase->day;
 
           // ✅ Se o front mandou first_due_date: respeita data completa (e usa o dia dela como base)
           if (!empty($data['first_due_date'])) {
-              $firstDue = Carbon::parse($data['first_due_date'])->startOfDay();
-              $dayBase  = $firstDue->day;
-          } else {
+            $firstDue = Carbon::createFromFormat('Y-m-d', $data['first_due_date'], config('app.timezone'))->startOfDay();
+            $dayBase  = $firstDue->day;
+            } else {
               // ✅ Se não mandou: calcula o MÊS de competência pelo fechamento e monta a data usando o dia da compra
               $firstCompetence = $this->computeFirstCompetenceMonthByStatementCloseDay(
                   $purchase,
@@ -106,7 +107,9 @@ class InstallmentService
                 ->startOfDay();
         }
 
-        return $nextClose->startOfMonth();
+        //return $nextClose->startOfMonth();
+        return $nextClose->copy()->addMonthNoOverflow()->startOfMonth();
+
     }
 
 }
