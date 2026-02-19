@@ -16,6 +16,11 @@ class PostRecurringTransactions extends Command
 
   public function handle(): int
   {
+    \Log::channel('daily')->info('[CRON] recurring:post iniciou', [
+      'ts' => now()->toDateTimeString(),
+      'server' => php_uname('n'),
+    ]);
+
     $today = $this->option('date')
       ? Carbon::parse($this->option('date'))->startOfDay()
       : now()->startOfDay();
@@ -69,6 +74,12 @@ class PostRecurringTransactions extends Command
       });
 
     $this->info("Recorrências lançadas: {$count}");
+    
+    \Log::channel('daily')->info('[CRON] recurring:post finalizou', [
+      'ts' => now()->toDateTimeString(),
+      'count' => $count,
+    ]);
+
     return self::SUCCESS;
   }
 }

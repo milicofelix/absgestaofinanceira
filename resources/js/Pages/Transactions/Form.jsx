@@ -11,7 +11,7 @@ export default function Form({ mode, transaction, categories, accounts, return_m
     // lançamento normal
     type: transaction?.type ?? 'expense',
     amount: transaction?.amount ?? '', // normalizado: "1234.56"
-    date: transaction?.date ?? new Date().toISOString().slice(0, 10),
+    date: transaction?.date ?? todayLocalISO(),
     description: transaction?.description ?? '',
     category_id: transaction?.category_id ?? (categories?.[0]?.id ?? ''),
     account_id: transaction?.account_id ?? (accounts?.[0]?.id ?? ''),
@@ -21,7 +21,7 @@ export default function Form({ mode, transaction, categories, accounts, return_m
     // ✅ parcelamento (somente create/expense)
     is_installment: false,
     installments_count: 12,
-    first_due_date: new Date().toISOString().slice(0, 10), // não enviado no parcelado
+    first_due_date: todayLocalISO(), // não enviado no parcelado
   });
 
   // ✅ sync no edit
@@ -184,6 +184,14 @@ export default function Form({ mode, transaction, categories, accounts, return_m
     if (nextType !== 'expense') {
       setData('is_installment', false);
     }
+  }
+
+  function todayLocalISO() {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
 
   const typeBadge =

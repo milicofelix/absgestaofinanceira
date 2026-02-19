@@ -39,6 +39,39 @@ services:
       - host.docker.internal=host-gateway
     networks:
       - shared
+  
+  scheduler:
+    image: php82-fpm-base:1
+    container_name: financeiro_scheduler
+    working_dir: /var/www/app
+    volumes:
+      - ./:/var/www/app
+    depends_on:
+      - app
+    user: root
+    command: >
+      /bin/bash -lc '
+        set -e;
+
+        apt-get update;
+        apt-get install -y cron tzdata;
+        rm -rf /var/lib/apt/lists/*;
+
+        ls -la /var/www/app/docker/cron;
+        test -f /var/www/app/docker/cron/crontab;
+
+        cp /var/www/app/docker/cron/crontab /etc/cron.d/app-cron;
+        chmod 0644 /etc/cron.d/app-cron;
+
+        echo "=== /etc/cron.d/app-cron ===";
+        cat /etc/cron.d/app-cron;
+
+        touch /var/www/app/storage/logs/cron.log;
+
+        cron -f
+      '
+    networks:
+      - shared
 
   web:
     image: nginx:1.27-alpine
