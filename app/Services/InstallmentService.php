@@ -95,21 +95,18 @@ class InstallmentService
     {
         $closeDay = max(1, min(28, $closeDay));
 
-        // ✅ próximo fechamento
-        $nextClose = $purchase->copy()
+         // fechamento do mês da compra (no dia closeDay)
+        $thisMonthClose = $purchase->copy()
             ->day(min($closeDay, $purchase->daysInMonth))
             ->startOfDay();
 
-        if ($purchase->gte($nextClose)) {
-            $nextClose = $purchase->copy()
-                ->addMonthNoOverflow()
-                ->day($closeDay)
-                ->startOfDay();
-        }
+        // se a compra foi no/apos fechamento, vai pro fechamento do mês seguinte
+        $nextClose = $purchase->lt($thisMonthClose)
+            ? $thisMonthClose
+            : $thisMonthClose->copy()->addMonthNoOverflow();
 
-        //return $nextClose->startOfMonth();
-        return $nextClose->copy()->addMonthNoOverflow()->startOfMonth();
-
+        // ✅ competência = mês do fechamento que vai receber a compra
+        return $nextClose->copy()->startOfMonth();
     }
 
 }
