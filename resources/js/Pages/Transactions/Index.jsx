@@ -28,6 +28,11 @@ export default function Index({ transactions, filters, categories, accounts }) {
     [month, type, categoryId, accountId, q, installmentFilter, status],
   );
 
+  const bankAccounts = useMemo(
+  () => (accounts || []).filter((a) => a.type !== 'credit_card'),
+  [accounts],
+);
+
   function exportFile() {
     const params = new URLSearchParams();
     Object.entries(queryParams).forEach(([k, v]) => {
@@ -59,6 +64,110 @@ export default function Index({ transactions, filters, categories, accounts }) {
     applyFilters();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [month]);
+
+  function markAsCleared(t) {
+    // já está pago? não faz nada
+    if (t.is_cleared) return;
+
+    const isCreditCardExpense =
+      t.type === 'expense' && String(t.account?.type || '').toLowerCase() === 'credit_card';
+
+    // caso NORMAL (banco / pix etc): atualiza o lançamento
+    if (!isCreditCardExpense) {
+      return router.put(
+        route('transactions.update', t.id),
+        { is_cleared: true },
+        { preserveScroll: true }
+      );
+    }
+
+    // caso CARTÃO: precisa escolher conta pagadora (banco)
+    if (!bankAccounts.length) {
+      alert('Cadastre uma conta bancária para registrar o pagamento do cartão.');
+      return;
+    }
+
+    // jeito mais simples sem modal: prompt com IDs (funciona, mas UX ok/rápida)
+    const optionsText = bankAccounts.map((a) => `${a.id} - ${a.name}`).join('\n');
+    const picked = prompt(`Pagar com qual conta?\n\n${optionsText}\n\nDigite o ID da conta:`);
+
+    if (!picked) return;
+
+    const bankId = Number(picked);
+    if (!bankId || !bankAccounts.some((a) => Number(a.id) === bankId)) {
+      alert('Conta inválida.');
+      return;
+    }
+
+    // chama endpoint dedicado que cria a transferência banco->cartão e marca quitado
+    router.post(route('transactions.markPaid', t.id), {
+      paid_bank_account_id: bankId,
+      cleared_at: new Date().toISOString().slice(0, 10),
+    }, { preserveScroll: true });
+  }
+
+    function daysInMonth(y, m1to12) {
+      return new Date(y, m1to12, 0).getDate(); // m aqui é 1..12
+    }
+
+    function buildClosingDate(selectedMonth, closingDay) {
+      // selectedMonth = "YYYY-MM"
+      const [yy, mm] = String(selectedMonth || '').slice(0, 7).split('-').map(Number);
+      if (!yy || !mm) return null;
+
+      const lastDay = daysInMonth(yy, mm);
+      const d = Math.min(Number(closingDay || 0), lastDay); // evita 29/30/31 inválido
+      if (!d) return null;
+
+      // Date local: cuidado com timezone, mas aqui é só comparação de dia
+      return new Date(yy, mm - 1, d, 0, 0, 0, 0);
+    }
+
+    function isClosedForMonth(selectedMonth, closingDay) {
+      const closingDate = buildClosingDate(selectedMonth, closingDay);
+      if (!closingDate) return false;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return today >= closingDate; // fechou ou passou do fechamento
+    }
+
+    function getAccountById(accounts, id) {
+      return (accounts || []).find((a) => Number(a.id) === Number(id));
+    }
+
+    function canShowPayButton(t) {
+      if (t.is_cleared) return false;
+
+      // só despesa
+      if (String(t.type || '').toLowerCase() !== 'expense') return false;
+
+      //const acc = t.account || getAccountById(accounts, t.account_id);
+      const accFromTx = t.account;
+      const accFromList = getAccountById(accounts, t.account_id);
+
+      // se a conta da transação não tiver statement_close_day, usa a da lista
+      const acc =
+        (accFromTx && (accFromTx.statement_close_day || accFromTx.closing_day))
+          ? accFromTx
+          : (accFromList || accFromTx);
+       if (String(acc?.type || '').toLowerCase() === 'credit_card') {
+        console.log('CC acc=', acc);
+      }
+      if (!acc) return false;
+
+      // só para cartão de crédito
+      const isCreditCard = String(acc.type || '').toLowerCase() === 'credit_card';
+      if (!isCreditCard) return false;
+
+      // precisa ter fechamento
+      const closingDay = acc.statement_close_day ?? acc.closing_day;
+      if (!closingDay) return false;
+
+      // só mostra se o mês filtrado já fechou
+      return isClosedForMonth(month, closingDay);
+    }
 
   return (
     <AuthenticatedLayout
@@ -369,6 +478,16 @@ export default function Index({ transactions, filters, categories, accounts }) {
                         </button>
                       )}
 
+                      {canShowPayButton(t) && (
+                        <button
+                          className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
+                          title="Marcar como pago"
+                          onClick={() => markAsCleared(t)}
+                        >
+                          ✓
+                        </button>
+                      )}
+
                       <button
                         className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
                         title="Excluir"
@@ -392,158 +511,177 @@ export default function Index({ transactions, filters, categories, accounts }) {
           </div>
 
           {/* ✅ DESKTOP: tabela */}
-          <div className="hidden overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 sm:block">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b bg-gray-50 text-gray-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Data</th>
-                  <th className="px-4 py-3 font-semibold">Descrição</th>
-                  <th className="px-4 py-3 font-semibold">Categoria</th>
-                  <th className="px-4 py-3 font-semibold">Conta</th>
-                  <th className="px-4 py-3 font-semibold">Pagamento</th>
-                  <th className="px-4 py-3 text-right font-semibold">Valor</th>
-                  <th className="px-4 py-3 text-right font-semibold">Ações</th>
-                </tr>
-              </thead>
+          <div className="hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 sm:block">
+             <div className="overflow-x-auto">
+              <table className="min-w-[980px] w-full text-left text-sm">
+                <thead className="border-b bg-gray-50 text-gray-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+                  <tr>
+                    <th className="px-4 py-3 font-semibold">Data</th>
+                    <th className="px-4 py-3 font-semibold">Descrição</th>
+                    <th className="px-4 py-3 font-semibold">Categoria</th>
+                    <th className="px-4 py-3 font-semibold">Conta</th>
+                    <th className="px-4 py-3 font-semibold">Pagamento</th>
+                    <th className="px-4 py-3 text-right font-semibold">Valor</th>
+                    <th className="px-4 py-3 text-right font-semibold
+                                  sticky right-0 z-10
+                                  bg-gray-50 dark:bg-slate-950
+                                  shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]">Ações</th>
+                  </tr>
+                </thead>
 
-              <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                {transactions.data.map((t) => (
-                  <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/60">
-                    <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{formatDateBR(t.date)}</td>
+                <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
+                  {transactions.data.map((t) => (
+                    <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/60">
+                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{formatDateBR(t.date)}</td>
 
-                    <td className="px-4 py-3">
-                      <div className="flex items-start gap-3">
-                        <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
-                          <PaymentIcon method={t.payment_method} />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="truncate text-gray-900 dark:text-slate-100 font-semibold">
-                            {t.description || (
-                              <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>
-                            )}
+                      <td className="px-4 py-3">
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
+                            <PaymentIcon method={t.payment_method} />
                           </div>
 
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <span
-                              className={[
-                                'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                t.type === 'expense'
-                                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
-                                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
-                              ].join(' ')}
-                            >
-                              {t.type === 'expense' ? 'Despesa' : 'Receita'}
-                            </span>
+                          <div className="min-w-0">
+                            <div className="truncate text-gray-900 dark:text-slate-100 font-semibold">
+                              {t.description || (
+                                <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>
+                              )}
+                            </div>
 
-                            {t.installment_id && (
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
                               <span
                                 className={[
                                   'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                  t.installment?.is_active
-                                    ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
-                                    : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
+                                  t.type === 'expense'
+                                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
+                                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
                                 ].join(' ')}
-                                title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
                               >
-                                {t.installment_number}/{t.installment?.installments_count ?? '?'}
+                                {t.type === 'expense' ? 'Despesa' : 'Receita'}
                               </span>
-                            )}
 
-                            <StatusBadge t={t} />
-                            {t.purchase_date && t.purchase_date !== t.date && (
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                                Compra {formatDateBR(t.purchase_date)}
-                              </span>
-                            )}
+                              {t.installment_id && (
+                                <span
+                                  className={[
+                                    'rounded-full px-2 py-0.5 text-xs font-semibold',
+                                    t.installment?.is_active
+                                      ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
+                                      : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
+                                  ].join(' ')}
+                                  title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
+                                >
+                                  {t.installment_number}/{t.installment?.installments_count ?? '?'}
+                                </span>
+                              )}
+
+                              <StatusBadge t={t} />
+                              {t.purchase_date && t.purchase_date !== t.date && (
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                                  Compra {formatDateBR(t.purchase_date)}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
+                      </td>
 
-                    <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{t.category?.name || '—'}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{t.category?.name || '—'}</td>
 
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
-                          <AccountTypeIcon type={t.account?.type} />
-                        </span>
-                        <span className="min-w-0 truncate">{t.account?.name || '—'}</span>
-                      </div>
-                    </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
+                            <AccountTypeIcon type={t.account?.type} />
+                          </span>
+                          <span className="min-w-0 truncate">{t.account?.name || '—'}</span>
+                        </div>
+                      </td>
 
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
-                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
-                          <PaymentIcon method={t.payment_method} />
-                        </span>
-                        <span className="font-semibold">{PaymentLabel(t.payment_method)}</span>
-                      </div>
-                    </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
+                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
+                            <PaymentIcon method={t.payment_method} />
+                          </span>
+                          <span className="font-semibold">{PaymentLabel(t.payment_method)}</span>
+                        </div>
+                      </td>
 
-                    <td
-                      className={[
-                        'px-4 py-3 text-right font-semibold',
-                        t.type === 'expense'
-                          ? 'text-rose-600 dark:text-rose-300'
-                          : 'text-emerald-600 dark:text-emerald-300',
-                      ].join(' ')}
-                    >
-                      {formatBRL(t.amount)}
-                    </td>
+                      <td
+                        className={[
+                          'px-4 py-3 text-right font-semibold',
+                          t.type === 'expense'
+                            ? 'text-rose-600 dark:text-rose-300'
+                            : 'text-emerald-600 dark:text-emerald-300',
+                        ].join(' ')}
+                      >
+                        {formatBRL(t.amount)}
+                      </td>
 
-                    <td className="px-4 py-3 text-right">
-                      <div className="inline-flex items-center gap-2">
-                        <Link
-                          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-                          href={route('transactions.edit', { transaction: t.id, month })}
-                          title="Editar"
-                        >
-                          <IconEdit />
-                          <span className="hidden md:inline">Editar</span>
-                        </Link>
-
-                        {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
-                          <button
-                            className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
-                            title="Cancelar parcelamento"
-                            onClick={() => {
-                              if (
-                                !confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')
-                              )
-                                return;
-                              router.post(route('installments.cancel', t.installment_id));
-                            }}
+                      <td className="px-4 py-3 text-right
+                                    sticky right-0
+                                    bg-white dark:bg-slate-900
+                                    shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]">
+                        <div className="inline-flex items-center gap-2 whitespace-nowrap  ">
+                          <Link
+                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+                            href={route('transactions.edit', { transaction: t.id, month })}
+                            title="Editar"
                           >
-                            <IconBlock />
-                            <span className="hidden md:inline">Cancelar</span>
+                            <IconEdit />
+                            <span className="hidden md:inline">Editar</span>
+                          </Link>
+
+                          {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
+                            <button
+                              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                              title="Cancelar parcelamento"
+                              onClick={() => {
+                                if (
+                                  !confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')
+                                )
+                                  return;
+                                router.post(route('installments.cancel', t.installment_id));
+                              }}
+                            >
+                              <IconBlock />
+                              <span className="hidden md:inline">Cancelar</span>
+                            </button>
+                          )}
+
+                          {canShowPayButton(t) && (
+                            <button
+                              className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
+                              title="Marcar como pago"
+                              onClick={() => markAsCleared(t)}
+                            >
+                              ✓
+                              <span className="hidden md:inline">Pagar</span>
+                            </button>
+                          )}
+
+                          <button
+                            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
+                            title="Excluir"
+                            onClick={() =>
+                              confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', { transaction: t.id, month }))
+                            }
+                          >
+                            <IconTrash />
+                            <span className="hidden md:inline">Excluir</span>
                           </button>
-                        )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
 
-                        <button
-                          className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
-                          title="Excluir"
-                          onClick={() =>
-                            confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', { transaction: t.id, month }))
-                          }
-                        >
-                          <IconTrash />
-                          <span className="hidden md:inline">Excluir</span>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-
-                {transactions.data.length === 0 && (
-                  <tr>
-                    <td className="px-4 py-10 text-center text-gray-500 dark:text-slate-400" colSpan={7}>
-                      Nenhum lançamento encontrado.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  {transactions.data.length === 0 && (
+                    <tr>
+                      <td className="px-4 py-10 text-center text-gray-500 dark:text-slate-400" colSpan={7}>
+                        Nenhum lançamento encontrado.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {/* ✅ paginação única */}

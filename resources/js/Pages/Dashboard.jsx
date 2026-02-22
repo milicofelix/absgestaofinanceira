@@ -295,7 +295,11 @@ export default function Dashboard({
                       >
                         {formatBRL(a.balance)}
                       </div>
-                      <div className="text-xs text-gray-400 dark:text-slate-500">saldo atual</div>
+                     <div className="text-xs text-gray-400 dark:text-slate-500">
+                      {a.type === 'credit_card'
+                        ? (Number(a.balance) > 0 ? 'dívida atual' : 'crédito no cartão')
+                        : 'saldo atual'}
+                    </div>
                     </div>
                   </li>
                 ))}

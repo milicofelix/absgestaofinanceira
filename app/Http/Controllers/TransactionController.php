@@ -4,12 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreTransactionRequest;
 use App\Http\Requests\UpdateTransactionRequest;
+use App\Http\Requests\MarkPaidRequest;
 use App\Models\Account;
 use App\Models\Category;
 use App\Models\Transaction;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use App\Services\CreditCardPaymentService;
 
 class TransactionController extends Controller
 {
@@ -37,7 +39,7 @@ class TransactionController extends Controller
             })
             ->with([
                 'category:id,name',
-                'account:id,name,type',
+                'account:id,name,type,statement_close_day',
                 'installment:id,installments_count,is_active'
             ])
 
@@ -252,5 +254,29 @@ class TransactionController extends Controller
 
         // Competência = mês do próximo fechamento
         return $nextClose->format('Y-m');
+    }
+
+    public function markPaid(MarkPaidRequest $request, Transaction $transaction, CreditCardPaymentService $svc)
+    {
+        abort_unless($transaction->user_id === $request->user()->id, 403);
+
+        $transaction->loadMissing('account');
+
+        $bankId = (int) $request->input('paid_bank_account_id');
+        $clearedAt = $request->input('cleared_at'); // "YYYY-MM-DD" ou null
+
+        // Cartão + despesa => cria transferência e quita
+        if (($transaction->account->type ?? null) === 'credit_card' && $transaction->type === 'expense') {
+            $svc->payExpense($transaction, $bankId, $clearedAt);
+
+            return back()->with('success', 'Pagamento registrado e dívida do cartão atualizada.');
+        }
+
+        // Não cartão => só quita o lançamento
+        $transaction->is_cleared = true;
+        $transaction->cleared_at = $clearedAt ? $clearedAt.' 00:00:00' : now();
+        $transaction->save();
+
+        return back()->with('success', 'Transação marcada como paga.');
     }
 }

@@ -143,10 +143,17 @@ class DashboardController extends Controller
             $openingBalance  = $initial + $beforeInc - $beforeExp;
             $monthEndBalance = $openingBalance + $monthInc - $monthExp;
 
+            // 🔥 cartão mostra dívida, não saldo
+            if ($a->type === 'credit_card') {
+                $openingBalance  *= -1;
+                $monthEndBalance *= -1;
+            }
+
             return [
                 'id' => $a->id,
                 'name' => $a->name,
                 'type' => $a->type,
+                'initial_balance' => $initial,
 
                 'opening_balance' => $openingBalance,
                 'income' => $monthInc,
