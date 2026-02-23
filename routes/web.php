@@ -15,6 +15,7 @@ use App\Http\Controllers\RecurringTransactionController;
 use App\Http\Controllers\InstallmentController;
 use App\Http\Controllers\CategoryBudgetController;
 use App\Http\Controllers\ThemeSettingsController;
+use App\Http\Controllers\CreditCardInvoiceController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -67,6 +68,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Configurações
     Route::get('/settings/theme', [ThemeSettingsController::class, 'edit'])->name('settings.theme.edit');
     Route::put('/settings/theme', [ThemeSettingsController::class, 'update'])->name('settings.theme.update');
+
+    // Cartão de crédito - faturas
+    Route::post('/credit-cards/{account}/pay-invoice', [CreditCardInvoiceController::class, 'pay'])
+        ->name('credit-cards.pay-invoice');
 
 });
 
