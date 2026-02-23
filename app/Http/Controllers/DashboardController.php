@@ -77,7 +77,7 @@ class DashboardController extends Controller
         $accountsRaw = Account::query()
             ->where('user_id', $userId)
             ->orderBy('name')
-            ->get(['id', 'name', 'type', 'initial_balance']);
+            ->get(['id', 'name', 'type', 'initial_balance', 'statement_close_day']);
 
         // Tudo ANTES do mês (por competência)
         $beforeAgg = Transaction::query()
@@ -143,47 +143,34 @@ class DashboardController extends Controller
             $openingBalance  = $initial + $beforeInc - $beforeExp;
             $monthEndBalance = $openingBalance + $monthInc - $monthExp;
 
-            // 🔥 cartão mostra dívida, não saldo
-            if ($a->type === 'credit_card') {
-                $openingBalance  *= -1;
-                $monthEndBalance *= -1;
-            }
-
             return [
                 'id' => $a->id,
                 'name' => $a->name,
                 'type' => $a->type,
-                'initial_balance' => $initial,
 
                 'opening_balance' => $openingBalance,
                 'income' => $monthInc,
                 'expense' => $monthExp,
                 'balance' => $monthEndBalance,
+                'statement_close_day' => $a->statement_close_day,
             ];
         })->values();
 
         $openingBalance = (float) $accounts->sum('opening_balance');
 
-        // Soma do saldo inicial (ignora cartão de crédito)
-        $initialTotal = (float) Account::query()
-            ->where('user_id', $userId)
-            ->where('type', '!=', 'credit_card')
-            ->sum('initial_balance');
-
-        // Receitas acumuladas (até o mês selecionado) + saldo inicial
-        $lifetimeIncome = $initialTotal + (float) Transaction::query()
+        // Receitas acumuladas (até o mês selecionado) - por competência
+        $lifetimeIncome = (float) Transaction::query()
             ->where('user_id', $userId)
             ->where('type', 'income')
             ->where('is_transfer', false)
             ->where(function ($q) use ($month, $end) {
                 $q->where('competence_month', '<=', $month)
-                ->orWhere(function ($q2) use ($end) {
-                    $q2->whereNull('competence_month')
-                        ->whereDate('date', '<=', $end->toDateString());
-                });
+                  ->orWhere(function ($q2) use ($end) {
+                      $q2->whereNull('competence_month')
+                         ->whereDate('date', '<=', $end->toDateString());
+                  });
             })
             ->sum('amount');
-
 
         // Badge de metas do mês selecionado (exceeded/warning de verdade)
         $year = (int) substr($month, 0, 4);
