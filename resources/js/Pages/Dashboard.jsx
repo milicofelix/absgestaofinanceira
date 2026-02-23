@@ -228,8 +228,8 @@ export default function Dashboard({
               onClick={() => setShowLifetimeIncome((v) => !v)}
               className={[
                 'relative inline-flex h-6 w-11 items-center rounded-full transition',
-                showLifetimeIncome ? 'bg-emerald-600' : 'bg-gray-300',
-                'focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2',
+                showLifetimeIncome ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-slate-700',
+                'focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900',
               ].join(' ')}
             >
               <span
@@ -246,12 +246,20 @@ export default function Dashboard({
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Metas do mês em atenção</div>
-                  <div className="mt-1 text-sm text-gray-600">
+                  <div className="mt-1 text-sm text-gray-600 dark:text-slate-300">
                     {budgetsBadge.exceeded ? (
-                      <span className="font-semibold text-rose-700">{budgetsBadge.exceeded} estourada(s)</span>
+                      <span className="font-semibold text-rose-700 dark:text-rose-300">
+                        {budgetsBadge.exceeded} estourada(s)
+                      </span>
                     ) : null}
                     {budgetsBadge.warning ? (
-                      <span className={budgetsBadge.exceeded ? 'ml-2 font-semibold text-amber-800' : 'font-semibold text-amber-800'}>
+                      <span
+                        className={
+                          budgetsBadge.exceeded
+                            ? 'ml-2 font-semibold text-amber-800 dark:text-amber-300'
+                            : 'font-semibold text-amber-800 dark:text-amber-300'
+                        }
+                      >
                         {budgetsBadge.warning} em risco
                       </span>
                     ) : null}
@@ -260,7 +268,7 @@ export default function Dashboard({
 
                 <Link
                   href={route('budgets.index', { month: budgetsBadge.month })}
-                  className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black"
+                  className="inline-flex items-center justify-center rounded-lg bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-black dark:bg-slate-800 dark:hover:bg-slate-700"
                 >
                   Ver metas →
                 </Link>
@@ -328,7 +336,7 @@ export default function Dashboard({
               </div>
               <Link
                 href={route('accounts.index')}
-                className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+                className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
               >
                 Gerenciar contas
               </Link>
@@ -339,13 +347,13 @@ export default function Dashboard({
                 {accounts.map((a) => (
                   <li key={a.id} className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
-                      <div className="truncate font-semibold text-gray-900">{a.name}</div>
+                      <div className="truncate font-semibold text-gray-900 dark:text-slate-100">{a.name}</div>
 
-                      <div className="mt-1 text-xs text-gray-500">
+                      <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                         Inicial: {formatBRL(a.initial_balance)} ·{' '}
-                        <span className="text-emerald-700">+{formatBRL(a.income)}</span> ·{' '}
-                        <span className="text-rose-600">-{formatBRL(a.expense)}</span>
-                        <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                        <span className="text-emerald-700 dark:text-emerald-300">+{formatBRL(a.income)}</span> ·{' '}
+                        <span className="text-rose-600 dark:text-rose-300">-{formatBRL(a.expense)}</span>
+                        <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 dark:bg-slate-800 dark:text-slate-300">
                           anterior: {formatBRL(a.opening_balance)}
                         </span>
                       </div>
@@ -362,20 +370,20 @@ export default function Dashboard({
                     </div>
 
                     <div className="text-right">
-                      <div className={['text-lg font-bold', Number(a.balance) >= 0 ? 'text-gray-900' : 'text-rose-700'].join(' ')}>
+                      <div className={['text-lg font-bold', Number(a.balance) >= 0 ? 'text-gray-900 dark:text-slate-100' : 'text-rose-700 dark:text-rose-300'].join(' ')}>
                         {formatBRL(a.balance)}
                       </div>
-                      <div className="text-xs text-gray-400">saldo atual</div>
+                      <div className="text-xs text-gray-400 dark:text-slate-400">saldo atual</div>
                     </div>
                   </li>
                 ))}
               </ul>
             ) : (
-              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
+              <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-800">
                 <div>Sem contas cadastradas.</div>
                 <Link
                   href={route('accounts.index')}
-                  className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                  className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
                 >
                   + Criar conta
                 </Link>
@@ -389,7 +397,7 @@ export default function Dashboard({
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Top categorias (despesas)</h3>
-                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200">
                   {monthLabel}
                 </span>
               </div>
@@ -405,17 +413,17 @@ export default function Dashboard({
                     return (
                       <li key={c.category_id}>
                         <div className="flex items-center justify-between text-sm">
-                          <span className="truncate font-medium text-gray-800">{c.name}</span>
+                          <span className="truncate font-medium text-gray-800 dark:text-slate-100">{c.name}</span>
 
                           <div className="ml-4 flex items-center gap-2">
-                            <span className="whitespace-nowrap font-semibold text-gray-900">{formatBRL(c.total)}</span>
-                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600">
+                            <span className="whitespace-nowrap font-semibold text-gray-900 dark:text-slate-100">{formatBRL(c.total)}</span>
+                            <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 dark:bg-slate-800 dark:text-slate-300">
                               {share}%
                             </span>
                           </div>
                         </div>
 
-                        <div className="mt-2 h-2 w-full rounded-full bg-gray-100">
+                        <div className="mt-2 h-2 w-full rounded-full bg-gray-100 dark:bg-slate-800">
                           <div
                             className="h-2 rounded-full bg-emerald-600"
                             style={{ width: `${Math.max(5, pctBar)}%` }}
@@ -445,7 +453,7 @@ export default function Dashboard({
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Últimos lançamentos</h3>
                 <Link
                   href={route('transactions.index', { month: selectedMonth })}
-                  className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline"
+                  className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-500 dark:hover:text-emerald-600"
                 >
                   Ver todos
                 </Link>
@@ -456,23 +464,23 @@ export default function Dashboard({
                   {latest.map((t) => (
                     <li
                       key={t.id}
-                      className="group rounded-xl border border-gray-100 p-4 hover:border-gray-200 hover:bg-gray-50"
+                      className="group rounded-xl border border-gray-100 p-4 hover:border-gray-200 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="truncate font-semibold text-gray-900">{t.description || '(sem descrição)'}</div>
+                          <div className="truncate font-semibold text-gray-900 dark:text-slate-100">{t.description || '(sem descrição)'}</div>
 
-                          <div className="mt-1 text-xs text-gray-500">
+                          <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                             {formatDateBR(t.date)} · {t.category || '—'} · {t.account || '—'}
                           </div>
 
                           <div className="mt-2 flex items-center gap-2">
                             {t.type === 'expense' ? (
-                              <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700">
+                              <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-900">
                                 Despesa
                               </span>
                             ) : (
-                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900">
                                 Receita
                               </span>
                             )}
@@ -480,13 +488,13 @@ export default function Dashboard({
                             {/* ações rápidas no desktop (aparece no hover) */}
                             <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
                               <Link
-                                className="text-xs font-semibold text-emerald-700 hover:underline"
+                                className="text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-500 dark:hover:text-emerald-600"
                                 href={route('transactions.edit', t.id)}
                               >
                                 Editar
                               </Link>
                               <button
-                                className="text-xs font-semibold text-rose-600 hover:underline"
+                                className="text-xs font-semibold text-rose-600 hover:underline dark:text-rose-400 dark:hover:text-rose-500"
                                 onClick={() =>
                                   confirm('Excluir este lançamento?') &&
                                   router.delete(route('transactions.destroy', t.id))
@@ -501,7 +509,7 @@ export default function Dashboard({
                         <div
                           className={[
                             'whitespace-nowrap text-right text-sm font-bold',
-                            t.type === 'expense' ? 'text-rose-700' : 'text-emerald-700',
+                            t.type === 'expense' ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400',
                           ].join(' ')}
                         >
                           {t.type === 'expense' ? '-' : '+'}
@@ -576,50 +584,49 @@ function StatCard({ title, value, icon, tone = 'green', href, subLabel }) {
 }
 
 function getPastelToneClasses(tone) {
-  // Pastéis (fundo do card + borda + cor do título + “badge” do ícone)
   switch (tone) {
     case 'blue':
       return {
-        card: 'bg-sky-50 ring-sky-200/60',
-        title: 'text-sky-800',
-        sub: 'text-sky-700',
-        icon: 'bg-white/70 text-sky-700 ring-sky-200/70',
+        card: 'bg-sky-50 ring-sky-200/60 dark:bg-sky-900/20 dark:ring-sky-900/40',
+        title: 'text-sky-800 dark:text-sky-200',
+        sub: 'text-sky-700 dark:text-sky-300',
+        icon: 'bg-white/70 text-sky-700 ring-sky-200/70 dark:bg-slate-900/60 dark:text-sky-200 dark:ring-sky-900/40',
       };
     case 'purple':
       return {
-        card: 'bg-violet-50 ring-violet-200/60',
-        title: 'text-violet-800',
-        sub: 'text-violet-700',
-        icon: 'bg-white/70 text-violet-700 ring-violet-200/70',
+        card: 'bg-violet-50 ring-violet-200/60 dark:bg-violet-900/20 dark:ring-violet-900/40',
+        title: 'text-violet-800 dark:text-violet-200',
+        sub: 'text-violet-700 dark:text-violet-300',
+        icon: 'bg-white/70 text-violet-700 ring-violet-200/70 dark:bg-slate-900/60 dark:text-violet-200 dark:ring-violet-900/40',
       };
     case 'yellow':
       return {
-        card: 'bg-amber-50 ring-amber-200/60',
-        title: 'text-amber-900',
-        sub: 'text-amber-800',
-        icon: 'bg-white/70 text-amber-800 ring-amber-200/70',
+        card: 'bg-amber-50 ring-amber-200/60 dark:bg-amber-900/15 dark:ring-amber-900/35',
+        title: 'text-amber-900 dark:text-amber-200',
+        sub: 'text-amber-800 dark:text-amber-300',
+        icon: 'bg-white/70 text-amber-800 ring-amber-200/70 dark:bg-slate-900/60 dark:text-amber-200 dark:ring-amber-900/35',
       };
     case 'red':
       return {
-        card: 'bg-rose-50 ring-rose-200/60',
-        title: 'text-rose-900',
-        sub: 'text-rose-800',
-        icon: 'bg-white/70 text-rose-700 ring-rose-200/70',
+        card: 'bg-rose-50 ring-rose-200/60 dark:bg-rose-900/15 dark:ring-rose-900/35',
+        title: 'text-rose-900 dark:text-rose-200',
+        sub: 'text-rose-800 dark:text-rose-300',
+        icon: 'bg-white/70 text-rose-700 ring-rose-200/70 dark:bg-slate-900/60 dark:text-rose-200 dark:ring-rose-900/35',
       };
     case 'gray':
       return {
-        card: 'bg-gray-50 ring-gray-200/70',
-        title: 'text-gray-800',
-        sub: 'text-gray-700',
-        icon: 'bg-white/70 text-gray-700 ring-gray-200/70',
+        card: 'bg-gray-50 ring-gray-200/70 dark:bg-slate-900 dark:ring-slate-800',
+        title: 'text-gray-800 dark:text-slate-200',
+        sub: 'text-gray-700 dark:text-slate-300',
+        icon: 'bg-white/70 text-gray-700 ring-gray-200/70 dark:bg-slate-900/60 dark:text-slate-200 dark:ring-slate-800',
       };
     case 'green':
     default:
       return {
-        card: 'bg-emerald-50 ring-emerald-200/60',
-        title: 'text-emerald-900',
-        sub: 'text-emerald-800',
-        icon: 'bg-white/70 text-emerald-700 ring-emerald-200/70',
+        card: 'bg-emerald-50 ring-emerald-200/60 dark:bg-emerald-900/15 dark:ring-emerald-900/35',
+        title: 'text-emerald-900 dark:text-emerald-200',
+        sub: 'text-emerald-800 dark:text-emerald-300',
+        icon: 'bg-white/70 text-emerald-700 ring-emerald-200/70 dark:bg-slate-900/60 dark:text-emerald-200 dark:ring-emerald-900/35',
       };
   }
 }
