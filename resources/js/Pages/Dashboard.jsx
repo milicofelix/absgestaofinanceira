@@ -464,11 +464,14 @@ export default function Dashboard({
                   {latest.map((t) => (
                     <li
                       key={t.id}
-                      className="group rounded-xl border border-gray-100 p-4 hover:border-gray-200 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
+                      className="group rounded-xl border border-gray-100 p-4 hover:border-gray-200 hover:bg-gray-50
+                                dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800/60"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
-                          <div className="truncate font-semibold text-gray-900 dark:text-slate-100">{t.description || '(sem descrição)'}</div>
+                          <div className="truncate font-semibold text-gray-900 dark:text-slate-100">
+                            {t.description || '(sem descrição)'}
+                          </div>
 
                           <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                             {formatDateBR(t.date)} · {t.category || '—'} · {t.account || '—'}
@@ -476,25 +479,26 @@ export default function Dashboard({
 
                           <div className="mt-2 flex items-center gap-2">
                             {t.type === 'expense' ? (
-                              <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-900">
+                              <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700
+                                              dark:bg-rose-900/25 dark:text-rose-200">
                                 Despesa
                               </span>
                             ) : (
-                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900">
+                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700
+                                              dark:bg-emerald-900/25 dark:text-emerald-200">
                                 Receita
                               </span>
                             )}
 
-                            {/* ações rápidas no desktop (aparece no hover) */}
-                            <div className="flex items-center gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                            <div className="flex items-center gap-2 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
                               <Link
-                                className="text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-500 dark:hover:text-emerald-600"
+                                className="text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-300"
                                 href={route('transactions.edit', t.id)}
                               >
                                 Editar
                               </Link>
                               <button
-                                className="text-xs font-semibold text-rose-600 hover:underline dark:text-rose-400 dark:hover:text-rose-500"
+                                className="text-xs font-semibold text-rose-600 hover:underline dark:text-rose-300"
                                 onClick={() =>
                                   confirm('Excluir este lançamento?') &&
                                   router.delete(route('transactions.destroy', t.id))
@@ -509,7 +513,9 @@ export default function Dashboard({
                         <div
                           className={[
                             'whitespace-nowrap text-right text-sm font-bold',
-                            t.type === 'expense' ? 'text-rose-700 dark:text-rose-400' : 'text-emerald-700 dark:text-emerald-400',
+                            t.type === 'expense'
+                              ? 'text-rose-700 dark:text-rose-300'
+                              : 'text-emerald-700 dark:text-emerald-300',
                           ].join(' ')}
                         >
                           {t.type === 'expense' ? '-' : '+'}
