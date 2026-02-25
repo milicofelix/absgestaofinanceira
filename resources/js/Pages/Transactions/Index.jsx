@@ -29,10 +29,100 @@ export default function Index({ transactions, filters, categories, accounts }) {
   );
 
   const bankAccounts = useMemo(
-  () => (accounts || []).filter((a) => a.type !== 'credit_card'),
-  [accounts],
-);
+    () => (accounts || []).filter((a) => String(a.type || '').toLowerCase() !== 'credit_card'),
+    [accounts],
+  );
 
+  // --------------------------
+  // Modal pagamento cartão
+  // --------------------------
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [payTx, setPayTx] = useState(null);
+  const [payBankId, setPayBankId] = useState('');
+  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payError, setPayError] = useState('');
+
+  const selectedBank = useMemo(() => {
+    const id = Number(payBankId);
+    return (bankAccounts || []).find((a) => Number(a.id) === id) || null;
+  }, [payBankId, bankAccounts]);
+
+  function openPayModal(t) {
+    if (!bankAccounts.length) {
+      alert('Cadastre uma conta bancária para registrar o pagamento do cartão.');
+      return;
+    }
+    setPayError('');
+    setPayTx(t);
+    setPayBankId(String(bankAccounts[0]?.id || ''));
+    setPayDate(new Date().toISOString().slice(0, 10));
+    setPayModalOpen(true);
+  }
+
+  function closePayModal() {
+    setPayModalOpen(false);
+    setPayTx(null);
+    setPayError('');
+  }
+
+  function formatBRL(v) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0));
+  }
+
+  function confirmPay() {
+    if (!payTx) return;
+
+    const bankId = Number(payBankId);
+    if (!bankId || !bankAccounts.some((a) => Number(a.id) === bankId)) {
+      setPayError('Conta inválida.');
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(payDate || ''))) {
+      setPayError('Data inválida.');
+      return;
+    }
+
+    // Pré-check de saldo (client-side) — depende de accounts ter "balance"
+    // (o bloqueio definitivo deve ser no backend)
+    const bank = bankAccounts.find((a) => Number(a.id) === bankId);
+    const bankBalance = bank && bank.balance !== undefined ? Number(bank.balance || 0) : null;
+
+    if (bankBalance !== null) {
+      const required = Number(payTx.amount || 0);
+      if (bankBalance + 1e-9 < required) {
+        setPayError(`Saldo insuficiente na conta "${bank?.name}". Disponível: ${formatBRL(bankBalance)}.`);
+        return;
+      }
+    }
+
+    setPayError('');
+
+    router.post(
+      route('transactions.markPaid', payTx.id),
+      {
+        paid_bank_account_id: bankId,
+        cleared_at: payDate,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => closePayModal(),
+        onError: (errors) => {
+          // backend pode retornar 422 com mensagem via abort(422, 'Saldo insuficiente')
+          // Inertia normalmente joga a msg em errors (ou vem como response message no flash)
+          // Aqui tentamos extrair algo útil:
+          const msg =
+            (errors && (errors.message || errors.error || errors.cleared_at || errors.paid_bank_account_id)) ||
+            'Não foi possível registrar o pagamento.';
+          setPayError(String(msg));
+        },
+      },
+    );
+  }
+
+  // --------------------------
+  // filtros/export
+  // --------------------------
   function exportFile() {
     const params = new URLSearchParams();
     Object.entries(queryParams).forEach(([k, v]) => {
@@ -66,7 +156,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
   }, [month]);
 
   function markAsCleared(t) {
-    // já está pago? não faz nada
     if (t.is_cleared) return;
 
     const isCreditCardExpense =
@@ -74,100 +163,65 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
     // caso NORMAL (banco / pix etc): atualiza o lançamento
     if (!isCreditCardExpense) {
-      return router.put(
-        route('transactions.update', t.id),
-        { is_cleared: true },
-        { preserveScroll: true }
-      );
+      return router.put(route('transactions.update', t.id), { is_cleared: true }, { preserveScroll: true });
     }
 
-    // caso CARTÃO: precisa escolher conta pagadora (banco)
-    if (!bankAccounts.length) {
-      alert('Cadastre uma conta bancária para registrar o pagamento do cartão.');
-      return;
-    }
-
-    // jeito mais simples sem modal: prompt com IDs (funciona, mas UX ok/rápida)
-    const optionsText = bankAccounts.map((a) => `${a.id} - ${a.name}`).join('\n');
-    const picked = prompt(`Pagar com qual conta?\n\n${optionsText}\n\nDigite o ID da conta:`);
-
-    if (!picked) return;
-
-    const bankId = Number(picked);
-    if (!bankId || !bankAccounts.some((a) => Number(a.id) === bankId)) {
-      alert('Conta inválida.');
-      return;
-    }
-
-    // chama endpoint dedicado que cria a transferência banco->cartão e marca quitado
-    router.post(route('transactions.markPaid', t.id), {
-      paid_bank_account_id: bankId,
-      cleared_at: new Date().toISOString().slice(0, 10),
-    }, { preserveScroll: true });
+    // CARTÃO: abre modal banco + data
+    openPayModal(t);
   }
 
-    function daysInMonth(y, m1to12) {
-      return new Date(y, m1to12, 0).getDate(); // m aqui é 1..12
-    }
+  // --------------------------
+  // regra botão pagar (apenas após fechamento)
+  // --------------------------
+  function daysInMonth(y, m1to12) {
+    return new Date(y, m1to12, 0).getDate();
+  }
 
-    function buildClosingDate(selectedMonth, closingDay) {
-      // selectedMonth = "YYYY-MM"
-      const [yy, mm] = String(selectedMonth || '').slice(0, 7).split('-').map(Number);
-      if (!yy || !mm) return null;
+  function buildClosingDate(selectedMonth, closingDay) {
+    const [yy, mm] = String(selectedMonth || '').slice(0, 7).split('-').map(Number);
+    if (!yy || !mm) return null;
 
-      const lastDay = daysInMonth(yy, mm);
-      const d = Math.min(Number(closingDay || 0), lastDay); // evita 29/30/31 inválido
-      if (!d) return null;
+    const lastDay = daysInMonth(yy, mm);
+    const d = Math.min(Number(closingDay || 0), lastDay);
+    if (!d) return null;
 
-      // Date local: cuidado com timezone, mas aqui é só comparação de dia
-      return new Date(yy, mm - 1, d, 0, 0, 0, 0);
-    }
+    return new Date(yy, mm - 1, d, 0, 0, 0, 0);
+  }
 
-    function isClosedForMonth(selectedMonth, closingDay) {
-      const closingDate = buildClosingDate(selectedMonth, closingDay);
-      if (!closingDate) return false;
+  function isClosedForMonth(selectedMonth, closingDay) {
+    const closingDate = buildClosingDate(selectedMonth, closingDay);
+    if (!closingDate) return false;
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      return today >= closingDate; // fechou ou passou do fechamento
-    }
+    return today >= closingDate;
+  }
 
-    function getAccountById(accounts, id) {
-      return (accounts || []).find((a) => Number(a.id) === Number(id));
-    }
+  function getAccountById(list, id) {
+    return (list || []).find((a) => Number(a.id) === Number(id));
+  }
 
-    function canShowPayButton(t) {
-      if (t.is_cleared) return false;
+  function canShowPayButton(t) {
+    if (t.is_cleared) return false;
+    if (String(t.type || '').toLowerCase() !== 'expense') return false;
 
-      // só despesa
-      if (String(t.type || '').toLowerCase() !== 'expense') return false;
+    const accFromTx = t.account;
+    const accFromList = getAccountById(accounts, t.account_id);
 
-      //const acc = t.account || getAccountById(accounts, t.account_id);
-      const accFromTx = t.account;
-      const accFromList = getAccountById(accounts, t.account_id);
+    const acc =
+      accFromTx && (accFromTx.statement_close_day || accFromTx.closing_day) ? accFromTx : accFromList || accFromTx;
 
-      // se a conta da transação não tiver statement_close_day, usa a da lista
-      const acc =
-        (accFromTx && (accFromTx.statement_close_day || accFromTx.closing_day))
-          ? accFromTx
-          : (accFromList || accFromTx);
-       if (String(acc?.type || '').toLowerCase() === 'credit_card') {
-        console.log('CC acc=', acc);
-      }
-      if (!acc) return false;
+    if (!acc) return false;
 
-      // só para cartão de crédito
-      const isCreditCard = String(acc.type || '').toLowerCase() === 'credit_card';
-      if (!isCreditCard) return false;
+    const isCreditCard = String(acc.type || '').toLowerCase() === 'credit_card';
+    if (!isCreditCard) return false;
 
-      // precisa ter fechamento
-      const closingDay = acc.statement_close_day ?? acc.closing_day;
-      if (!closingDay) return false;
+    const closingDay = acc.statement_close_day ?? acc.closing_day;
+    if (!closingDay) return false;
 
-      // só mostra se o mês filtrado já fechou
-      return isClosedForMonth(month, closingDay);
-    }
+    return isClosedForMonth(month, closingDay);
+  }
 
   return (
     <AuthenticatedLayout
@@ -188,6 +242,94 @@ export default function Index({ transactions, filters, categories, accounts }) {
       }
     >
       <Head title="Lançamentos" />
+
+      {/* -------------------- MODAL PAGAMENTO CARTÃO -------------------- */}
+      {payModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={closePayModal} aria-hidden="true" />
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-lg ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-bold text-gray-900 dark:text-slate-100">Pagar fatura do cartão</div>
+                <div className="mt-1 text-sm text-gray-600 dark:text-slate-300">
+                  {payTx?.account?.name || 'Cartão'} · Valor: {formatBRL(payTx?.amount || 0)}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closePayModal}
+                className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                  Conta pagadora
+                </label>
+                <select
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  value={payBankId}
+                  onChange={(e) => setPayBankId(e.target.value)}
+                >
+                  {bankAccounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+
+                {selectedBank?.balance !== undefined && (
+                  <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                    Saldo disponível: <span className="font-semibold">{formatBRL(selectedBank.balance)}</span>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                  Data do pagamento
+                </label>
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  value={payDate}
+                  onChange={(e) => setPayDate(e.target.value)}
+                />
+              </div>
+
+              {payError && (
+                <div className="rounded-lg bg-rose-50 p-3 text-sm font-semibold text-rose-800 dark:bg-rose-900/25 dark:text-rose-200">
+                  {payError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closePayModal}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmPay}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                >
+                  Confirmar pagamento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* -------------------------------------------------------------- */}
 
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
@@ -365,7 +507,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
-                    {/* header app-like */}
                     <div className="flex items-center gap-2">
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
                         <PaymentIcon method={t.payment_method} />
@@ -373,9 +514,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-gray-900 dark:text-slate-100">
-                          {t.description || (
-                            <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>
-                          )}
+                          {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
                         </div>
 
                         <div className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
@@ -383,7 +522,8 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           {t.purchase_date && t.purchase_date !== t.date ? (
                             <>
                               {' '}
-                              • <span className="font-semibold text-gray-600 dark:text-slate-300">
+                              •{' '}
+                              <span className="font-semibold text-gray-600 dark:text-slate-300">
                                 Compra {formatDateBR(t.purchase_date)}
                               </span>
                             </>
@@ -407,7 +547,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     </div>
 
                     <div className="mt-2 flex flex-wrap items-center gap-2">
-                      {/* tipo */}
                       <span
                         className={[
                           'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold',
@@ -419,7 +558,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
                         {t.type === 'expense' ? 'Despesa' : 'Receita'}
                       </span>
 
-                      {/* parcelamento */}
                       {t.installment_id && (
                         <span
                           className={[
@@ -434,12 +572,10 @@ export default function Index({ transactions, filters, categories, accounts }) {
                         </span>
                       )}
 
-                      {/* status */}
                       <StatusBadge t={t} />
                     </div>
                   </div>
 
-                  {/* valor + ações */}
                   <div className="text-right">
                     <div
                       className={[
@@ -467,10 +603,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
                           title="Cancelar parcelamento"
                           onClick={() => {
-                            if (
-                              !confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')
-                            )
-                              return;
+                            if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
                             router.post(route('installments.cancel', t.installment_id));
                           }}
                         >
@@ -491,9 +624,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                       <button
                         className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
                         title="Excluir"
-                        onClick={() =>
-                          confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))
-                        }
+                        onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}
                       >
                         <IconTrash />
                       </button>
@@ -512,7 +643,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
           {/* ✅ DESKTOP: tabela */}
           <div className="hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 sm:block">
-             <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
               <table className="min-w-[980px] w-full text-left text-sm">
                 <thead className="border-b bg-gray-50 text-gray-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
                   <tr>
@@ -522,10 +653,12 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     <th className="px-4 py-3 font-semibold">Conta</th>
                     <th className="px-4 py-3 font-semibold">Pagamento</th>
                     <th className="px-4 py-3 text-right font-semibold">Valor</th>
-                    <th className="px-4 py-3 text-right font-semibold
-                                  sticky right-0 z-10
-                                  bg-gray-50 dark:bg-slate-950
-                                  shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]">Ações</th>
+                    <th
+                      className="px-4 py-3 text-right font-semibold sticky right-0 z-10 bg-gray-50 dark:bg-slate-950
+                                 shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]"
+                    >
+                      Ações
+                    </th>
                   </tr>
                 </thead>
 
@@ -542,9 +675,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
                           <div className="min-w-0">
                             <div className="truncate text-gray-900 dark:text-slate-100 font-semibold">
-                              {t.description || (
-                                <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>
-                              )}
+                              {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
                             </div>
 
                             <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -607,19 +738,17 @@ export default function Index({ transactions, filters, categories, accounts }) {
                       <td
                         className={[
                           'px-4 py-3 text-right font-semibold',
-                          t.type === 'expense'
-                            ? 'text-rose-600 dark:text-rose-300'
-                            : 'text-emerald-600 dark:text-emerald-300',
+                          t.type === 'expense' ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300',
                         ].join(' ')}
                       >
                         {formatBRL(t.amount)}
                       </td>
 
-                      <td className="px-4 py-3 text-right
-                                    sticky right-0
-                                    bg-white dark:bg-slate-900
-                                    shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]">
-                        <div className="inline-flex items-center gap-2 whitespace-nowrap  ">
+                      <td
+                        className="px-4 py-3 text-right sticky right-0 bg-white dark:bg-slate-900
+                                   shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]"
+                      >
+                        <div className="inline-flex items-center gap-2 whitespace-nowrap">
                           <Link
                             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
                             href={route('transactions.edit', { transaction: t.id, month })}
@@ -634,10 +763,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                               className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
                               title="Cancelar parcelamento"
                               onClick={() => {
-                                if (
-                                  !confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')
-                                )
-                                  return;
+                                if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
                                 router.post(route('installments.cancel', t.installment_id));
                               }}
                             >
@@ -660,9 +786,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           <button
                             className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
                             title="Excluir"
-                            onClick={() =>
-                              confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', { transaction: t.id, month }))
-                            }
+                            onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', { transaction: t.id, month }))}
                           >
                             <IconTrash />
                             <span className="hidden md:inline">Excluir</span>
@@ -684,7 +808,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
             </div>
           </div>
 
-          {/* ✅ paginação única */}
           <Pagination links={transactions.links} />
         </div>
       </div>
@@ -730,9 +853,7 @@ function normalizeMonth(v) {
 }
 
 function getClearedLabel(transaction) {
-  if (transaction.type === 'income') {
-    return transaction.is_cleared ? 'Recebida' : 'A receber';
-  }
+  if (transaction.type === 'income') return transaction.is_cleared ? 'Recebida' : 'A receber';
   return transaction.is_cleared ? 'Paga' : 'Em aberto';
 }
 
@@ -766,7 +887,6 @@ function AccountTypeIcon({ type, className = '' }) {
 
 function StatusBadge({ t }) {
   const label = getClearedLabel(t);
-
   const tone = t.is_cleared ? 'emerald' : t.type === 'income' ? 'sky' : 'amber';
 
   const toneCls =
@@ -784,7 +904,7 @@ function StatusBadge({ t }) {
   );
 }
 
-/* ---------- Inline SVGs (no libs needed) ---------- */
+/* ---------- Inline SVGs ---------- */
 
 function IconBase({ children, className = '' }) {
   return (
