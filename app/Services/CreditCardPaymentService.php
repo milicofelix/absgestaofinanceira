@@ -37,15 +37,33 @@ class CreditCardPaymentService
             }
 
             // evita pagar duas vezes (você pode ajustar essa regra)
-            if ($expenseTx->paid_at) {
+            if ($expenseTx->is_cleared || $expenseTx->cleared_at) {
                 abort(422, 'Esta despesa já está marcada como paga.');
             }
 
-            $paidAt = $paidDate
-                ? Carbon::createFromFormat('Y-m-d', $paidDate, config('app.timezone'))->startOfDay()
-                : now()->startOfDay();
+            try {
+                $paidAt = $paidDate
+                    ? Carbon::createFromFormat('Y-m-d', $paidDate, config('app.timezone'))->startOfDay()
+                    : now()->startOfDay();
+                } catch (\Throwable $e) {
+                    abort(422, 'Data de pagamento inválida.');
+                }
 
-            
+            // ✅ TRAVA: saldo disponível do banco na data do pagamento
+            $available = $this->computeAvailableBalanceAtDate($bank, $expenseTx->user_id, $paidAt);
+
+            // compara em centavos para evitar bug de float
+            $needCents = (int) round(((float) $expenseTx->amount) * 100);
+            $availCents = (int) round(((float) $available) * 100);
+
+            if ($availCents < $needCents) {
+                abort(
+                    422,
+                    'Saldo insuficiente na conta "'.$bank->name.'". Disponível: '.$this->formatBRL($available)
+                    .' | Necessário: '.$this->formatBRL((float) $expenseTx->amount)
+                );
+            }
+
             $transferCategoryId = $this->getOrCreateTransferCategoryId($expenseTx->user_id);
             if ($transferCategoryId <= 0) {
                 abort(500, 'Configurar transfer_category_id (categoria de transferência).');
@@ -92,6 +110,36 @@ class CreditCardPaymentService
                 'category_id' => $transferCategoryId,
             ]);
         });
+    }
+
+     /**
+     * Saldo disponível do banco até uma data (inclusive), considerando:
+     * initial_balance + SUM(incomes) - SUM(expenses)
+     * (inclui transfers, pois impactam saldo real do banco)
+     */
+    private function computeAvailableBalanceAtDate(Account $bank, int $userId, Carbon $date): float
+    {
+        $initial = (float) ($bank->initial_balance ?? 0);
+
+        $agg = Transaction::query()
+            ->where('user_id', $userId)
+            ->where('account_id', $bank->id)
+            ->whereDate('date', '<=', $date->toDateString())
+            ->selectRaw("COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as inc")
+            ->selectRaw("COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as exp")
+            ->first();
+
+        $inc = (float) ($agg->inc ?? 0);
+        $exp = (float) ($agg->exp ?? 0);
+
+        return $initial + $inc - $exp;
+    }
+
+    private function formatBRL(float $v): string
+    {
+        // formata BRL simples sem intl (evita extensão faltando em algum ambiente)
+        $s = number_format($v, 2, ',', '.');
+        return 'R$ '.$s;
     }
 
     private function getOrCreateTransferCategoryId(int $userId): int
