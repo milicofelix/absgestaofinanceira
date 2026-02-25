@@ -10,6 +10,9 @@ export default function Theme({ currentTheme }) {
 
   function submit(e) {
     e.preventDefault();
+    // salva localmente para funcionar no pré-login também
+    const v = data.theme ?? 'system'; // 'system' | 'light' | 'dark'
+    localStorage.setItem('theme', v);
     put(route('settings.theme.update'), { preserveScroll: true });
   }
 

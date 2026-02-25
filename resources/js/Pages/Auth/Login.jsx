@@ -26,7 +26,7 @@ export default function Login({ status, canResetPassword }) {
             <Head title="Log in" />
 
             {status && (
-                <div className="mb-4 text-sm font-medium text-emerald-600">{status}</div>
+                <div className="mb-4 text-sm font-medium text-emerald-600 dark:text-emerald-400">{status}</div>
             )}
 
             <form onSubmit={submit}>
@@ -72,7 +72,7 @@ export default function Login({ status, canResetPassword }) {
                                 setData('remember', e.target.checked)
                             }
                         />
-                        <span className="ms-2 text-sm text-gray-600">
+                        <span className="ms-2 text-sm text-gray-600 dark:text-slate-400">
                             Lembre me
                         </span>
                     </label>
@@ -80,9 +80,9 @@ export default function Login({ status, canResetPassword }) {
 
                 <div className="mt-4 flex items-center justify-end">
                     {canResetPassword && (
-                        <Link
+                       <Link
                             href={route('password.request')}
-                            className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                            className="rounded-md text-sm text-gray-600 underline hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:text-slate-400 dark:hover:text-slate-300 dark:focus:ring-offset-slate-900"
                         >
                             Esqueceu sua senha?
                         </Link>
