@@ -48,7 +48,7 @@ class TransactionController extends Controller
             ->orderByDesc('id');
 
         if ($request->filled('type')) {
-            $query->where('type', $request->string('type'));
+            $query->where('type', $request->string('type')->toString());
         }
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->integer('category_id'));
@@ -61,7 +61,7 @@ class TransactionController extends Controller
             $query->where('description', 'like', "%{$q}%");
         }
         if ($request->filled('installment')) {
-            $v = $request->string('installment');
+            $v = $request->string('installment')->toString();
             if ($v === 'only') {
                 $query->whereNotNull('installment_id');
             } elseif ($v === 'none') {
