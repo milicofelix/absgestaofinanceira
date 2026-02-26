@@ -580,7 +580,7 @@ export default function Dashboard({
                   })}
                 </ul>
               ) : (
-                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500 dark:bg-slate-900 dark:ring-slate-800 dark:text-slate-400">
                   <div>Sem despesas neste mês.</div>
                   <Link
                     href={route('transactions.create')}
@@ -663,7 +663,7 @@ export default function Dashboard({
                   ))}
                 </ul>
               ) : (
-                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500">
+                <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500 dark:bg-slate-900 dark:ring-slate-800 dark:text-slate-400">
                   <div>Sem lançamentos neste mês.</div>
                   <Link href={route('transactions.create')} className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
                     + Adicionar lançamento
