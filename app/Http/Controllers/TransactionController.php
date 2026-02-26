@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreTransactionRequest;
 use App\Http\Requests\UpdateTransactionRequest;
+use Illuminate\Database\QueryException;
 use App\Http\Requests\MarkPaidRequest;
 use App\Models\Account;
 use App\Models\Category;
@@ -132,21 +133,44 @@ class TransactionController extends Controller
 
         $dateYmd = $request->date('date')->format('Y-m-d');
 
+         // ✅ data da compra
+        $purchaseYmd = $dateYmd;
+
         //  calcula competência
         $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
 
-        Transaction::create([
-            'user_id' => $userId,
-            'type' => $request->string('type'),
-            'amount' => $request->input('amount'),
-            'date' => $dateYmd,
-            'purchase_date' => $dateYmd,
-            'competence_month' => $competenceMonth, // ✅ NOVO
-            'description' => $request->input('description'),
-            'category_id' => $request->integer('category_id'),
-            'account_id' => $account->id,
-            'payment_method' => $request->input('payment_method'),
-        ]);
+        $idemKey = $this->buildIdempotencyKey(
+            $userId,
+            (int) $account->id,
+            (string) $request->string('type'),
+            $purchaseYmd,
+            $request->input('amount'),
+            $request->input('description')
+        );
+
+        try {
+            Transaction::create([
+                'user_id' => $userId,
+                'type' => $request->string('type'),
+                'amount' => $request->input('amount'),
+                'date' => $dateYmd,
+                'purchase_date' => $dateYmd,
+                'competence_month' => $competenceMonth, // ✅ NOVO
+                'description' => $request->input('description'),
+                'category_id' => $request->integer('category_id'),
+                'account_id' => $account->id,
+                'payment_method' => $request->input('payment_method'),
+                'idempotency_key' => $idemKey,
+            ]);
+        } catch (QueryException $e) {
+            // 1062 = duplicate key (MySQL)
+            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                return back()->withErrors([
+                    'description' => 'Parece um lançamento duplicado (mesma conta, tipo, data da compra e valor). Confira antes de salvar.',
+                ])->withInput();
+            }
+            throw $e;
+        }
 
         // ✅ redireciona para o mês de COMPETÊNCIA (pra compra do dia 31/jan cair em fev, por exemplo)
         return redirect()->route('transactions.index', ['month' => $competenceMonth]);
@@ -193,21 +217,43 @@ class TransactionController extends Controller
         //  recalcula competência (pode mudar se trocar a conta ou a data)
         $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
 
-        $transaction->update([
-            'type' => $request->string('type'),
-            'amount' => $request->input('amount'),
-            'date' => $dateYmd,
-            // ✅ regra simples:
-            // - se for lançamento normal (sem installment_id), atualiza purchase_date junto
-            // - se for parcela, não mexe (evita bagunçar histórico)
-            'purchase_date' => $transaction->installment_id ? $transaction->purchase_date : $dateYmd,
-            'competence_month' => $competenceMonth, // ✅ NOVO
-            'description' => $request->input('description'),
-            'category_id' => $request->integer('category_id'),
-            'account_id' => $account->id,
-            'payment_method' => $request->input('payment_method'),
-            'is_cleared' => $request->boolean('is_cleared'),
-        ]);
+        // regra: se não for parcela, compra acompanha date
+        $purchaseYmd = $transaction->installment_id ? $transaction->purchase_date->format('Y-m-d') : $dateYmd;
+
+        $idemKey = $this->buildIdempotencyKey(
+            $userId,
+            (int) $account->id,
+            (string) $request->string('type'),
+            $purchaseYmd,
+            $request->input('amount'),
+            $request->input('description')
+        );
+
+        try {
+                $transaction->update([
+                    'type' => $request->string('type'),
+                    'amount' => $request->input('amount'),
+                    'date' => $dateYmd,
+                    // ✅ regra simples:
+                    // - se for lançamento normal (sem installment_id), atualiza purchase_date junto
+                    // - se for parcela, não mexe (evita bagunçar histórico)
+                    'purchase_date' => $transaction->installment_id ? $transaction->purchase_date : $dateYmd,
+                    'competence_month' => $competenceMonth, // ✅ NOVO
+                    'description' => $request->input('description'),
+                    'category_id' => $request->integer('category_id'),
+                    'account_id' => $account->id,
+                    'payment_method' => $request->input('payment_method'),
+                    'is_cleared' => $request->boolean('is_cleared'),
+                    'idempotency_key' => $idemKey
+                ]);
+            } catch (QueryException $e) {
+                if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                    return back()->withErrors([
+                        'description' => 'Esse ajuste deixaria o lançamento duplicado (mesma conta, tipo, data da compra e valor).',
+                    ])->withInput();
+                }
+                throw $e;
+            }
 
         return redirect()->route('transactions.index', ['month' => $competenceMonth]);
     }
@@ -279,4 +325,33 @@ class TransactionController extends Controller
 
         return back()->with('success', 'Transação marcada como paga.');
     }
+
+    private function normalizeDesc(?string $s): string
+    {
+        $s = (string)($s ?? '');
+        $s = mb_strtolower($s);
+        $s = preg_replace('/\s+/', ' ', trim($s));
+        // remove acentos
+        $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
+        // remove caracteres “ruidosos”
+        $s = preg_replace('/[^a-z0-9 \-_.]/', '', $s);
+        return trim($s);
+    }
+
+    private function amountToCents($amount): int
+    {
+        // robusto pra "1234.56" e floats
+        return (int) round(((float) $amount) * 100);
+    }
+
+    private function buildIdempotencyKey(int $userId, int $accountId, string $type, string $purchaseDateYmd, $amount, ?string $description): string
+    {
+        $desc = $this->normalizeDesc($description);
+        $cents = $this->amountToCents($amount);
+
+        // payload “humano” + hash curto (evita estourar tamanho)
+        $raw = "{$userId}|{$accountId}|{$type}|{$purchaseDateYmd}|{$cents}|{$desc}";
+        return substr(hash('sha256', $raw), 0, 64);
+    }
+
 }
