@@ -230,30 +230,30 @@ class TransactionController extends Controller
         );
 
         try {
-                $transaction->update([
-                    'type' => $request->string('type'),
-                    'amount' => $request->input('amount'),
-                    'date' => $dateYmd,
-                    // ✅ regra simples:
-                    // - se for lançamento normal (sem installment_id), atualiza purchase_date junto
-                    // - se for parcela, não mexe (evita bagunçar histórico)
-                    'purchase_date' => $transaction->installment_id ? $transaction->purchase_date : $dateYmd,
-                    'competence_month' => $competenceMonth, // ✅ NOVO
-                    'description' => $request->input('description'),
-                    'category_id' => $request->integer('category_id'),
-                    'account_id' => $account->id,
-                    'payment_method' => $request->input('payment_method'),
-                    'is_cleared' => $request->boolean('is_cleared'),
-                    'idempotency_key' => $idemKey
-                ]);
-            } catch (QueryException $e) {
-                if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-                    return back()->withErrors([
-                        'description' => 'Esse ajuste deixaria o lançamento duplicado (mesma conta, tipo, data da compra e valor).',
-                    ])->withInput();
-                }
-                throw $e;
+            $transaction->update([
+                'type' => $request->string('type'),
+                'amount' => $request->input('amount'),
+                'date' => $dateYmd,
+                // ✅ regra simples:
+                // - se for lançamento normal (sem installment_id), atualiza purchase_date junto
+                // - se for parcela, não mexe (evita bagunçar histórico)
+                'purchase_date' => $transaction->installment_id ? $transaction->purchase_date : $dateYmd,
+                'competence_month' => $competenceMonth, // ✅ NOVO
+                'description' => $request->input('description'),
+                'category_id' => $request->integer('category_id'),
+                'account_id' => $account->id,
+                'payment_method' => $request->input('payment_method'),
+                'is_cleared' => $request->boolean('is_cleared'),
+                'idempotency_key' => $idemKey
+            ]);
+        } catch (QueryException $e) {
+            if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+                return back()->withErrors([
+                    'description' => 'Esse ajuste deixaria o lançamento duplicado (mesma conta, tipo, data da compra e valor).',
+                ])->withInput();
             }
+            throw $e;
+        }
 
         return redirect()->route('transactions.index', ['month' => $competenceMonth]);
     }
@@ -299,7 +299,8 @@ class TransactionController extends Controller
         }
 
         // Competência = mês do próximo fechamento
-        return $nextClose->format('Y-m');
+        //return $nextClose->format('Y-m');
+        return $nextClose->copy()->addMonthNoOverflow()->format('Y-m');
     }
 
     public function markPaid(MarkPaidRequest $request, Transaction $transaction, CreditCardPaymentService $svc)
