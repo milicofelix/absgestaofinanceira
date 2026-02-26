@@ -21,7 +21,7 @@ return new class extends Migration {
             $table->foreignId('category_id')->constrained()->restrictOnDelete();
             $table->foreignId('account_id')->constrained()->restrictOnDelete();
 
-            $table->enum('payment_method', ['pix', 'card', 'cash', 'transfer', 'other'])->nullable();
+            $table->enum('payment_method', ['pix', 'debit_card', 'credit_card', 'cash', 'transfer', 'other'])->nullable();
 
             $table->timestamps();
 
