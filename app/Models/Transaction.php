@@ -29,6 +29,7 @@ class Transaction extends Model
         'cleared_at',
         'is_transfer',
         'competence_month',
+        'idempotency_key',
     ];
 
     protected $casts = [
