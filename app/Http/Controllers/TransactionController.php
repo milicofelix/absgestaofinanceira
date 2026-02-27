@@ -277,7 +277,7 @@ class TransactionController extends Controller
 
     private function computeCompetenceMonth(Account $account, string $dateYmd): string
     {
-        $purchase = Carbon::createFromFormat('Y-m-d', $dateYmd)->startOfDay();
+        $purchase = Carbon::createFromFormat('Y-m-d', $dateYmd, config('app.timezone'))->startOfDay();
 
         if (($account->type ?? null) !== 'credit_card' || empty($account->statement_close_day)) {
             return $purchase->format('Y-m');
@@ -285,22 +285,12 @@ class TransactionController extends Controller
 
         $closeDay = max(1, min(28, (int) $account->statement_close_day));
 
-        // Próximo fechamento (no mês atual)
-        $nextClose = $purchase->copy()
-            ->day(min($closeDay, $purchase->daysInMonth))
-            ->startOfDay();
+        // Regra: se comprou DEPOIS do fechamento (dia > closeDay), cai no mês seguinte; senão, no mês atual.
+        $competence = ($purchase->day > $closeDay)
+            ? $purchase->copy()->addMonthNoOverflow()
+            : $purchase->copy();
 
-        // Se a compra foi depois do fechamento deste mês, próximo fechamento é no mês seguinte
-        if ($purchase->gte($nextClose)) {
-            $nextClose = $purchase->copy()
-                ->addMonthNoOverflow()
-                ->day($closeDay)
-                ->startOfDay();
-        }
-
-        // Competência = mês do próximo fechamento
-        //return $nextClose->format('Y-m');
-        return $nextClose->copy()->addMonthNoOverflow()->format('Y-m');
+        return $competence->format('Y-m');
     }
 
     public function markPaid(MarkPaidRequest $request, Transaction $transaction, CreditCardPaymentService $svc)
