@@ -3,6 +3,16 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import MoneyInput from '@/Components/MoneyInput';
 import { useEffect, useMemo, useState } from 'react';
 
+function accountLabel(a) {
+  const t = String(a?.type || '');
+
+  if (t === 'investment') return `${a.name} (Invest.)`;
+  if (t === 'credit_card') return `${a.name} (Cartão)`;
+
+  // bank e outros
+  return a.name;
+}
+
 export default function TransferForm({ accounts, defaultDate, defaultRecipientMode = 'self' }) {
   const { data, setData, post, processing, errors } = useForm({
     recipient_mode: defaultRecipientMode ?? 'self', // 'self' | 'other'
@@ -288,7 +298,7 @@ export default function TransferForm({ accounts, defaultDate, defaultRecipientMo
                   >
                     {(accounts || []).map((a) => (
                       <option key={a.id} value={a.id}>
-                        {a.name}
+                        {accountLabel(a)}
                       </option>
                     ))}
                   </select>
@@ -318,7 +328,7 @@ export default function TransferForm({ accounts, defaultDate, defaultRecipientMo
 
                     {toAccountOptions.map((a) => (
                       <option key={a.id} value={a.id}>
-                        {a.name}
+                        {accountLabel(a)}
                       </option>
                     ))}
                   </select>

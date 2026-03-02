@@ -28,7 +28,7 @@ export default function Index({ accounts }) {
       header={
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold leading-tight text-gray-900 dark:text-slate-100">Contas</h2>
+            <h2 className="text-xl font-semibold leading-tight text-gray-900 dark:text-slate-100">Carteiras</h2>
             <p className="text-sm text-gray-500 dark:text-slate-400">Gerencie suas contas e saldo inicial</p>
           </div>
 
@@ -41,7 +41,7 @@ export default function Index({ accounts }) {
         </div>
       }
     >
-      <Head title="Contas" />
+      <Head title="Carteiras" />
 
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-5xl space-y-6 px-4 sm:px-6 lg:px-8">
