@@ -8,10 +8,15 @@ export default function Form({ mode, account }) {
     name: account?.name ?? '',
     type: account?.type ?? 'bank',
     initial_balance: String(account?.initial_balance ?? '0.00'),
-    statement_close_day: account?.statement_close_day ?? '', // ✅ NOVO
+    statement_close_day: account?.statement_close_day ?? '',
+    statement_close_month: account?.statement_close_month ?? null,
+    // investimento
+    yield_enabled: !!(account?.yield_enabled ?? false),
+    cdi_percent: account?.cdi_percent ?? 100,
   });
 
   const isCreditCard = data.type === 'credit_card';
+  const isInvestment = data.type === 'investment';
 
   const nameLabel = useMemo(() => {
     return isCreditCard ? 'Nome do cartão' : 'Nome da conta';
@@ -22,6 +27,7 @@ export default function Form({ mode, account }) {
     if (data.type === 'cash') return 'Ex: Carteira, Dinheiro';
     return 'Ex: Itaú, Banco do Brasil, Nubank, Mercado Pago';
   }, [isCreditCard, data.type]);
+
 
   function submit(e) {
     e.preventDefault();
@@ -98,9 +104,66 @@ export default function Form({ mode, account }) {
                   <option value="cash">Dinheiro (carteira)</option>
                   <option value="credit_card">Cartão de crédito</option>
                   <option value="other">Outro (saldo)</option>
+                  <option value="investment">Investimento</option>
                 </select>
                 {errors.type && <div className="mt-1 text-sm text-rose-600">{errors.type}</div>}
               </div>
+
+              {isInvestment && (
+                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">
+                        Rendimento automático (CDI)
+                      </div>
+                      <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                        Aplica rendimento diário automaticamente (via scheduler).
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={!!data.yield_enabled}
+                      onClick={() => setData('yield_enabled', !data.yield_enabled)}
+                      className={[
+                        'relative inline-flex h-7 w-12 items-center rounded-full transition',
+                        data.yield_enabled ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-slate-700',
+                      ].join(' ')}
+                    >
+                      <span
+                        className={[
+                          'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
+                          data.yield_enabled ? 'translate-x-6' : 'translate-x-1',
+                        ].join(' ')}
+                      />
+                    </button>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">% do CDI</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="300"
+                        className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                        value={data.cdi_percent}
+                        onChange={(e) => setData('cdi_percent', e.target.value === '' ? '' : Number(e.target.value))}
+                      />
+                      {errors.cdi_percent && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.cdi_percent}</div>}
+                    </div>
+
+                    <div className="rounded-xl bg-white p-3 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-800">
+                      Ex.: <b>100%</b> (igual CDI), <b>101%</b>, <b>102%</b>…
+                      <div className="mt-2 text-gray-500 dark:text-slate-400">
+                        O rendimento vira uma transação do tipo <b>Receita</b> na própria conta.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Fechamento da fatura (apenas cartão) */}
               {data.type === 'credit_card' && (

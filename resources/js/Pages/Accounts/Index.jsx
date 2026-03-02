@@ -147,6 +147,7 @@ function labelType(v) {
   if (v === 'bank') return 'Banco';
   if (v === 'debit') return 'Débito';
   if (v === 'credit_card') return 'Cartão';
+  if (v === 'investment') return 'Investimento';
   return 'Outro';
 }
 
@@ -156,6 +157,7 @@ function labelGroup(v) {
   if (t === 'credit_card') return 'Cartões';
   if (t === 'cash') return 'Dinheiro';
   if (t === 'debit') return 'Débito';
+  if (t === 'investment') return 'Investimentos';
   return 'Outros';
 }
 

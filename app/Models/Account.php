@@ -8,10 +8,23 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Account extends Model
 {
-    protected $fillable = ['user_id', 'name', 'type', 'initial_balance', 'statement_close_day', 'statement_close_month'];
+    protected $fillable = [
+        'user_id', 
+        'name', 
+        'type', 
+        'initial_balance', 
+        'statement_close_day', 
+        'statement_close_month',
+        'yield_enabled',
+        'cdi_percent',
+        'last_yield_date',
+        ];
 
     protected $casts = [
         'initial_balance' => 'decimal:2',
+        'yield_enabled' => 'boolean',
+        'cdi_percent' => 'decimal:2',
+        'last_yield_date' => 'date',
     ];
 
     public function user(): BelongsTo

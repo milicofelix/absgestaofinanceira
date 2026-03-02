@@ -16,6 +16,7 @@ use App\Http\Controllers\InstallmentController;
 use App\Http\Controllers\CategoryBudgetController;
 use App\Http\Controllers\ThemeSettingsController;
 use App\Http\Controllers\CreditCardInvoiceController;
+use App\Http\Controllers\InvestmentController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -72,6 +73,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Cartão de crédito - faturas
     Route::post('/credit-cards/{account}/pay-invoice', [CreditCardInvoiceController::class, 'pay'])
         ->name('credit-cards.pay-invoice');
+
+    Route::get('/investments', [InvestmentController::class, 'index'])
+        ->name('investments.index');
+
+    Route::get('/investments/{account}', [InvestmentController::class, 'show'])
+        ->name('investments.show');
 
 });
 
