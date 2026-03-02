@@ -15,7 +15,7 @@ class AccountController extends Controller
         $accounts = Account::query()
             ->where('user_id', $request->user()->id)
             ->orderBy('name')
-            ->get(['id','name','type','initial_balance', 'statement_close_day', 'statement_close_month']);
+            ->get(['id','name','type','initial_balance', 'statement_close_day', 'statement_close_month', 'cdi_percent','yield_enabled']);
 
         return Inertia::render('Accounts/Index', [
             'accounts' => $accounts,
@@ -32,14 +32,33 @@ class AccountController extends Controller
 
     public function store(StoreAccountRequest $request)
     {
-        Account::create([
-            'user_id' => $request->user()->id,
-            'name' => $request->string('name')->toString(),
-            'type' => $request->string('type')->toString(),
-            'initial_balance' => $request->input('initial_balance', 0),
-            'statement_close_day' => $request->input('statement_close_day') ?: null,
-            'statement_close_month' => $request->input('statement_close_month') ?: null,
+        $data = $request->only([
+            'name','type','initial_balance','statement_close_day','statement_close_month',
+            'yield_enabled','cdi_percent'
         ]);
+
+        $data['user_id'] = $request->user()->id;
+
+        // normalizações
+        $data['name'] = $request->string('name')->toString();
+        $data['type'] = $request->string('type')->toString();
+
+        $data['initial_balance'] = $request->input('initial_balance', 0);
+        $data['statement_close_day'] = $request->input('statement_close_day') ?: null;
+        $data['statement_close_month'] = $request->input('statement_close_month') ?: null;
+
+        $data['yield_enabled'] = $request->boolean('yield_enabled');
+        $data['cdi_percent'] = $request->filled('cdi_percent')
+            ? (float) $request->input('cdi_percent')
+            : 100;
+
+        // se não for investment, limpa campos
+        if ($data['type'] !== 'investment') {
+            $data['yield_enabled'] = false;
+            $data['cdi_percent'] = 100;
+        }
+
+        Account::create($data);
 
         return redirect()->route('accounts.index');
     }
@@ -50,7 +69,11 @@ class AccountController extends Controller
 
         return Inertia::render('Accounts/Form', [
             'mode' => 'edit',
-            'account' => $account->only(['id','name','type','initial_balance', 'statement_close_day', 'statement_close_month']),
+            'account' => $account->only([
+                'id','name','type','initial_balance',
+                'statement_close_day','statement_close_month',
+                'yield_enabled','cdi_percent',
+            ]),
         ]);
     }
 
@@ -58,13 +81,26 @@ class AccountController extends Controller
     {
         abort_unless($account->user_id === $request->user()->id, 403);
 
-        $account->update([
-            'name' => $request->string('name'),
-            'type' => $request->string('type'),
+        $type = $request->string('type')->toString();
+
+        $payload = [
+            'name' => $request->string('name')->toString(),
+            'type' => $type,
             'initial_balance' => $request->input('initial_balance', 0),
             'statement_close_day' => $request->input('statement_close_day') ?: null,
             'statement_close_month' => $request->input('statement_close_month') ?: null,
-        ]);
+            'yield_enabled' => $request->boolean('yield_enabled'),
+            'cdi_percent' => $request->filled('cdi_percent')
+                ? (float) $request->input('cdi_percent')
+                : 100,
+        ];
+
+        if ($type !== 'investment') {
+            $payload['yield_enabled'] = false;
+            $payload['cdi_percent'] = 100;
+        }
+
+        $account->update($payload);
 
         return redirect()->route('accounts.index');
     }

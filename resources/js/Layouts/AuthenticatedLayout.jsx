@@ -36,6 +36,8 @@ export default function AuthenticatedLayout({ header, children }) {
       { name: 'Categorias', href: route('categories.index'), active: route().current('categories.*') },
 
       { name: 'Contas', href: route('accounts.index'), active: route().current('accounts.*') },
+      
+      { name: 'Investimentos', href: route('investments.index'), active: route().current('investments.*') },
 
       {
         name: 'Transferências',
@@ -294,7 +296,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
           {/* Mobile quick links */}
           <div className="border-t border-gray-100 dark:border-slate-800 px-4 py-2 sm:hidden">
-            <div className="flex gap-3">
+            <div className="flex gap-2 overflow-x-auto whitespace-nowrap py-1 scrollbar-hide">
               <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')}>
                 Dashboard
               </ResponsiveNavLink>
@@ -305,6 +307,10 @@ export default function AuthenticatedLayout({ header, children }) {
 
               <ResponsiveNavLink href={route('budgets.index')} active={route().current('budgets.*')}>
                 Metas
+              </ResponsiveNavLink>
+
+              <ResponsiveNavLink href={route('investments.index')} active={route().current('investments.*')}>
+                Investimentos
               </ResponsiveNavLink>
 
               {/* Transferências dropdown */}
