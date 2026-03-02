@@ -18,9 +18,10 @@ class TransferController extends Controller
     public function create(Request $request)
     {
         $userId = $request->user()->id;
+        $allowedTypes = ['bank', 'investment'];
 
         $accounts = Account::where('user_id', $userId)
-            ->where('type', 'bank')
+            ->whereIn('type', $allowedTypes)
             ->orderBy('name')
             ->get(['id', 'name', 'type']);
 
@@ -43,6 +44,7 @@ class TransferController extends Controller
     public function recipientAccounts(Request $request)
     {
         $userId = $request->user()->id;
+        $allowedTypes = ['bank', 'investment'];
 
         $request->validate([
             'recipient_user_id' => ['required', 'integer'],
@@ -58,7 +60,7 @@ class TransferController extends Controller
         abort_unless($allowed, 403);
 
         $accounts = Account::where('user_id', $recipientUserId)
-            ->where('type', 'bank')
+            ->whereIn('type', $allowedTypes)
             ->orderBy('name')
             ->get(['id', 'name', 'type']);
 
@@ -68,13 +70,16 @@ class TransferController extends Controller
     public function store(Request $request)
     {
         $userId = $request->user()->id;
+        $allowedTypes = ['bank', 'investment'];
 
         $data = $request->validate([
             'recipient_mode' => ['required', Rule::in(['self', 'other'])],
 
             'from_account_id' => [
                 'required', 'integer',
-                Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('user_id', $userId)->where('type', 'bank')),
+                Rule::exists('accounts', 'id')->where(
+                    fn ($q) => $q->where('user_id', $userId)->whereIn('type', $allowedTypes)
+                ),
             ],
 
             // self: conta destino também é do usuário logado
@@ -100,7 +105,9 @@ class TransferController extends Controller
             $request->validate([
                 'to_account_id' => [
                     'required', 'integer', 'different:from_account_id',
-                    Rule::exists('accounts', 'id')->where(fn ($q) => $q->where('user_id', $userId)->where('type', 'bank')),
+                    Rule::exists('accounts', 'id')->where(
+                        fn ($q) => $q->where('user_id', $userId)->whereIn('type', $allowedTypes)
+                    ),
                 ],
             ]);
 
@@ -165,7 +172,7 @@ class TransferController extends Controller
             $toOk = Account::query()
                 ->where('id', (int) $data['to_account_id'])
                 ->where('user_id', $recipientUserId)
-                ->where('type', 'bank')
+                ->whereIn('type', $allowedTypes)
                 ->exists();
 
             abort_unless($toOk, 422);

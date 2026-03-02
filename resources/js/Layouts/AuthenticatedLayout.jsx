@@ -35,7 +35,7 @@ export default function AuthenticatedLayout({ header, children }) {
 
       { name: 'Categorias', href: route('categories.index'), active: route().current('categories.*') },
 
-      { name: 'Contas', href: route('accounts.index'), active: route().current('accounts.*') },
+      { name: 'Carteiras', href: route('accounts.index'), active: route().current('accounts.*') },
       
       { name: 'Investimentos', href: route('investments.index'), active: route().current('investments.*') },
 
