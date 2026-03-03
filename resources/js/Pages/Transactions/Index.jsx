@@ -65,10 +65,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
     setPayError('');
   }
 
-  function formatBRL(v) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0));
-  }
-
   function confirmPay() {
     if (!payTx) return;
 
@@ -84,7 +80,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
     }
 
     // Pré-check de saldo (client-side) — depende de accounts ter "balance"
-    // (o bloqueio definitivo deve ser no backend)
     const bank = bankAccounts.find((a) => Number(a.id) === bankId);
     const bankBalance = bank && bank.balance !== undefined ? Number(bank.balance || 0) : null;
 
@@ -108,9 +103,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
         preserveScroll: true,
         onSuccess: () => closePayModal(),
         onError: (errors) => {
-          // backend pode retornar 422 com mensagem via abort(422, 'Saldo insuficiente')
-          // Inertia normalmente joga a msg em errors (ou vem como response message no flash)
-          // Aqui tentamos extrair algo útil:
           const msg =
             (errors && (errors.message || errors.error || errors.cleared_at || errors.paid_bank_account_id)) ||
             'Não foi possível registrar o pagamento.';
@@ -222,6 +214,30 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
     return isClosedForMonth(month, closingDay);
   }
+
+  // --------------------------
+  // UI rules: destaque / badge
+  // --------------------------
+  function rowTone(t) {
+    if (!isInstallment(t)) return { row: '', cell: '', left: '', sticky: '' };
+
+    const cell = 'bg-violet-50/70 dark:bg-violet-900/10';
+    const row = 'hover:bg-violet-50/80 dark:hover:bg-violet-900/15';
+    const left = 'border-l-4 border-violet-500 dark:border-violet-400';
+    const sticky = 'bg-violet-50/70 dark:bg-violet-900/10';
+
+    return { row, cell, left, sticky };
+  }
+
+  // --------------------------
+  // ✅ AGRUPAMENTO (front-only)
+  // --------------------------
+  const data = transactions?.data || [];
+  const normalRows = useMemo(() => data.filter((t) => !isInstallment(t)), [data]);
+  const installmentRows = useMemo(() => data.filter((t) => isInstallment(t)), [data]);
+
+  const showInstallmentHeader = installmentRows.length > 0; // mostra quando existir parcela
+  const headerTitle = 'Compras parceladas';
 
   return (
     <AuthenticatedLayout
@@ -404,7 +420,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     onChange={(e) => setAccountId(e.target.value)}
                   >
                     <option value="">Todas</option>
-                    {accounts.map((a) => (
+                    {(accounts || []).map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
                       </option>
@@ -500,144 +516,42 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
           {/* ✅ MOBILE: cards */}
           <div className="space-y-2 sm:hidden">
-            {transactions.data.map((t) => (
-              <div
-                key={t.id}
-                className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
-                        <PaymentIcon method={t.payment_method} />
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="truncate font-semibold text-gray-900 dark:text-slate-100">
-                          {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
-                        </div>
-
-                        <div className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
-                          {formatDateBR(t.date)}
-                          {t.purchase_date && t.purchase_date !== t.date ? (
-                            <>
-                              {' '}
-                              •{' '}
-                              <span className="font-semibold text-gray-600 dark:text-slate-300">
-                                Compra {formatDateBR(t.purchase_date)}
-                              </span>
-                            </>
-                          ) : null}
-                          {' '}
-                          • {t.category?.name || '—'} • {t.account?.name || '—'}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-2 text-xs text-gray-500 dark:text-slate-400 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
-                        <AccountTypeIcon type={t.account?.type} />
-                        <span className="truncate max-w-[180px]">{t.account?.name || '—'}</span>
-                      </span>
-
-                      <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
-                        <PaymentIcon method={t.payment_method} />
-                        {PaymentLabel(t.payment_method)}
-                      </span>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <span
-                        className={[
-                          'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold',
-                          t.type === 'expense'
-                            ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
-                            : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
-                        ].join(' ')}
-                      >
-                        {t.type === 'expense' ? 'Despesa' : 'Receita'}
-                      </span>
-
-                      {t.installment_id && (
-                        <span
-                          className={[
-                            'inline-flex rounded-full px-2 py-1 text-xs font-semibold',
-                            t.installment?.is_active
-                              ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
-                              : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
-                          ].join(' ')}
-                          title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
-                        >
-                          {t.installment_number}/{t.installment?.installments_count ?? '?'}
-                        </span>
-                      )}
-
-                      <StatusBadge t={t} />
-                    </div>
-                  </div>
-
-                  <div className="text-right">
-                    <div
-                      className={[
-                        'whitespace-nowrap text-sm font-bold',
-                        t.type === 'expense'
-                          ? 'text-rose-700 dark:text-rose-300'
-                          : 'text-emerald-700 dark:text-emerald-300',
-                      ].join(' ')}
-                    >
-                      {t.type === 'expense' ? '-' : '+'}
-                      {formatBRL(t.amount)}
-                    </div>
-
-                    <div className="mt-2 flex justify-end gap-2">
-                      <Link
-                        href={route('transactions.edit', { transaction: t.id, month })}
-                        className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-                        title="Editar"
-                      >
-                        <IconEdit />
-                      </Link>
-
-                      {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
-                        <button
-                          className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
-                          title="Cancelar parcelamento"
-                          onClick={() => {
-                            if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
-                            router.post(route('installments.cancel', t.installment_id));
-                          }}
-                        >
-                          <IconBlock />
-                        </button>
-                      )}
-
-                      {canShowPayButton(t) && (
-                        <button
-                          className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
-                          title="Marcar como pago"
-                          onClick={() => markAsCleared(t)}
-                        >
-                          ✓
-                        </button>
-                      )}
-
-                      <button
-                        className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
-                        title="Excluir"
-                        onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}
-                      >
-                        <IconTrash />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-
-            {transactions.data.length === 0 && (
+            {data.length === 0 ? (
               <div className="rounded-2xl bg-white p-6 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:text-slate-400 dark:ring-slate-800">
                 Nenhum lançamento encontrado.
               </div>
+            ) : (
+              <>
+                {normalRows.map((t) => (
+                  <MobileCard
+                    key={t.id}
+                    t={t}
+                    month={month}
+                    rowTone={rowTone}
+                    markAsCleared={markAsCleared}
+                    canShowPayButton={canShowPayButton}
+                  />
+                ))}
+
+                {showInstallmentHeader && installmentRows.length > 0 && (
+                  <div className="pt-2">
+                    <div className="rounded-xl bg-gray-50 px-3 py-2 text-xs font-bold uppercase tracking-wide text-gray-600 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800">
+                      {headerTitle}
+                    </div>
+                  </div>
+                )}
+
+                {installmentRows.map((t) => (
+                  <MobileCard
+                    key={t.id}
+                    t={t}
+                    month={month}
+                    rowTone={rowTone}
+                    markAsCleared={markAsCleared}
+                    canShowPayButton={canShowPayButton}
+                  />
+                ))}
+              </>
             )}
           </div>
 
@@ -663,145 +577,50 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 </thead>
 
                 <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                  {transactions.data.map((t) => (
-                    <tr key={t.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/60">
-                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{formatDateBR(t.date)}</td>
-
-                      <td className="px-4 py-3">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
-                            <PaymentIcon method={t.payment_method} />
-                          </div>
-
-                          <div className="min-w-0">
-                            <div className="truncate text-gray-900 dark:text-slate-100 font-semibold">
-                              {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
-                            </div>
-
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <span
-                                className={[
-                                  'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                  t.type === 'expense'
-                                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
-                                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
-                                ].join(' ')}
-                              >
-                                {t.type === 'expense' ? 'Despesa' : 'Receita'}
-                              </span>
-
-                              {t.installment_id && (
-                                <span
-                                  className={[
-                                    'rounded-full px-2 py-0.5 text-xs font-semibold',
-                                    t.installment?.is_active
-                                      ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
-                                      : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
-                                  ].join(' ')}
-                                  title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
-                                >
-                                  {t.installment_number}/{t.installment?.installments_count ?? '?'}
-                                </span>
-                              )}
-
-                              <StatusBadge t={t} />
-                              {t.purchase_date && t.purchase_date !== t.date && (
-                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                                  Compra {formatDateBR(t.purchase_date)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{t.category?.name || '—'}</td>
-
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
-                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
-                            <AccountTypeIcon type={t.account?.type} />
-                          </span>
-                          <span className="min-w-0 truncate">{t.account?.name || '—'}</span>
-                        </div>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
-                          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
-                            <PaymentIcon method={t.payment_method} />
-                          </span>
-                          <span className="font-semibold">{PaymentLabel(t.payment_method)}</span>
-                        </div>
-                      </td>
-
-                      <td
-                        className={[
-                          'px-4 py-3 text-right font-semibold',
-                          t.type === 'expense' ? 'text-rose-600 dark:text-rose-300' : 'text-emerald-600 dark:text-emerald-300',
-                        ].join(' ')}
-                      >
-                        {formatBRL(t.amount)}
-                      </td>
-
-                      <td
-                        className="px-4 py-3 text-right sticky right-0 bg-white dark:bg-slate-900
-                                   shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]"
-                      >
-                        <div className="inline-flex items-center gap-2 whitespace-nowrap">
-                          <Link
-                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-                            href={route('transactions.edit', { transaction: t.id, month })}
-                            title="Editar"
-                          >
-                            <IconEdit />
-                            <span className="hidden md:inline">Editar</span>
-                          </Link>
-
-                          {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
-                            <button
-                              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
-                              title="Cancelar parcelamento"
-                              onClick={() => {
-                                if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
-                                router.post(route('installments.cancel', t.installment_id));
-                              }}
-                            >
-                              <IconBlock />
-                              <span className="hidden md:inline">Cancelar</span>
-                            </button>
-                          )}
-
-                          {canShowPayButton(t) && (
-                            <button
-                              className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
-                              title="Marcar como pago"
-                              onClick={() => markAsCleared(t)}
-                            >
-                              ✓
-                              <span className="hidden md:inline">Pagar</span>
-                            </button>
-                          )}
-
-                          <button
-                            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
-                            title="Excluir"
-                            onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', { transaction: t.id, month }))}
-                          >
-                            <IconTrash />
-                            <span className="hidden md:inline">Excluir</span>
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {transactions.data.length === 0 && (
+                  {data.length === 0 ? (
                     <tr>
                       <td className="px-4 py-10 text-center text-gray-500 dark:text-slate-400" colSpan={7}>
                         Nenhum lançamento encontrado.
                       </td>
                     </tr>
+                  ) : (
+                    <>
+                      {normalRows.map((t) => (
+                        <DesktopRow
+                          key={t.id}
+                          t={t}
+                          month={month}
+                          rowTone={rowTone}
+                          markAsCleared={markAsCleared}
+                          canShowPayButton={canShowPayButton}
+                          accounts={accounts}
+                        />
+                      ))}
+
+                      {showInstallmentHeader && installmentRows.length > 0 && (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            className="bg-gray-50 px-4 py-2 text-xs font-bold uppercase tracking-wide text-gray-600
+                                      dark:bg-slate-950 dark:text-slate-300"
+                          >
+                            {headerTitle}
+                          </td>
+                        </tr>
+                      )}
+
+                      {installmentRows.map((t) => (
+                        <DesktopRow
+                          key={t.id}
+                          t={t}
+                          month={month}
+                          rowTone={rowTone}
+                          markAsCleared={markAsCleared}
+                          canShowPayButton={canShowPayButton}
+                          accounts={accounts}
+                        />
+                      ))}
+                    </>
                   )}
                 </tbody>
               </table>
@@ -816,6 +635,39 @@ export default function Index({ transactions, filters, categories, accounts }) {
 }
 
 /* ---------- helpers ---------- */
+
+function isInstallment(t) {
+  return !!t?.installment_id;
+}
+
+// ✅ "Novo": prioriza created_at (se existir), fallback para date
+function isNewTx(t, hours = 24) {
+  const now = new Date();
+
+  // preferível: created_at vindo do Laravel (ISO)
+  if (t?.created_at) {
+    const created = new Date(t.created_at);
+    if (!Number.isNaN(created.getTime())) {
+      const diff = now.getTime() - created.getTime();
+      return diff >= 0 && diff <= hours * 60 * 60 * 1000;
+    }
+  }
+
+  // fallback (menos preciso): date como meia-noite local
+  const base = t?.date ? new Date(`${t.date}T00:00:00`) : null;
+  if (!base || Number.isNaN(base.getTime())) return false;
+  const diffMs = now.getTime() - base.getTime();
+  return diffMs >= 0 && diffMs <= hours * 60 * 60 * 1000;
+}
+
+function NewBadge() {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-xs font-bold text-violet-700 ring-1 ring-violet-200 dark:bg-violet-900/25 dark:text-violet-200 dark:ring-violet-900/40">
+      <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-80" />
+      Novo
+    </span>
+  );
+}
 
 function Pagination({ links }) {
   if (!links || links.length <= 3) return null;
@@ -901,6 +753,308 @@ function StatusBadge({ t }) {
       <span className="inline-block h-1.5 w-1.5 rounded-full bg-current opacity-70" />
       {label}
     </span>
+  );
+}
+
+/* ---------- MOBILE CARD (extraído p/ não duplicar lógica) ---------- */
+
+function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton }) {
+  const showNew = isNewTx(t, 24);
+
+  return (
+    <div
+      className={[
+        'rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800',
+        isInstallment(t) ? 'border-l-4 border-violet-500 dark:border-violet-400 bg-violet-50/60 dark:bg-violet-900/10' : '',
+      ].join(' ')}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
+              <PaymentIcon method={t.payment_method} />
+            </div>
+
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <div className="truncate font-semibold text-gray-900 dark:text-slate-100">
+                  {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
+                </div>
+                {showNew && <NewBadge />}
+              </div>
+
+              <div className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
+                {formatDateBR(t.date)}
+                {t.purchase_date && t.purchase_date !== t.date ? (
+                  <>
+                    {' '}
+                    •{' '}
+                    <span className="font-semibold text-gray-600 dark:text-slate-300">
+                      Compra {formatDateBR(t.purchase_date)}
+                    </span>
+                  </>
+                ) : null}
+                {' '}
+                • {t.category?.name || '—'} • {t.account?.name || '—'}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
+              <AccountTypeIcon type={t.account?.type} />
+              <span className="truncate max-w-[180px]">{t.account?.name || '—'}</span>
+            </span>
+
+            <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
+              <PaymentIcon method={t.payment_method} />
+              {PaymentLabel(t.payment_method)}
+            </span>
+          </div>
+
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span
+              className={[
+                'inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold',
+                t.type === 'expense'
+                  ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
+                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
+              ].join(' ')}
+            >
+              {t.type === 'expense' ? 'Despesa' : 'Receita'}
+            </span>
+
+            {t.installment_id && (
+              <span
+                className={[
+                  'inline-flex rounded-full px-2 py-1 text-xs font-semibold',
+                  t.installment?.is_active
+                    ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
+                    : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
+                ].join(' ')}
+                title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
+              >
+                {t.installment_number}/{t.installment?.installments_count ?? '?'}
+              </span>
+            )}
+
+            <StatusBadge t={t} />
+          </div>
+        </div>
+
+        <div className="text-right">
+          <div
+            className={[
+              'whitespace-nowrap text-sm font-bold',
+              t.type === 'expense'
+                ? 'text-rose-700 dark:text-rose-300'
+                : 'text-emerald-700 dark:text-emerald-300',
+            ].join(' ')}
+          >
+            {t.type === 'expense' ? '-' : '+'}
+            {formatBRL(t.amount)}
+          </div>
+
+          <div className="mt-2 flex justify-end gap-2">
+            <Link
+              href={route('transactions.edit', { transaction: t.id, month })}
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+              title="Editar"
+            >
+              <IconEdit />
+            </Link>
+
+            {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
+              <button
+                className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
+                title="Cancelar parcelamento"
+                onClick={() => {
+                  if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
+                  router.post(route('installments.cancel', t.installment_id));
+                }}
+              >
+                <IconBlock />
+              </button>
+            )}
+
+            {canShowPayButton(t) && (
+              <button
+                className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
+                title="Marcar como pago"
+                onClick={() => markAsCleared(t)}
+              >
+                ✓
+              </button>
+            )}
+
+            <button
+              className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
+              title="Excluir"
+              onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}
+            >
+              <IconTrash />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- DESKTOP ROW (extraído) ---------- */
+
+function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton }) {
+  const tone = rowTone(t);
+  const showNew = isNewTx(t, 24);
+
+  return (
+    <tr className={['transition-colors', tone.row].join(' ')}>
+      <td className={['px-4 py-3 text-gray-700 dark:text-slate-200', tone.cell, tone.left].join(' ')}>
+        {formatDateBR(t.date)}
+      </td>
+
+      <td className={['px-4 py-3', tone.cell].join(' ')}>
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
+            <PaymentIcon method={t.payment_method} />
+          </div>
+
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="truncate text-gray-900 dark:text-slate-100 font-semibold">
+                {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
+              </div>
+              {showNew && <NewBadge />}
+            </div>
+
+            <div className="mt-1 flex flex-wrap items-center gap-2">
+              <span
+                className={[
+                  'rounded-full px-2 py-0.5 text-xs font-semibold',
+                  t.type === 'expense'
+                    ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
+                    : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
+                ].join(' ')}
+              >
+                {t.type === 'expense' ? 'Despesa' : 'Receita'}
+              </span>
+
+              {t.installment_id && (
+                <span
+                  className={[
+                    'rounded-full px-2 py-0.5 text-xs font-semibold',
+                    t.installment?.is_active
+                      ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
+                      : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
+                  ].join(' ')}
+                  title={t.installment?.is_active ? 'Parcelamento ativo' : 'Parcelamento cancelado'}
+                >
+                  {t.installment_number}/{t.installment?.installments_count ?? '?'}
+                </span>
+              )}
+
+              <StatusBadge t={t} />
+
+              {t.purchase_date && t.purchase_date !== t.date && (
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                  Compra {formatDateBR(t.purchase_date)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </td>
+
+      <td className={['px-4 py-3 text-gray-700 dark:text-slate-200', tone.cell].join(' ')}>
+        {t.category?.name || '—'}
+      </td>
+
+      <td className={['px-4 py-3', tone.cell].join(' ')}>
+        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
+            <AccountTypeIcon type={t.account?.type} />
+          </span>
+          <span className="min-w-0 truncate">{t.account?.name || '—'}</span>
+        </div>
+      </td>
+
+      <td className={['px-4 py-3', tone.cell].join(' ')}>
+        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
+            <PaymentIcon method={t.payment_method} />
+          </span>
+          <span className="font-semibold">{PaymentLabel(t.payment_method)}</span>
+        </div>
+      </td>
+
+      <td
+        className={[
+          'px-4 py-3 text-right font-semibold',
+          tone.cell,
+          t.type === 'expense'
+            ? 'text-rose-600 dark:text-rose-300'
+            : 'text-emerald-600 dark:text-emerald-300',
+        ].join(' ')}
+      >
+        {formatBRL(t.amount)}
+      </td>
+
+      <td
+        className={[
+          'px-4 py-3 text-right sticky right-0',
+          isInstallment(t) ? tone.sticky : 'bg-white dark:bg-slate-900',
+          'shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]',
+        ].join(' ')}
+      >
+        <div className="inline-flex items-center gap-2 whitespace-nowrap">
+          <Link
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+            href={route('transactions.edit', { transaction: t.id, month })}
+            title="Editar"
+          >
+            <IconEdit />
+            <span className="hidden md:inline">Editar</span>
+          </Link>
+
+          {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
+            <button
+              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
+              title="Cancelar parcelamento"
+              onClick={() => {
+                if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
+                router.post(route('installments.cancel', t.installment_id));
+              }}
+            >
+              <IconBlock />
+              <span className="hidden md:inline">Cancelar</span>
+            </button>
+          )}
+
+          {canShowPayButton(t) && (
+            <button
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
+              title="Marcar como pago"
+              onClick={() => markAsCleared(t)}
+            >
+              ✓
+              <span className="hidden md:inline">Pagar</span>
+            </button>
+          )}
+
+          <button
+            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
+            title="Excluir"
+            onClick={() =>
+              confirm('Excluir este lançamento?') &&
+              router.delete(route('transactions.destroy', { transaction: t.id, month }))
+            }
+          >
+            <IconTrash />
+            <span className="hidden md:inline">Excluir</span>
+          </button>
+        </div>
+      </td>
+    </tr>
   );
 }
 

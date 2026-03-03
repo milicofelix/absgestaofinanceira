@@ -24,19 +24,14 @@ class TransactionController extends Controller
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = (clone $start)->endOfMonth();
 
-        $query = Transaction::query()
+       $query = Transaction::query()
             ->where('user_id', $userId)
-            /**
-             * filtra por competência quando existir.
-             * - Se competence_month estiver preenchido => usa ele
-             * - Se estiver NULL (dados antigos) => cai no filtro por date
-             */
             ->where(function ($q) use ($month, $start, $end) {
                 $q->where('competence_month', $month)
-                  ->orWhere(function ($q2) use ($start, $end) {
-                      $q2->whereNull('competence_month')
-                         ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                  });
+                ->orWhere(function ($q2) use ($start, $end) {
+                    $q2->whereNull('competence_month')
+                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                });
             })
             ->with([
                 'category:id,name',
@@ -44,7 +39,11 @@ class TransactionController extends Controller
                 'installment:id,installments_count,is_active'
             ])
 
-            // se você quiser, pode ordenar por competência, mas manter por date é ok
+            // ✅ 1) primeiro as NÃO parceladas (installment_id NULL)
+            // ✅ 2) depois as parceladas (installment_id NOT NULL)
+            ->orderByRaw('(installment_id IS NOT NULL) ASC')
+
+            // ✅ dentro de cada grupo, mantém por data/id
             ->orderByDesc('date')
             ->orderByDesc('id');
 
