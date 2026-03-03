@@ -6,6 +6,7 @@ import { formatDateBR } from '@/utils/formatters';
 
 export default function Dashboard({
   month,
+  filters,
   income,
   expense,
   balance,
@@ -16,14 +17,29 @@ export default function Dashboard({
   lifetimeIncome,
   budgetsBadge,
 }) {
-  const [selectedMonth, setSelectedMonth] = useState(month);
+  const [selectedMonth, setSelectedMonth] = useState(filters?.month || month);
   const [showLifetimeIncome, setShowLifetimeIncome] = useState(false);
   const { flash } = usePage().props;
+  const [selectedAccountId, setSelectedAccountId] = useState(filters?.account_id || '');
 
   function changeMonth(v) {
     const m = (v || '').slice(0, 7);
     setSelectedMonth(m);
-    router.get(route('dashboard'), { month: m }, { preserveState: true, replace: true });
+    router.get(
+      route('dashboard'),
+      { month: m, account_id: selectedAccountId || undefined },
+      { preserveState: true, replace: true }
+    );
+  }
+
+  function changeAccount(v) {
+    const id = String(v || '');
+    setSelectedAccountId(id);
+    router.get(
+      route('dashboard'),
+      { month: selectedMonth, account_id: id || undefined },
+      { preserveState: true, replace: true }
+    );
   }
 
   const monthLabel = useMemo(() => formatMonthPtBR(selectedMonth), [selectedMonth]);
@@ -314,18 +330,49 @@ export default function Dashboard({
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
           {/* filtro + link */}
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-slate-300">
-              <span className="font-medium text-gray-700 dark:text-slate-200">Mês</span>
-              <input
-                type="month"
-                className="rounded-lg border-gray-300 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                value={selectedMonth}
-                onChange={(e) => changeMonth(e.target.value)}
-              />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 text-sm text-gray-600 dark:text-slate-300">
+              <div className="flex items-center gap-3">
+                <span className="font-medium text-gray-700 dark:text-slate-200">Mês</span>
+                <input
+                  type="month"
+                  className="rounded-lg border-gray-300 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  value={selectedMonth}
+                  onChange={(e) => changeMonth(e.target.value)}
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <span className="font-medium text-gray-700 dark:text-slate-200">Conta</span>
+                <select
+                  className="rounded-lg border-gray-300 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  value={selectedAccountId}
+                  onChange={(e) => changeAccount(e.target.value)}
+                >
+                  <option value="">Todas</option>
+                  {(accounts || []).map((a) => (
+                    <option key={a.id} value={String(a.id)}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+
+                {!!selectedAccountId && (
+                  <button
+                    type="button"
+                    onClick={() => changeAccount('')}
+                    className="text-xs font-semibold text-gray-600 hover:underline dark:text-slate-300"
+                  >
+                    Limpar
+                  </button>
+                )}
+              </div>
             </div>
 
             <Link
-              href={route('transactions.index', { month: selectedMonth })}
+              href={route('transactions.index', {
+                month: selectedMonth,
+                account_id: selectedAccountId || undefined,
+              })}
               className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
             >
               Ver lançamentos →
