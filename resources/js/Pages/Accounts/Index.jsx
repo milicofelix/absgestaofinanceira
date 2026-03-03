@@ -1,3 +1,4 @@
+// resources/js/Pages/Accounts/Index.jsx
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useMemo } from 'react';
@@ -29,7 +30,9 @@ export default function Index({ accounts }) {
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold leading-tight text-gray-900 dark:text-slate-100">Carteiras</h2>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Gerencie suas contas e saldo inicial</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400">
+              Gerencie suas contas bancárias, cartões e investimentos
+            </p>
           </div>
 
           <Link
@@ -83,49 +86,73 @@ export default function Index({ accounts }) {
                     <tr>
                       <th className="px-4 py-3 font-semibold">Nome</th>
                       <th className="px-4 py-3 font-semibold">Tipo</th>
-                      <th className="px-4 py-3 font-semibold">Saldo inicial</th>
+
+                      {String(type).toLowerCase() === 'credit_card' ? (
+                        <>
+                          <th className="px-4 py-3 font-semibold">Fechamento</th>
+                          <th className="px-4 py-3 font-semibold">Vencimento</th>
+                        </>
+                      ) : (
+                        <th className="px-4 py-3 font-semibold">Saldo inicial</th>
+                      )}
+
                       <th className="px-4 py-3 text-right font-semibold">Ações</th>
                     </tr>
                   </thead>
 
                   <tbody className="divide-y divide-gray-100 dark:divide-slate-800">
-                    {items.map((a) => (
-                      <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/60">
-                        <td className="px-4 py-3">
-                          <div className="font-semibold text-gray-900 dark:text-slate-100">{a.name}</div>
-                        </td>
+                    {items.map((a) => {
+                      const isCard = String(a.type || '').toLowerCase() === 'credit_card';
 
-                        <td className="px-4 py-3">
-                          <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 dark:bg-slate-800 dark:text-slate-200">
-                            {labelType(a.type)}
-                          </span>
-                        </td>
+                      return (
+                        <tr key={a.id} className="hover:bg-gray-50 dark:hover:bg-slate-800/60">
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-gray-900 dark:text-slate-100">{a.name}</div>
+                          </td>
 
-                        <td className="px-4 py-3 font-semibold text-gray-900 dark:text-slate-100">
-                          {formatBRL(Number(a.initial_balance))}
-                        </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 dark:bg-slate-800 dark:text-slate-200">
+                              {labelType(a.type)}
+                            </span>
+                          </td>
 
-                        <td className="px-4 py-3 text-right">
-                          <div className="inline-flex items-center gap-3">
-                            <Link
-                              className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
-                              href={route('accounts.edit', a.id)}
-                            >
-                              Editar
-                            </Link>
+                          {isCard ? (
+                            <>
+                              <td className="px-4 py-3 font-semibold text-gray-900 dark:text-slate-100">
+                                {formatDayLabel(a.statement_close_day)}
+                              </td>
+                              <td className="px-4 py-3 font-semibold text-gray-900 dark:text-slate-100">
+                                {formatDayLabel(a.due_day)}
+                              </td>
+                            </>
+                          ) : (
+                            <td className="px-4 py-3 font-semibold text-gray-900 dark:text-slate-100">
+                              {formatBRL(Number(a.initial_balance))}
+                            </td>
+                          )}
 
-                            <button
-                              className="text-sm font-semibold text-rose-600 hover:text-rose-700 hover:underline dark:text-rose-300 dark:hover:text-rose-200"
-                              onClick={() =>
-                                confirm('Excluir esta conta?') && router.delete(route('accounts.destroy', a.id))
-                              }
-                            >
-                              Excluir
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                          <td className="px-4 py-3 text-right">
+                            <div className="inline-flex items-center gap-3">
+                              <Link
+                                className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
+                                href={route('accounts.edit', a.id)}
+                              >
+                                Editar
+                              </Link>
+
+                              <button
+                                className="text-sm font-semibold text-rose-600 hover:text-rose-700 hover:underline dark:text-rose-300 dark:hover:text-rose-200"
+                                onClick={() =>
+                                  confirm('Excluir esta conta?') && router.delete(route('accounts.destroy', a.id))
+                                }
+                              >
+                                Excluir
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -134,7 +161,7 @@ export default function Index({ accounts }) {
 
           {/* dica/observação */}
           <div className="mt-4 text-xs text-gray-400 dark:text-slate-500">
-            Dica: use “Banco” para conta corrente/poupança, “Cartão” para cartão de crédito e “Dinheiro” para caixa.
+            Dica: em cartão de crédito, configure <b>Fechamento</b> e <b>Vencimento</b> para o parcelamento cair no mês certo.
           </div>
         </div>
       </div>
@@ -172,4 +199,10 @@ function orderTipo(t) {
 
 function formatBRL(v) {
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
+}
+
+function formatDayLabel(v) {
+  const n = Number(v);
+  if (!n || Number.isNaN(n)) return '—';
+  return `Dia ${n}`;
 }

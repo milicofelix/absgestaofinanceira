@@ -282,14 +282,21 @@ class TransactionController extends Controller
             return $purchase->format('Y-m');
         }
 
-        $closeDay = max(1, min(28, (int) $account->statement_close_day));
+        $closeDayRaw = (int) $account->statement_close_day;
+        $closeDayRaw = max(1, min(31, $closeDayRaw));
 
-        // Regra: se comprou DEPOIS do fechamento (dia > closeDay), cai no mês seguinte; senão, no mês atual.
-        $competence = ($purchase->day > $closeDay)
-            ? $purchase->copy()->addMonthNoOverflow()
-            : $purchase->copy();
+        // Data de fechamento no mês da compra (ajusta para último dia do mês quando necessário)
+        $closingThisMonth = $purchase->copy()->day(min($closeDayRaw, $purchase->daysInMonth))->startOfDay();
 
-        return $competence->format('Y-m');
+        // 1) "statement month" (mês em que a fatura FECHA)
+        $statementMonth = $purchase->lessThanOrEqualTo($closingThisMonth)
+            ? $purchase->copy()
+            : $purchase->copy()->addMonthNoOverflow();
+
+        // 2) "competence month" = mês em que a fatura é PAGA (mês seguinte ao fechamento)
+        $dueMonth = $statementMonth->copy()->addMonthNoOverflow();
+
+        return $dueMonth->format('Y-m');
     }
 
     public function markPaid(MarkPaidRequest $request, Transaction $transaction, CreditCardPaymentService $svc)
