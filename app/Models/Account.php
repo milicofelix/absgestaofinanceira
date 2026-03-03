@@ -14,6 +14,7 @@ class Account extends Model
         'type', 
         'initial_balance', 
         'statement_close_day', 
+        'due_day',
         'statement_close_month',
         'yield_enabled',
         'cdi_percent',

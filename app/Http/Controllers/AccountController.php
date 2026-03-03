@@ -15,7 +15,7 @@ class AccountController extends Controller
         $accounts = Account::query()
             ->where('user_id', $request->user()->id)
             ->orderBy('name')
-            ->get(['id','name','type','initial_balance', 'statement_close_day', 'statement_close_month', 'cdi_percent','yield_enabled']);
+            ->get(['id','name','type','initial_balance', 'statement_close_day', 'statement_close_month', 'cdi_percent','yield_enabled','due_day']);
 
         return Inertia::render('Accounts/Index', [
             'accounts' => $accounts,
@@ -34,7 +34,7 @@ class AccountController extends Controller
     {
         $data = $request->only([
             'name','type','initial_balance','statement_close_day','statement_close_month',
-            'yield_enabled','cdi_percent'
+            'yield_enabled','cdi_percent', 'due_day'
         ]);
 
         $data['user_id'] = $request->user()->id;
@@ -45,6 +45,7 @@ class AccountController extends Controller
 
         $data['initial_balance'] = $request->input('initial_balance', 0);
         $data['statement_close_day'] = $request->input('statement_close_day') ?: null;
+        $data['due_day'] = $request->input('due_day') ?: null;
         $data['statement_close_month'] = $request->input('statement_close_month') ?: null;
 
         $data['yield_enabled'] = $request->boolean('yield_enabled');
@@ -71,7 +72,7 @@ class AccountController extends Controller
             'mode' => 'edit',
             'account' => $account->only([
                 'id','name','type','initial_balance',
-                'statement_close_day','statement_close_month',
+                'statement_close_day', 'due_day', 'statement_close_month',
                 'yield_enabled','cdi_percent',
             ]),
         ]);
@@ -88,6 +89,7 @@ class AccountController extends Controller
             'type' => $type,
             'initial_balance' => $request->input('initial_balance', 0),
             'statement_close_day' => $request->input('statement_close_day') ?: null,
+            'due_day' => $request->input('due_day') ?: null,
             'statement_close_month' => $request->input('statement_close_month') ?: null,
             'yield_enabled' => $request->boolean('yield_enabled'),
             'cdi_percent' => $request->filled('cdi_percent')

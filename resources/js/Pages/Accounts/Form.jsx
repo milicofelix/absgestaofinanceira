@@ -9,6 +9,7 @@ export default function Form({ mode, account }) {
     type: account?.type ?? 'bank',
     initial_balance: String(account?.initial_balance ?? '0.00'),
     statement_close_day: account?.statement_close_day ?? '',
+    due_day: account?.due_day ?? '',
     statement_close_month: account?.statement_close_month ?? null,
     // investimento
     yield_enabled: !!(account?.yield_enabled ?? false),
@@ -97,7 +98,10 @@ export default function Form({ mode, account }) {
                     const next = e.target.value;
                     setData('type', next);
                     // ✅ se trocar pra não-cartão, limpa fechamento
-                    if (next !== 'credit_card') setData('statement_close_day', '');
+                    if (next !== 'credit_card') {
+                      setData('statement_close_day', '');
+                      setData('due_day', '');
+                    } 
                   }}
                 >
                   <option value="bank">Banco / Conta digital</option>
@@ -167,25 +171,48 @@ export default function Form({ mode, account }) {
 
               {/* Fechamento da fatura (apenas cartão) */}
               {data.type === 'credit_card' && (
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
-                    Fechamento da fatura (dia)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="28"
-                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400"
-                    placeholder="Ex: 25"
-                    value={data.statement_close_day}
-                    onChange={(e) => setData('statement_close_day', e.target.value)}
-                  />
-                  <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                    Compras no dia do fechamento (ou depois) entram na fatura do mês seguinte.
-                  </p>
-                  {errors.statement_close_day && (
-                    <div className="mt-1 text-sm text-rose-600">{errors.statement_close_day}</div>
-                  )}
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                      Fechamento da fatura (dia)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400"
+                      placeholder="Ex: 26"
+                      value={data.statement_close_day}
+                      onChange={(e) => setData('statement_close_day', e.target.value)}
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                      Compras após o fechamento entram na fatura do mês seguinte.
+                    </p>
+                    {errors.statement_close_day && (
+                      <div className="mt-1 text-sm text-rose-600">{errors.statement_close_day}</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                      Vencimento da fatura (dia)
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="31"
+                      className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm text-gray-900 focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-emerald-400 dark:focus:ring-emerald-400"
+                      placeholder="Ex: 10"
+                      value={data.due_day}
+                      onChange={(e) => setData('due_day', e.target.value)}
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                      Usado para definir a <b>primeira parcela</b> e o mês de competência do cartão.
+                    </p>
+                    {errors.due_day && (
+                      <div className="mt-1 text-sm text-rose-600">{errors.due_day}</div>
+                    )}
+                  </div>
                 </div>
               )}
 

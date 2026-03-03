@@ -645,8 +645,8 @@ function isNewTx(t, hours = 24) {
   const now = new Date();
 
   // preferível: created_at vindo do Laravel (ISO)
-  if (t?.created_at) {
-    const created = new Date(t.created_at);
+  if (t?.purchase_date) {
+    const created = new Date(t.purchase_date);
     if (!Number.isNaN(created.getTime())) {
       const diff = now.getTime() - created.getTime();
       return diff >= 0 && diff <= hours * 60 * 60 * 1000;
