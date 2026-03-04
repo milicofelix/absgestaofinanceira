@@ -278,23 +278,43 @@ class TransactionController extends Controller
     {
         $purchase = Carbon::createFromFormat('Y-m-d', $dateYmd, config('app.timezone'))->startOfDay();
 
+        // Não é cartão de crédito ou não tem fechamento -> competência é o mês da data
         if (($account->type ?? null) !== 'credit_card' || empty($account->statement_close_day)) {
             return $purchase->format('Y-m');
         }
 
-        $closeDayRaw = (int) $account->statement_close_day;
-        $closeDayRaw = max(1, min(31, $closeDayRaw));
+        $closeDay = max(1, min(31, (int) $account->statement_close_day));
+
+        // Se não tiver due_day, mantém o comportamento antigo (vencimento no mês seguinte ao fechamento)
+        $dueDayRaw = (int) ($account->due_day ?? 0);
+        if ($dueDayRaw <= 0) {
+            $closingThisMonth = $purchase->copy()->day(min($closeDay, $purchase->daysInMonth))->startOfDay();
+            $statementMonth = $purchase->lessThanOrEqualTo($closingThisMonth)
+                ? $purchase->copy()
+                : $purchase->copy()->addMonthNoOverflow();
+
+            return $statementMonth->copy()->addMonthNoOverflow()->format('Y-m');
+        }
+
+        $dueDay = max(1, min(31, $dueDayRaw));
 
         // Data de fechamento no mês da compra (ajusta para último dia do mês quando necessário)
-        $closingThisMonth = $purchase->copy()->day(min($closeDayRaw, $purchase->daysInMonth))->startOfDay();
+        $closingThisMonth = $purchase->copy()->day(min($closeDay, $purchase->daysInMonth))->startOfDay();
 
-        // 1) "statement month" (mês em que a fatura FECHA)
+        // 1) statementMonth = mês em que a fatura FECHA
+        // Se comprou até o dia de fechamento (inclusive), fecha no mesmo mês; senão, fecha no próximo.
         $statementMonth = $purchase->lessThanOrEqualTo($closingThisMonth)
             ? $purchase->copy()
             : $purchase->copy()->addMonthNoOverflow();
 
-        // 2) "competence month" = mês em que a fatura é PAGA (mês seguinte ao fechamento)
-        $dueMonth = $statementMonth->copy()->addMonthNoOverflow();
+        // 2) competenceMonth = mês em que a fatura VENCE/PAGA
+        // Regra:
+        // - se due_day > close_day => vence no mesmo mês do fechamento
+        // - se due_day <= close_day => vence no mês seguinte ao fechamento
+        $dueMonth = $statementMonth->copy()->startOfMonth();
+        if ($dueDay <= $closeDay) {
+            $dueMonth->addMonthNoOverflow();
+        }
 
         return $dueMonth->format('Y-m');
     }
