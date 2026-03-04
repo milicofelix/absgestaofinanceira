@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Carbon\Carbon;
 use App\Models\Account;
 use App\Models\CategoryBudget;
+use App\Models\Category;
 
 class DashboardController extends Controller
 {
@@ -17,40 +18,74 @@ class DashboardController extends Controller
         $userId = $request->user()->id;
 
         $month = $request->query('month', now()->format('Y-m'));
-
-        // ✅ novo
-        $accountId = $request->filled('account_id')
-            ? (int) $request->query('account_id')
-            : null;
-
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = (clone $start)->endOfMonth();
 
+        // ✅ Filtros (iguais Transactions)
+        $type       = $request->query('type');         // income|expense
+        $categoryId = $request->query('category_id');
+        $accountId  = $request->query('account_id');
+        $q          = $request->query('q');
+        $installment= $request->query('installment');  // only|none
+        $status     = $request->query('status');       // paid|open
+
         // =========================
-        // 1) Transações DO MÊS (cards/listas) - por COMPETÊNCIA
+        // 1) Base do mês (por competência) + filtros
         // =========================
         $baseMonthReal = Transaction::query()
             ->where('user_id', $userId)
             ->where('is_transfer', false)
-            ->where(function ($q) use ($month, $start, $end) {
-                $q->where('competence_month', $month)
-                ->orWhere(function ($q2) use ($start, $end) {
-                    $q2->whereNull('competence_month')
-                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                });
+            ->where(function ($q1) use ($month, $start, $end) {
+                $q1->where('competence_month', $month)
+                   ->orWhere(function ($q2) use ($start, $end) {
+                       $q2->whereNull('competence_month')
+                          ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                   });
             });
 
-        // ✅ aplica filtro de conta no "base do mês"
-        if ($accountId) {
-            $baseMonthReal->where('account_id', $accountId);
+        // ✅ aplica filtros (mesma lógica do TransactionController)
+        if ($request->filled('type')) {
+            $baseMonthReal->where('type', $request->string('type')->toString());
+        }
+        if ($request->filled('category_id')) {
+            $baseMonthReal->where('category_id', $request->integer('category_id'));
+        }
+        if ($request->filled('account_id')) {
+            $baseMonthReal->where('account_id', $request->integer('account_id'));
+        }
+        if ($request->filled('q')) {
+            $term = $request->string('q')->toString();
+            $baseMonthReal->where(function ($qq) use ($term) {
+                $qq->where('description', 'like', "%{$term}%")
+                   ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
+                   ->orWhereHas('account', fn($a) => $a->where('name', 'like', "%{$term}%"));
+            });
+        }
+        if ($request->filled('installment')) {
+            $v = $request->string('installment')->toString();
+            if ($v === 'only') {
+                $baseMonthReal->whereNotNull('installment_id');
+            } elseif ($v === 'none') {
+                $baseMonthReal->whereNull('installment_id');
+            }
+        }
+        if ($request->filled('status')) {
+            $st = (string) $request->query('status');
+            if ($st === 'paid') {
+                $baseMonthReal->where('is_cleared', true);
+            } elseif ($st === 'open') {
+                $baseMonthReal->where('is_cleared', false);
+            }
         }
 
+        // ✅ cards (respeitam filtros)
         $income  = (float) (clone $baseMonthReal)->where('type', 'income')->sum('amount');
         $expense = (float) (clone $baseMonthReal)->where('type', 'expense')->sum('amount');
 
+        // ✅ gráfico por categoria (naturalmente só faz sentido pra expense)
         $byCategory = (clone $baseMonthReal)
-            ->selectRaw('category_id, SUM(amount) as total')
             ->where('type', 'expense')
+            ->selectRaw('category_id, SUM(amount) as total')
             ->groupBy('category_id')
             ->with('category:id,name')
             ->orderByDesc('total')
@@ -63,6 +98,7 @@ class DashboardController extends Controller
             ])
             ->values();
 
+        // ✅ últimos lançamentos (respeita filtros)
         $latest = (clone $baseMonthReal)
             ->with(['category:id,name', 'account:id,name'])
             ->orderByDesc('date')
@@ -174,54 +210,104 @@ class DashboardController extends Controller
             $openingBalance = (float) ($acc['opening_balance'] ?? 0);
         }
 
-        // ✅ lifetimeIncome também respeita conta se filtrou
-        $lifetimeIncomeQuery = Transaction::query()
-            ->where('user_id', $userId)
-            ->where('type', 'income')
-            ->where('is_transfer', false)
-            ->where(function ($q) use ($month, $end) {
-                $q->where('competence_month', '<=', $month)
-                ->orWhere(function ($q2) use ($end) {
-                    $q2->whereNull('competence_month')
-                        ->whereDate('date', '<=', $end->toDateString());
-                });
-            });
+         // =========================
+        // 3) lifetimeIncome (respeita filtros de conta/busca/status/parcelamento e tipo)
+        // =========================
+        $lifetimeIncome = 0.0;
 
-        if ($accountId) {
-            $lifetimeIncomeQuery->where('account_id', $accountId);
+        // Se filtro de tipo existir e não for income, lifetimeIncome = 0 (faz sentido pro filtro "Tipo")
+        if (!$request->filled('type') || $request->string('type')->toString() === 'income') {
+            $lifetimeIncomeQuery = Transaction::query()
+                ->where('user_id', $userId)
+                ->where('type', 'income')
+                ->where('is_transfer', false)
+                ->where(function ($q1) use ($month, $end) {
+                    $q1->where('competence_month', '<=', $month)
+                       ->orWhere(function ($q2) use ($end) {
+                           $q2->whereNull('competence_month')
+                              ->whereDate('date', '<=', $end->toDateString());
+                       });
+                });
+
+            if ($request->filled('category_id')) {
+                $lifetimeIncomeQuery->where('category_id', $request->integer('category_id'));
+            }
+            if ($request->filled('account_id')) {
+                $lifetimeIncomeQuery->where('account_id', $request->integer('account_id'));
+            }
+            if ($request->filled('q')) {
+                $term = $request->string('q')->toString();
+                $lifetimeIncomeQuery->where(function ($qq) use ($term) {
+                    $qq->where('description', 'like', "%{$term}%")
+                       ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
+                       ->orWhereHas('account', fn($a) => $a->where('name', 'like', "%{$term}%"));
+                });
+            }
+            if ($request->filled('installment')) {
+                $v = $request->string('installment')->toString();
+                if ($v === 'only') $lifetimeIncomeQuery->whereNotNull('installment_id');
+                if ($v === 'none') $lifetimeIncomeQuery->whereNull('installment_id');
+            }
+            if ($request->filled('status')) {
+                $st = (string) $request->query('status');
+                if ($st === 'paid') $lifetimeIncomeQuery->where('is_cleared', true);
+                if ($st === 'open') $lifetimeIncomeQuery->where('is_cleared', false);
+            }
+
+            $lifetimeIncome = (float) $lifetimeIncomeQuery->sum('amount');
         }
 
-        $lifetimeIncome = (float) $lifetimeIncomeQuery->sum('amount');
-
-         // Badge de metas do mês selecionado (exceeded/warning de verdade)
+        // =========================
+        // 4) Badge de metas (gasto do mês) + filtros
+        // =========================
         $year = (int) substr($month, 0, 4);
         $m    = (int) substr($month, 5, 2);
 
-        // metas do mês
         $budgets = CategoryBudget::query()
             ->where('user_id', $userId)
             ->where('year', $year)
             ->where('month', $m)
-            ->get(['id', 'category_id', 'amount']); // <-- "amount" = limite da meta (ajuste se tiver outro nome)
+            ->get();
 
         $totalBudgets = $budgets->count();
 
-        // ✅ metas/badge também respeita conta (gasto do mês)
         $spentByCategoryQuery = Transaction::query()
             ->where('user_id', $userId)
             ->where('is_transfer', false)
             ->where('type', 'expense')
-            ->where(function ($q) use ($month, $start, $end) {
-                $q->where('competence_month', $month)
-                ->orWhere(function ($q2) use ($start, $end) {
-                    $q2->whereNull('competence_month')
-                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                });
+            ->where(function ($q1) use ($month, $start, $end) {
+                $q1->where('competence_month', $month)
+                   ->orWhere(function ($q2) use ($start, $end) {
+                       $q2->whereNull('competence_month')
+                          ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                   });
             })
             ->whereIn('category_id', $budgets->pluck('category_id')->filter()->unique()->values());
 
-        if ($accountId) {
-            $spentByCategoryQuery->where('account_id', $accountId);
+        // ✅ filtros que fazem sentido pro badge
+        if ($request->filled('category_id')) {
+            $spentByCategoryQuery->where('category_id', $request->integer('category_id'));
+        }
+        if ($request->filled('account_id')) {
+            $spentByCategoryQuery->where('account_id', $request->integer('account_id'));
+        }
+        if ($request->filled('q')) {
+            $term = $request->string('q')->toString();
+            $spentByCategoryQuery->where(function ($qq) use ($term) {
+                $qq->where('description', 'like', "%{$term}%")
+                   ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
+                   ->orWhereHas('account', fn($a) => $a->where('name', 'like', "%{$term}%"));
+            });
+        }
+        if ($request->filled('installment')) {
+            $v = $request->string('installment')->toString();
+            if ($v === 'only') $spentByCategoryQuery->whereNotNull('installment_id');
+            if ($v === 'none') $spentByCategoryQuery->whereNull('installment_id');
+        }
+        if ($request->filled('status')) {
+            $st = (string) $request->query('status');
+            if ($st === 'paid') $spentByCategoryQuery->where('is_cleared', true);
+            if ($st === 'open') $spentByCategoryQuery->where('is_cleared', false);
         }
 
         $spentByCategory = $spentByCategoryQuery
@@ -229,31 +315,14 @@ class DashboardController extends Controller
             ->groupBy('category_id')
             ->pluck('spent', 'category_id');
 
-        $spentByCategory = Transaction::query()
-            ->where('user_id', $userId)
-            ->where('is_transfer', false)
-            ->where('type', 'expense')
-            ->where(function ($q) use ($month, $start, $end) {
-                $q->where('competence_month', $month)
-                ->orWhere(function ($q2) use ($start, $end) {
-                    $q2->whereNull('competence_month')
-                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                });
-            })
-            ->whereIn('category_id', $budgets->pluck('category_id')->filter()->unique()->values())
-            ->selectRaw('category_id, COALESCE(SUM(amount),0) as spent')
-            ->groupBy('category_id')
-            ->pluck('spent', 'category_id'); // [category_id => spent]
-
         $exceeded = 0;
         $warning  = 0;
 
         foreach ($budgets as $b) {
-            $limit = (float) ($b->amount ?? 0); // ajuste se o nome for outro
+            $limit = (float) ($b->amount ?? 0);
             if ($limit <= 0) continue;
 
             $spent = (float) ($spentByCategory[$b->category_id] ?? 0);
-            //$pct   = $spent / $limit;
 
             $spentCents = (int) round($spent * 100);
             $limitCents = (int) round($limit * 100);
@@ -272,27 +341,42 @@ class DashboardController extends Controller
             'total'    => $totalBudgets,
         ];
 
+        // ✅ listas pra montar filtros no front
+        $categories = Category::query()
+            ->where('user_id', $userId)
+            ->orderBy('type')->orderBy('name')
+            ->get(['id','name','type']);
+
+        $accountsFilter = Account::query()
+            ->where('user_id', $userId)
+            ->orderBy('name')
+            ->get(['id','name','type','statement_close_day']);
+
         return Inertia::render('Dashboard', [
             'month' => $month,
 
-            // ✅ novo: manda filtros pro front
+            // ✅ envia filtros pro front
             'filters' => [
                 'month' => $month,
-                'account_id' => $accountId ? (string) $accountId : '',
+                'type' => $type,
+                'category_id' => $categoryId,
+                'account_id' => $accountId,
+                'q' => $q,
+                'installment' => $installment,
+                'status' => $status,
             ],
+
+            'categories' => $categories,
+            'accountsFilter' => $accountsFilter, // ✅ pra usar no select
+            'accounts' => $accounts, // seu array calculado (cards das contas)
 
             'openingBalance' => $openingBalance,
             'income' => $income,
             'expense' => $expense,
             'balance' => $openingBalance + $income - $expense,
-
             'lifetimeIncome' => $lifetimeIncome,
             'byCategory' => $byCategory,
             'latest' => $latest,
-
-            // mantém a lista de contas completa (útil pro modal e visão geral)
-            'accounts' => $accounts,
-
             'budgetsBadge' => $budgetsBadge,
         ]);
     }

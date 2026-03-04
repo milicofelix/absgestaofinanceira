@@ -7,6 +7,8 @@ import { formatDateBR } from '@/utils/formatters';
 export default function Dashboard({
   month,
   filters,
+  categories,     
+  accountsFilter,
   income,
   expense,
   balance,
@@ -21,6 +23,12 @@ export default function Dashboard({
   const [showLifetimeIncome, setShowLifetimeIncome] = useState(false);
   const { flash } = usePage().props;
   const [selectedAccountId, setSelectedAccountId] = useState(filters?.account_id || '');
+  const [type, setType] = useState(filters?.type || '');
+  const [categoryId, setCategoryId] = useState(filters?.category_id || '');
+  const [accountId, setAccountId] = useState(filters?.account_id || '');
+  const [installment, setInstallment] = useState(filters?.installment || '');
+  const [status, setStatus] = useState(filters?.status || '');
+  const [q, setQ] = useState(filters?.q || '');
 
   function changeMonth(v) {
     const m = (v || '').slice(0, 7);
@@ -40,6 +48,38 @@ export default function Dashboard({
       { month: selectedMonth, account_id: id || undefined },
       { preserveState: true, replace: true }
     );
+  }
+
+  function applyFilters(next = {}) {
+    const params = {
+      month: (next.month ?? selectedMonth),
+      type: (next.type ?? type) || undefined,
+      category_id: (next.category_id ?? categoryId) || undefined,
+      account_id: (next.account_id ?? accountId) || undefined,
+      installment: (next.installment ?? installment) || undefined,
+      status: (next.status ?? status) || undefined,
+      q: (next.q ?? q) || undefined,
+    };
+
+    setSelectedMonth(params.month);
+    if ('type' in next) setType(next.type);
+    if ('category_id' in next) setCategoryId(next.category_id);
+    if ('account_id' in next) setAccountId(next.account_id);
+    if ('installment' in next) setInstallment(next.installment);
+    if ('status' in next) setStatus(next.status);
+    if ('q' in next) setQ(next.q);
+
+    router.get(route('dashboard'), params, { preserveState: true, replace: true });
+  }
+
+  function clearFilters() {
+    setType('');
+    setCategoryId('');
+    setAccountId('');
+    setInstallment('');
+    setStatus('');
+    setQ('');
+    router.get(route('dashboard'), { month: selectedMonth }, { preserveState: true, replace: true });
   }
 
   const monthLabel = useMemo(() => formatMonthPtBR(selectedMonth), [selectedMonth]);
@@ -329,56 +369,145 @@ export default function Dashboard({
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
           {/* filtro + link */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 text-sm text-gray-600 dark:text-slate-300">
-              <div className="flex items-center gap-3">
-                <span className="font-medium text-gray-700 dark:text-slate-200">Mês</span>
+          <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
+              {/* Mês */}
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Mês</label>
                 <input
                   type="month"
-                  className="rounded-lg border-gray-300 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
                   value={selectedMonth}
-                  onChange={(e) => changeMonth(e.target.value)}
+                  onChange={(e) => applyFilters({ month: (e.target.value || '').slice(0, 7) })}
                 />
               </div>
 
-              <div className="flex items-center gap-3">
-                <span className="font-medium text-gray-700 dark:text-slate-200">Conta</span>
+              {/* Tipo */}
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Tipo</label>
                 <select
-                  className="rounded-lg border-gray-300 bg-white shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  value={selectedAccountId}
-                  onChange={(e) => changeAccount(e.target.value)}
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  value={type}
+                  onChange={(e) => applyFilters({ type: e.target.value })}
+                >
+                  <option value="">Todos</option>
+                  <option value="income">Receitas</option>
+                  <option value="expense">Despesas</option>
+                </select>
+              </div>
+
+              {/* Categoria */}
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Categoria</label>
+                <select
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  value={categoryId}
+                  onChange={(e) => applyFilters({ category_id: e.target.value })}
                 >
                   <option value="">Todas</option>
-                  {(accounts || []).map((a) => (
+                  {(categories || []).map((c) => (
+                    <option key={c.id} value={String(c.id)}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Conta */}
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Conta</label>
+                <select
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  value={accountId}
+                  onChange={(e) => applyFilters({ account_id: e.target.value })}
+                >
+                  <option value="">Todas</option>
+                  {(accountsFilter || []).map((a) => (
                     <option key={a.id} value={String(a.id)}>
                       {a.name}
                     </option>
                   ))}
                 </select>
+              </div>
 
-                {!!selectedAccountId && (
+              {/* Parcelamento */}
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Parcelamento</label>
+                <select
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  value={installment}
+                  onChange={(e) => applyFilters({ installment: e.target.value })}
+                >
+                  <option value="">Todos</option>
+                  <option value="only">Somente parcelados</option>
+                  <option value="none">Somente à vista</option>
+                </select>
+              </div>
+
+              {/* Status */}
+              <div className="sm:col-span-1">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Status</label>
+                <select
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                  value={status}
+                  onChange={(e) => applyFilters({ status: e.target.value })}
+                >
+                  <option value="">Todos</option>
+                  <option value="open">Em aberto</option>
+                  <option value="paid">Pago</option>
+                </select>
+              </div>
+
+              {/* Busca */}
+              <div className="sm:col-span-6">
+                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Busca</label>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Digite para buscar (descrição, conta, categoria...)"
+                    className="w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') applyFilters({ q: e.currentTarget.value });
+                    }}
+                  />
                   <button
                     type="button"
-                    onClick={() => changeAccount('')}
-                    className="text-xs font-semibold text-gray-600 hover:underline dark:text-slate-300"
+                    onClick={() => applyFilters({ q })}
+                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                  >
+                    Buscar
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
                   >
                     Limpar
                   </button>
-                )}
+                </div>
               </div>
             </div>
 
-            <Link
-              href={route('transactions.index', {
-                month: selectedMonth,
-                account_id: selectedAccountId || undefined,
-              })}
-              className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
-            >
-              Ver lançamentos →
-            </Link>
+            <div className="flex items-center justify-between">
+              <Link
+                href={route('transactions.index', {
+                  month: selectedMonth,
+                  type: type || undefined,
+                  category_id: categoryId || undefined,
+                  account_id: accountId || undefined,
+                  installment: installment || undefined,
+                  status: status || undefined,
+                  q: q || undefined,
+                })}
+                className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
+              >
+                Ver lançamentos →
+              </Link>
+            </div>
           </div>
-
           {/* resumo rápido do mês */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 dark:bg-slate-800 dark:text-slate-200">
