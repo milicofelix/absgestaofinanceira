@@ -116,23 +116,24 @@ class InstallmentService
         $closeDay = max(1, min(31, $closeDay));
         $dueDay   = max(1, min(31, $dueDay));
 
-        // Fechamento no mês da compra (ajustado para último dia do mês)
         $closingThisMonth = $purchase->copy()
             ->day(min($closeDay, $purchase->daysInMonth))
             ->startOfDay();
 
-        // Se compra <= fechamento: fatura fecha neste mês; senão fecha no próximo
         $statementMonth = $purchase->lessThanOrEqualTo($closingThisMonth)
-            ? $purchase->copy()
-            : $purchase->copy()->addMonthNoOverflow();
+            ? $purchase->copy()->startOfMonth()
+            : $purchase->copy()->addMonthNoOverflow()->startOfMonth();
 
-        // Vencimento é no mês seguinte ao fechamento (seu conceito atual)
-        $dueBase = $statementMonth->copy()->addMonthNoOverflow()->startOfMonth();
+        $dueMonth = $statementMonth->copy(); // por padrão, vence no mesmo mês do fechamento
 
-        $dueDate = $dueBase->copy()
-            ->day(min($dueDay, $dueBase->daysInMonth))
+        if ($dueDay <= $closeDay) {
+            $dueMonth->addMonthNoOverflow(); // vence no próximo mês
+        }
+
+        $dueDate = $dueMonth->copy()
+            ->day(min($dueDay, $dueMonth->daysInMonth))
             ->startOfDay();
 
-        return $dueDate->copy()->startOfMonth(); // competência = mês do vencimento
+        return $dueDate->copy()->startOfMonth();
     }
 }
