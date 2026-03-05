@@ -54,6 +54,13 @@ export default function Index({ transactions, filters, categories, accounts }) {
     setDetailsLoading(false);
   }
 
+  function compactCompetence(v) {
+    if (!v) return '—';
+    const [year, month] = String(v).split('-');
+    if (!year || !month) return v;
+    return `${month}/${String(year).slice(-2)}`;
+  }
+
   // --------------------------
   // Modal pagamento cartão
   // --------------------------
@@ -342,8 +349,9 @@ export default function Index({ transactions, filters, categories, accounts }) {
               <button
                 type="button"
                 onClick={closePayModal}
-                className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-base font-bold text-gray-500 hover:bg-gray-100 active:scale-95 dark:text-slate-300 dark:hover:bg-slate-800"
                 title="Fechar"
+                aria-label="Fechar modal"
               >
                 ✕
               </button>
@@ -420,7 +428,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
           <div className="absolute inset-0 bg-black/40" onClick={closeDetails} aria-hidden="true" />
 
           <div
-            className="relative w-full max-w-2xl rounded-2xl bg-white p-5 shadow-lg ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800"
+            className="relative my-6 w-full max-w-2xl rounded-2xl bg-white p-5 shadow-lg ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 max-h-[85vh] overflow-y-auto overscroll-contain"
             onClick={(e) => e.stopPropagation()} // ✅ evita fechar clicando dentro
           >
             <div className="flex items-start justify-between gap-3">
@@ -431,14 +439,15 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={closeDetails}
-                className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                title="Fechar"
-              >
-                ✕
-              </button>
+            <button
+              type="button"
+              onClick={closeDetails}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-full text-base font-bold text-gray-500 hover:bg-gray-100 active:scale-95 dark:text-slate-300 dark:hover:bg-slate-800"
+              title="Fechar"
+              aria-label="Fechar modal"
+            >
+              ✕
+            </button>
             </div>
 
             <div className="mt-4">
@@ -472,12 +481,13 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
                       <div className="mt-3 overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                          <thead className="text-xs uppercase text-violet-900/70 dark:text-violet-200/70">
+                         <thead className="text-xs uppercase text-violet-900/70 dark:text-violet-200/70">
                             <tr>
                               <th className="py-2 pr-3">Parcela</th>
                               <th className="py-2 pr-3">Data</th>
-                              <th className="py-2 pr-3">Competência</th>
-                              <th className="py-2 pr-3">Status</th>
+                              <th className="hidden py-2 pr-3 sm:table-cell">Competência</th>
+                              <th className="hidden py-2 pr-3 sm:table-cell">Status</th>
+                              <th className="py-2 pr-3 sm:hidden">Info</th>
                               <th className="py-2 text-right">Valor</th>
                             </tr>
                           </thead>
@@ -511,8 +521,33 @@ export default function Index({ transactions, filters, categories, accounts }) {
                                 </td>
 
                                 <td className="py-2 pr-3">{formatDateBR(p.date)}</td>
-                                <td className="py-2 pr-3">{p.competence_month || '—'}</td>
-                                <td className="py-2 pr-3">{p.is_cleared ? 'Paga' : 'Em aberto'}</td>
+                                <td className="hidden py-2 pr-3 sm:table-cell">{p.competence_month || '—'}</td>
+
+                                <td className="hidden py-2 pr-3 sm:table-cell">
+                                  {p.is_cleared ? 'Paga' : 'Em aberto'}
+                                </td>
+
+                                <td className="py-2 pr-3 sm:hidden">
+                                  <div className="flex flex-col items-start gap-1">
+                                    <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-semibold text-violet-900 ring-1 ring-violet-200 dark:bg-slate-800 dark:text-violet-200 dark:ring-slate-700">
+                                      <IconCalendarMini />
+                                      {compactCompetence(p.competence_month)}
+                                    </span>
+
+                                    <span
+                                      className={[
+                                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1',
+                                        p.is_cleared
+                                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:ring-emerald-900/40'
+                                          : 'bg-amber-50 text-amber-900 ring-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:ring-amber-900/35',
+                                      ].join(' ')}
+                                    >
+                                      {p.is_cleared ? <IconCheckMini /> : <IconClockMini />}
+                                      {p.is_cleared ? 'Paga' : 'Aberta'}
+                                    </span>
+                                  </div>
+                                </td>
+
                                 <td className="py-2 text-right font-semibold">{formatBRL(p.amount)}</td>
                               </tr>
                             );
@@ -1364,5 +1399,30 @@ function IconBlock({ className = '' }) {
       <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" stroke="currentColor" strokeWidth="2" />
       <path d="M7 7l10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </IconBase>
+  );
+}
+
+function IconCalendarMini({ className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 ${className}`} fill="none" aria-hidden="true">
+      <path d="M7 3v3M17 3v3M4 9h16M5 5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconCheckMini({ className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 ${className}`} fill="none" aria-hidden="true">
+      <path d="M5 12l5 5L20 7" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconClockMini({ className = '' }) {
+  return (
+    <svg viewBox="0 0 24 24" className={`h-3.5 w-3.5 ${className}`} fill="none" aria-hidden="true">
+      <path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" stroke="currentColor" strokeWidth="2" />
+      <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
