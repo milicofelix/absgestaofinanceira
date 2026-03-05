@@ -54,6 +54,43 @@ export default function Index({ transactions, filters, categories, accounts }) {
     setDetailsLoading(false);
   }
 
+  // --------------------------
+  // Modal pagamento cartão
+  // --------------------------
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [payTx, setPayTx] = useState(null);
+  const [payBankId, setPayBankId] = useState('');
+  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payError, setPayError] = useState('');
+
+  useEffect(() => {
+    if (!detailsOpen) return;
+    if (!details?.summary?.is_installment) return;
+
+    const t = setTimeout(() => {
+      const el = document.querySelector('[data-current-installment="1"]');
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, 50);
+
+    return () => clearTimeout(t);
+  }, [detailsOpen, details]);
+
+  useEffect(() => {
+    const someModalOpen = payModalOpen || detailsOpen;
+    if (!someModalOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, [payModalOpen, detailsOpen]);
+
   const queryParams = useMemo(
     () => ({
       month,
@@ -71,15 +108,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
     () => (accounts || []).filter((a) => String(a.type || '').toLowerCase() !== 'credit_card'),
     [accounts],
   );
-
-  // --------------------------
-  // Modal pagamento cartão
-  // --------------------------
-  const [payModalOpen, setPayModalOpen] = useState(false);
-  const [payTx, setPayTx] = useState(null);
-  const [payBankId, setPayBankId] = useState('');
-  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
-  const [payError, setPayError] = useState('');
 
   const selectedBank = useMemo(() => {
     const id = Number(payBankId);
@@ -300,9 +328,9 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
       {/* -------------------- MODAL PAGAMENTO CARTÃO -------------------- */}
       {payModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
           <div className="absolute inset-0 bg-black/40" onClick={closePayModal} aria-hidden="true" />
-          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-lg ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
+            <div className="relative my-6 w-full max-w-md rounded-2xl bg-white p-5 shadow-lg ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 max-h-[85vh] overflow-y-auto overscroll-contain">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="text-lg font-bold text-gray-900 dark:text-slate-100">Pagar fatura do cartão</div>
@@ -388,7 +416,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
       {/* ✅ MODAL DETALHES */}
       {detailsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:items-center">
           <div className="absolute inset-0 bg-black/40" onClick={closeDetails} aria-hidden="true" />
 
           <div
