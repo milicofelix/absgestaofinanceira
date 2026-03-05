@@ -202,6 +202,72 @@ class TransactionController extends Controller
         ]);
     }
 
+    public function show(Transaction $transaction, Request $request)
+    {
+        abort_unless($transaction->user_id === $request->user()->id, 403);
+
+        $transaction->loadMissing([
+            'category:id,name',
+            'account:id,name,type,statement_close_day,due_day',
+            'installment:id,installments_count,is_active'
+        ]);
+
+        $isInstallment = !empty($transaction->installment_id);
+
+        $totalAmount = null;
+        $installments = [];
+
+        if ($isInstallment) {
+            $rows = Transaction::query()
+                ->where('user_id', $request->user()->id)
+                ->where('installment_id', $transaction->installment_id)
+                ->orderBy('installment_number')
+                ->get(['id','date','purchase_date','amount','is_cleared','cleared_at','installment_number','competence_month']);
+
+            $totalAmount = (float) $rows->sum('amount');
+
+            $installments = $rows->map(function ($t) {
+                return [
+                    'id' => $t->id,
+                    'installment_number' => $t->installment_number,
+                    'amount' => (float) $t->amount,
+                    'date' => $t->date?->format('Y-m-d'),
+                    'purchase_date' => $t->purchase_date?->format('Y-m-d'),
+                    'competence_month' => $t->competence_month,
+                    'is_cleared' => (bool) $t->is_cleared,
+                    'cleared_at' => $t->cleared_at ? Carbon::parse($t->cleared_at)->format('Y-m-d') : null,
+                ];
+            })->values();
+        }
+
+        return response()->json([
+            'transaction' => [
+                'id' => $transaction->id,
+                'type' => $transaction->type,
+                'amount' => (float) $transaction->amount,
+                'date' => $transaction->date?->format('Y-m-d'),
+                'purchase_date' => $transaction->purchase_date?->format('Y-m-d'),
+                'competence_month' => $transaction->competence_month,
+                'description' => $transaction->description,
+                'payment_method' => $transaction->payment_method,
+                'is_cleared' => (bool) $transaction->is_cleared,
+                'cleared_at' => $transaction->cleared_at ? Carbon::parse($transaction->cleared_at)->format('Y-m-d') : null,
+                'category' => $transaction->category,
+                'account' => $transaction->account,
+                'installment' => $transaction->installment,
+                'installment_id' => $transaction->installment_id,
+                'installment_number' => $transaction->installment_number,
+            ],
+            'summary' => [
+                'is_installment' => $isInstallment,
+                'total_amount' => $totalAmount,              // ✅ total da compra (somatório das parcelas)
+                'installments_count' => $transaction->installment?->installments_count,
+                'is_active' => $transaction->installment?->is_active,
+            ],
+            'installments' => $installments,                 // ✅ lista das parcelas
+        ]);
+    }
+
     public function update(UpdateTransactionRequest $request, Transaction $transaction)
     {
         $userId = $request->user()->id;

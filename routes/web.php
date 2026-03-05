@@ -34,6 +34,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::resource('accounts', AccountController::class)->except(['show']);
     Route::resource('transactions', TransactionController::class)->except(['show']);
     Route::post('/transactions/{transaction}/mark-paid', [TransactionController::class, 'markPaid'])->name('transactions.markPaid');
+    Route::get('/transactions/{transaction}', [TransactionController::class, 'show'])->name('transactions.show');
 
     // Transferências
     Route::get('/transfers/create', [TransferController::class, 'create'])->name('transfers.create');

@@ -22,7 +22,7 @@ class PostRecurringTransactions extends Command
     ]);
 
     $today = $this->option('date')
-      ? Carbon::parse($this->option('date'))->startOfDay()
+      ? Carbon::createFromFormat('Y-m-d', $this->option('date'), config('app.timezone'))->startOfDay()
       : now()->startOfDay();
 
     $count = 0;
