@@ -14,6 +14,45 @@ export default function Index({ transactions, filters, categories, accounts }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [installmentFilter, setInstallmentFilter] = useState(filters.installment || '');
   const [status, setStatus] = useState(filters.status || '');
+  // --------------------------
+  // Modal detalhes
+  // --------------------------
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState('');
+  const [details, setDetails] = useState(null); // { transaction, summary, installments }
+
+  async function openDetails(t) {
+    try {
+      setDetailsError('');
+      setDetailsLoading(true);
+      setDetailsOpen(true);
+      setDetails(null);
+
+      const res = await fetch(route('transactions.show', t.id), {
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+
+      if (!res.ok) {
+        throw new Error('Não foi possível carregar os detalhes.');
+      }
+
+      const data = await res.json();
+      setDetails(data);
+    } catch (e) {
+      setDetailsError(String(e?.message || 'Erro ao carregar detalhes.'));
+    } finally {
+      setDetailsLoading(false);
+    }
+  }
+
+  function closeDetails() {
+    setDetailsOpen(false);
+    setDetails(null);
+    setDetailsError('');
+    setDetailsLoading(false);
+  }
 
   const queryParams = useMemo(
     () => ({
@@ -347,6 +386,121 @@ export default function Index({ transactions, filters, categories, accounts }) {
       )}
       {/* -------------------------------------------------------------- */}
 
+      {/* ✅ MODAL DETALHES */}
+      {detailsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={closeDetails} aria-hidden="true" />
+
+          <div
+            className="relative w-full max-w-2xl rounded-2xl bg-white p-5 shadow-lg ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800"
+            onClick={(e) => e.stopPropagation()} // ✅ evita fechar clicando dentro
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-bold text-gray-900 dark:text-slate-100">Detalhes</div>
+                <div className="mt-1 text-sm text-gray-600 dark:text-slate-300">
+                  {details?.transaction?.description || '—'}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeDetails}
+                className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4">
+              {detailsLoading ? (
+                <div className="rounded-xl bg-gray-50 p-4 text-sm text-gray-600 dark:bg-slate-950 dark:text-slate-300">
+                  Carregando detalhes...
+                </div>
+              ) : detailsError ? (
+                <div className="rounded-xl bg-rose-50 p-4 text-sm font-semibold text-rose-800 dark:bg-rose-900/25 dark:text-rose-200">
+                  {detailsError}
+                </div>
+              ) : details ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <InfoBox label="Valor (lançamento)" value={formatBRL(details.transaction.amount)} />
+                    <InfoBox label="Data" value={formatDateBR(details.transaction.date)} />
+                    <InfoBox label="Compra" value={formatDateBR(details.transaction.purchase_date)} />
+                    <InfoBox label="Competência" value={details.transaction.competence_month || '—'} />
+                    <InfoBox label="Conta" value={details.transaction.account?.name || '—'} />
+                    <InfoBox label="Categoria" value={details.transaction.category?.name || '—'} />
+                  </div>
+
+                  {details.summary?.is_installment && (
+                    <div className="rounded-2xl bg-violet-50/60 p-4 ring-1 ring-violet-200 dark:bg-violet-900/10 dark:ring-violet-900/40">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-bold text-violet-900 dark:text-violet-200">Compra parcelada</div>
+                        <div className="text-sm font-semibold text-violet-900/80 dark:text-violet-200/80">
+                          Total da compra: {formatBRL(details.summary.total_amount || 0)}
+                        </div>
+                      </div>
+
+                      <div className="mt-3 overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                          <thead className="text-xs uppercase text-violet-900/70 dark:text-violet-200/70">
+                            <tr>
+                              <th className="py-2 pr-3">Parcela</th>
+                              <th className="py-2 pr-3">Data</th>
+                              <th className="py-2 pr-3">Competência</th>
+                              <th className="py-2 pr-3">Status</th>
+                              <th className="py-2 text-right">Valor</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-violet-200/60 dark:divide-violet-900/30">
+                            {(details.installments || []).map((p) => {
+                            const currentN = Number(details?.transaction?.installment_number || 0);
+                            const isCurrent = currentN && Number(p.installment_number) === currentN;
+
+                            return (
+                              <tr
+                                key={p.id}
+                                data-current-installment={isCurrent ? '1' : '0'}
+                                className={[
+                                  isCurrent
+                                    ? 'bg-amber-50 ring-1 ring-amber-200 dark:bg-amber-900/20 dark:ring-amber-900/40'
+                                    : '',
+                                ].join(' ')}
+                              >
+                                <td className="py-2 pr-3 font-semibold">
+                                  <div className="flex items-center gap-2">
+                                    <span>
+                                      {p.installment_number}/{details.summary.installments_count || '?'}
+                                    </span>
+
+                                    {isCurrent && (
+                                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-900 dark:bg-amber-900/30 dark:text-amber-200">
+                                        Atual
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+
+                                <td className="py-2 pr-3">{formatDateBR(p.date)}</td>
+                                <td className="py-2 pr-3">{p.competence_month || '—'}</td>
+                                <td className="py-2 pr-3">{p.is_cleared ? 'Paga' : 'Em aberto'}</td>
+                                <td className="py-2 text-right font-semibold">{formatBRL(p.amount)}</td>
+                              </tr>
+                            );
+                          })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
           {/* Filtros */}
@@ -530,6 +684,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     rowTone={rowTone}
                     markAsCleared={markAsCleared}
                     canShowPayButton={canShowPayButton}
+                    onOpenDetails={openDetails}
                   />
                 ))}
 
@@ -549,6 +704,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     rowTone={rowTone}
                     markAsCleared={markAsCleared}
                     canShowPayButton={canShowPayButton}
+                    onOpenDetails={openDetails} 
                   />
                 ))}
               </>
@@ -593,6 +749,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           rowTone={rowTone}
                           markAsCleared={markAsCleared}
                           canShowPayButton={canShowPayButton}
+                          onOpenDetails={openDetails}
                           accounts={accounts}
                         />
                       ))}
@@ -617,6 +774,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           rowTone={rowTone}
                           markAsCleared={markAsCleared}
                           canShowPayButton={canShowPayButton}
+                          onOpenDetails={openDetails}
                           accounts={accounts}
                         />
                       ))}
@@ -756,13 +914,26 @@ function StatusBadge({ t }) {
   );
 }
 
+function InfoBox({ label, value }) {
+  return (
+    <div className="rounded-xl bg-gray-50 p-3 ring-1 ring-gray-200 dark:bg-slate-950 dark:ring-slate-800">
+      <div className="text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-slate-400">{label}</div>
+      <div className="mt-1 text-sm font-semibold text-gray-900 dark:text-slate-100">{value}</div>
+    </div>
+  );
+}
+
 /* ---------- MOBILE CARD (extraído p/ não duplicar lógica) ---------- */
 
-function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton }) {
+function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails }) {
   const showNew = isNewTx(t, 24);
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpenDetails?.(t)}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onOpenDetails?.(t)}
       className={[
         'rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800',
         isInstallment(t) ? 'border-l-4 border-violet-500 dark:border-violet-400 bg-violet-50/60 dark:bg-violet-900/10' : '',
@@ -857,6 +1028,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton }) {
 
           <div className="mt-2 flex justify-end gap-2">
             <Link
+              onClick={(e) => e.stopPropagation()}
               href={route('transactions.edit', { transaction: t.id, month })}
               className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
               title="Editar"
@@ -868,7 +1040,8 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton }) {
               <button
                 className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
                 title="Cancelar parcelamento"
-                onClick={() => {
+                onClick={(e) => {
+                  e.stopPropagation();
                   if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
                   router.post(route('installments.cancel', t.installment_id));
                 }}
@@ -881,7 +1054,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton }) {
               <button
                 className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
                 title="Marcar como pago"
-                onClick={() => markAsCleared(t)}
+                onClick={(e) => {e.stopPropagation(); markAsCleared(t)}}
               >
                 ✓
               </button>
@@ -890,7 +1063,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton }) {
             <button
               className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
               title="Excluir"
-              onClick={() => confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}
+              onClick={(e) => { e.stopPropagation(); confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}}
             >
               <IconTrash />
             </button>
@@ -903,16 +1076,18 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton }) {
 
 /* ---------- DESKTOP ROW (extraído) ---------- */
 
-function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton }) {
+function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails }) {
   const tone = rowTone(t);
   const showNew = isNewTx(t, 24);
 
   return (
-    <tr className={['transition-colors', tone.row].join(' ')}>
+      <tr
+        className={['transition-colors cursor-pointer', tone.row].join(' ')}
+        onClick={() => onOpenDetails?.(t)}
+      >
       <td className={['px-4 py-3 text-gray-700 dark:text-slate-200', tone.cell, tone.left].join(' ')}>
         {formatDateBR(t.date)}
       </td>
-
       <td className={['px-4 py-3', tone.cell].join(' ')}>
         <div className="flex items-start gap-3">
           <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
@@ -1008,6 +1183,7 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton }) {
       >
         <div className="inline-flex items-center gap-2 whitespace-nowrap">
           <Link
+            onClick={(e) => e.stopPropagation()}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
             href={route('transactions.edit', { transaction: t.id, month })}
             title="Editar"
@@ -1020,7 +1196,8 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton }) {
             <button
               className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
               title="Cancelar parcelamento"
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
                 router.post(route('installments.cancel', t.installment_id));
               }}
@@ -1034,7 +1211,7 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton }) {
             <button
               className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
               title="Marcar como pago"
-              onClick={() => markAsCleared(t)}
+              onClick={(e) => { e.stopPropagation(); markAsCleared(t)}}
             >
               ✓
               <span className="hidden md:inline">Pagar</span>
@@ -1044,10 +1221,11 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton }) {
           <button
             className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
             title="Excluir"
-            onClick={() =>
+            onClick={(e) => {
+              e.stopPropagation();
               confirm('Excluir este lançamento?') &&
               router.delete(route('transactions.destroy', { transaction: t.id, month }))
-            }
+            }}
           >
             <IconTrash />
             <span className="hidden md:inline">Excluir</span>
