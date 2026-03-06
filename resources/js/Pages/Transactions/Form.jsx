@@ -3,6 +3,7 @@ import { Head, Link, useForm, router } from '@inertiajs/react';
 import MoneyInput from '@/Components/MoneyInput';
 import { useEffect, useMemo, useRef } from 'react';
 import Checkbox from '@/Components/Checkbox';
+import SmartDescriptionInput from '@/Components/SmartDescriptionInput';
 
 export default function Form({ mode, transaction, categories, accounts, return_month }) {
   const isCreate = mode === 'create';
@@ -416,49 +417,13 @@ export default function Form({ mode, transaction, categories, accounts, return_m
                 </div>
               </div>
 
-              {/* Descrição */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Descrição</label>
-                <input
-                  disabled={formDisabled}
-                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
-                  placeholder="Ex: Mercado, aluguel, salário..."
-                  value={data.description}
-                  onChange={(e) => !formDisabled && setData('description', e.target.value)}
-                />
-                {errors.description && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.description}</div>}
-              </div>
-
-              {/* Categoria + Conta */}
+                            {/* Conta / cartão + Categoria */}
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {/* Categoria */}
+                {/* Conta / cartão */}
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Categoria</label>
-                  <select
-                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
-                    value={data.category_id}
-                    onChange={(e) => !formDisabled && setData('category_id', e.target.value)}
-                    disabled={formDisabled || (filteredCategories?.length ?? 0) === 0}
-                  >
-                    {filteredCategories.length === 0 ? (
-                      <option value="">(sem categorias para este tipo)</option>
-                    ) : (
-                      filteredCategories.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
-
-                  {errors.category_id && (
-                    <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.category_id}</div>
-                  )}
-                </div>
-
-                {/* Conta */}
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Conta</label>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                    Conta / cartão
+                  </label>
                   <select
                     className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
                     value={data.account_id}
@@ -480,7 +445,6 @@ export default function Form({ mode, transaction, categories, accounts, return_m
                     )}
                   </select>
 
-                  {/* Hint “inteligente” */}
                   {((canInstallment && data.is_installment) || data.payment_method === 'credit_card') && (
                     <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
                       Mostrando apenas contas do tipo <b>cartão de crédito</b>.
@@ -491,6 +455,71 @@ export default function Form({ mode, transaction, categories, accounts, return_m
                     <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.account_id}</div>
                   )}
                 </div>
+
+                {/* Categoria */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                    Categoria
+                  </label>
+                  <select
+                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
+                    value={data.category_id}
+                    onChange={(e) => !formDisabled && setData('category_id', e.target.value)}
+                    disabled={formDisabled || (filteredCategories?.length ?? 0) === 0}
+                  >
+                    {filteredCategories.length === 0 ? (
+                      <option value="">(sem categorias para este tipo)</option>
+                    ) : (
+                      filteredCategories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+
+                  {errors.category_id && (
+                    <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.category_id}</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Descrição */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                  Descrição
+                </label>
+
+                <SmartDescriptionInput
+                  disabled={formDisabled}
+                  value={data.description}
+                  onChange={(value) => !formDisabled && setData('description', value)}
+                  queryParams={{
+                    type: data.type,
+                    category_id: data.category_id || undefined,
+                    account_id: data.account_id || undefined,
+                  }}
+                  onSelectSuggestion={(item) => {
+                    if (formDisabled) return;
+
+                    setData('description', item.description);
+
+                    if (item.payment_method && !isPayingWithCreditCard) {
+                      setData('payment_method', item.payment_method);
+                    }
+                  }}
+                  placeholder="Ex: Mercado, aluguel, salário..."
+                />
+
+                <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                  Digite para receber sugestões com base no seu histórico nesta conta e categoria.
+                </div>
+
+                {errors.description && (
+                  <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">
+                    {errors.description}
+                  </div>
+                )}
               </div>
 
               {/* Forma de pagamento */}
