@@ -210,51 +210,60 @@ class DashboardController extends Controller
             $openingBalance = (float) ($acc['opening_balance'] ?? 0);
         }
 
-         // =========================
-        // 3) lifetimeIncome (respeita filtros de conta/busca/status/parcelamento e tipo)
+        // =========================
+        // 3) Acumulados até o mês (respeitam filtros de conta/busca/status/parcelamento e tipo)
         // =========================
         $lifetimeIncome = 0.0;
+        $lifetimeExpense = 0.0;
 
-        // Se filtro de tipo existir e não for income, lifetimeIncome = 0 (faz sentido pro filtro "Tipo")
-        if (!$request->filled('type') || $request->string('type')->toString() === 'income') {
-            $lifetimeIncomeQuery = Transaction::query()
+        $buildLifetimeQuery = function (string $txType) use ($request, $userId, $month, $end) {
+            $query = Transaction::query()
                 ->where('user_id', $userId)
-                ->where('type', 'income')
+                ->where('type', $txType)
                 ->where('is_transfer', false)
                 ->where(function ($q1) use ($month, $end) {
                     $q1->where('competence_month', '<=', $month)
-                       ->orWhere(function ($q2) use ($end) {
-                           $q2->whereNull('competence_month')
-                              ->whereDate('date', '<=', $end->toDateString());
-                       });
+                    ->orWhere(function ($q2) use ($end) {
+                        $q2->whereNull('competence_month')
+                            ->whereDate('date', '<=', $end->toDateString());
+                    });
                 });
 
             if ($request->filled('category_id')) {
-                $lifetimeIncomeQuery->where('category_id', $request->integer('category_id'));
+                $query->where('category_id', $request->integer('category_id'));
             }
             if ($request->filled('account_id')) {
-                $lifetimeIncomeQuery->where('account_id', $request->integer('account_id'));
+                $query->where('account_id', $request->integer('account_id'));
             }
             if ($request->filled('q')) {
                 $term = $request->string('q')->toString();
-                $lifetimeIncomeQuery->where(function ($qq) use ($term) {
+                $query->where(function ($qq) use ($term) {
                     $qq->where('description', 'like', "%{$term}%")
-                       ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
-                       ->orWhereHas('account', fn($a) => $a->where('name', 'like', "%{$term}%"));
+                    ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
+                    ->orWhereHas('account', fn($a) => $a->where('name', 'like', "%{$term}%"));
                 });
             }
             if ($request->filled('installment')) {
                 $v = $request->string('installment')->toString();
-                if ($v === 'only') $lifetimeIncomeQuery->whereNotNull('installment_id');
-                if ($v === 'none') $lifetimeIncomeQuery->whereNull('installment_id');
+                if ($v === 'only') $query->whereNotNull('installment_id');
+                if ($v === 'none') $query->whereNull('installment_id');
             }
             if ($request->filled('status')) {
                 $st = (string) $request->query('status');
-                if ($st === 'paid') $lifetimeIncomeQuery->where('is_cleared', true);
-                if ($st === 'open') $lifetimeIncomeQuery->where('is_cleared', false);
+                if ($st === 'paid') $query->where('is_cleared', true);
+                if ($st === 'open') $query->where('is_cleared', false);
             }
 
-            $lifetimeIncome = (float) $lifetimeIncomeQuery->sum('amount');
+            return $query;
+        };
+
+        // Se filtro de tipo existir, só calcula o acumulado compatível
+        if (!$request->filled('type') || $request->string('type')->toString() === 'income') {
+            $lifetimeIncome = (float) $buildLifetimeQuery('income')->sum('amount');
+        }
+
+        if (!$request->filled('type') || $request->string('type')->toString() === 'expense') {
+            $lifetimeExpense = (float) $buildLifetimeQuery('expense')->sum('amount');
         }
 
         // =========================
@@ -375,6 +384,7 @@ class DashboardController extends Controller
             'expense' => $expense,
             'balance' => $openingBalance + $income - $expense,
             'lifetimeIncome' => $lifetimeIncome,
+            'lifetimeExpense' => $lifetimeExpense,
             'byCategory' => $byCategory,
             'latest' => $latest,
             'budgetsBadge' => $budgetsBadge,
