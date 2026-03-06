@@ -5,24 +5,31 @@ import { useEffect, useMemo, useRef } from 'react';
 import Checkbox from '@/Components/Checkbox';
 import SmartDescriptionInput from '@/Components/SmartDescriptionInput';
 
-export default function Form({ mode, transaction, categories, accounts, return_month }) {
+export default function Form({ mode, transaction, categories, accounts, return_filters = {} }) {
   const isCreate = mode === 'create';
 
   const { data, setData, post, put, processing, errors } = useForm({
-    // lançamento normal
-    type: transaction?.type ?? 'expense',
-    amount: transaction?.amount ?? '', // normalizado: "1234.56"
+    type: transaction?.type ?? (return_filters?.type ?? 'expense'),
+    amount: transaction?.amount ?? '',
     date: transaction?.date ?? todayLocalISO(),
     description: transaction?.description ?? '',
-    category_id: transaction?.category_id ?? (categories?.[0]?.id ?? ''),
-    account_id: transaction?.account_id ?? (accounts?.[0]?.id ?? ''),
+    category_id: transaction?.category_id ?? (return_filters?.category_id ?? categories?.[0]?.id ?? ''),
+    account_id: transaction?.account_id ?? (return_filters?.account_id ?? accounts?.[0]?.id ?? ''),
     payment_method: transaction?.payment_method ?? 'pix',
     is_cleared: transaction?.is_cleared ?? false,
 
-    // ✅ parcelamento (somente create/expense)
     is_installment: false,
     installments_count: 12,
-    first_due_date: todayLocalISO(), // não enviado no parcelado
+    first_due_date: todayLocalISO(),
+
+    // retorno
+    return_month: return_filters?.month ?? '',
+    return_type: return_filters?.type ?? '',
+    return_category_id: return_filters?.category_id ?? '',
+    return_account_id: return_filters?.account_id ?? '',
+    return_q: return_filters?.q ?? '',
+    return_installment: return_filters?.installment ?? '',
+    return_status: return_filters?.status ?? '',
   });
 
   // ✅ sync no edit
@@ -588,7 +595,15 @@ export default function Form({ mode, transaction, categories, accounts, return_m
               {/* Actions */}
               <div className="flex items-center justify-between pt-4">
                 <Link
-                  href={route('transactions.index', return_month ? { month: return_month } : {})}
+                  href={route('transactions.index', {
+                  month: return_filters?.month || undefined,
+                  type: return_filters?.type || undefined,
+                  category_id: return_filters?.category_id || undefined,
+                  account_id: return_filters?.account_id || undefined,
+                  q: return_filters?.q || undefined,
+                  installment: return_filters?.installment || undefined,
+                  status: return_filters?.status || undefined,
+                })}
                   className="text-sm font-semibold text-gray-600 hover:text-gray-800 hover:underline dark:text-slate-300 dark:hover:text-slate-100"
                 >
                   Voltar

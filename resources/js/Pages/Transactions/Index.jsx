@@ -323,11 +323,18 @@ export default function Index({ transactions, filters, categories, accounts }) {
           </div>
 
           <Link
-            href={route('transactions.create', { month })}
-            className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+            href={route('transactions.create', {
+              month: filters.month || undefined,
+              type: filters.type || undefined,
+              category_id: filters.category_id || undefined,
+              account_id: filters.account_id || undefined,
+              q: filters.q || undefined,
+              installment: filters.installment || undefined,
+              status: filters.status || undefined,
+            })}
           >
-            + Novo lançamento
-          </Link>
+  + Novo lançamento
+</Link>
         </div>
       }
     >
@@ -777,19 +784,25 @@ export default function Index({ transactions, filters, categories, accounts }) {
           {/* ✅ DESKTOP: tabela */}
           <div className="hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 sm:block">
             <div className="overflow-x-auto">
-              <table className="min-w-[980px] w-full text-left text-sm">
+              <table className="min-w-[940px] w-full table-fixed text-left text-sm">
+                 <colgroup>
+                  <col className="w-[110px]" />
+                  <col className="w-[320px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[160px]" />
+                  <col className="w-[130px]" />
+                  <col className="w-[120px]" />
+                  <col className="w-[170px]" />
+                </colgroup>
                 <thead className="border-b bg-gray-50 text-gray-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
                   <tr>
-                    <th className="px-4 py-3 font-semibold">Data</th>
-                    <th className="px-4 py-3 font-semibold">Descrição</th>
-                    <th className="px-4 py-3 font-semibold">Categoria</th>
-                    <th className="px-4 py-3 font-semibold">Conta</th>
-                    <th className="px-4 py-3 font-semibold">Pagamento</th>
-                    <th className="px-4 py-3 text-right font-semibold">Valor</th>
-                    <th
-                      className="px-4 py-3 text-right font-semibold sticky right-0 z-10 bg-gray-50 dark:bg-slate-950
-                                 shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]"
-                    >
+                    <th className="px-3 py-3 font-semibold">Data</th>
+                    <th className="px-3 py-3 font-semibold">Descrição</th>
+                    <th className="px-3 py-3 font-semibold">Categoria</th>
+                    <th className="px-3 py-3 font-semibold">Conta</th>
+                    <th className="px-3 py-3 font-semibold">Pagamento</th>
+                    <th className="px-3 py-3 text-right font-semibold">Valor</th>
+                    <th className="px-3 py-3 text-right font-semibold sticky right-0 z-10 bg-gray-50 dark:bg-slate-950 shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]">
                       Ações
                     </th>
                   </tr>
@@ -1144,31 +1157,32 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
   const showNew = isNewTx(t, 24);
 
   return (
-      <tr
-        className={['transition-colors cursor-pointer', tone.row].join(' ')}
-        onClick={() => onOpenDetails?.(t)}
-      >
-      <td className={['px-4 py-3 text-gray-700 dark:text-slate-200', tone.cell, tone.left].join(' ')}>
+    <tr
+      className={['transition-colors cursor-pointer', tone.row].join(' ')}
+      onClick={() => onOpenDetails?.(t)}
+    >
+      <td className={['px-3 py-3 text-gray-700 dark:text-slate-200 whitespace-nowrap', tone.cell, tone.left].join(' ')}>
         {formatDateBR(t.date)}
       </td>
-      <td className={['px-4 py-3', tone.cell].join(' ')}>
-        <div className="flex items-start gap-3">
-          <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
+
+      <td className={['px-3 py-3', tone.cell].join(' ')}>
+        <div className="flex items-start gap-2 min-w-0">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-100 text-gray-700 ring-1 ring-gray-200 dark:bg-slate-800 dark:text-slate-200 dark:ring-slate-700">
             <PaymentIcon method={t.payment_method} />
           </div>
 
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
               <div className="truncate text-gray-900 dark:text-slate-100 font-semibold">
                 {t.description || <span className="text-gray-400 dark:text-slate-500">(sem descrição)</span>}
               </div>
               {showNew && <NewBadge />}
             </div>
 
-            <div className="mt-1 flex flex-wrap items-center gap-2">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <span
                 className={[
-                  'rounded-full px-2 py-0.5 text-xs font-semibold',
+                  'rounded-full px-2 py-0.5 text-[11px] font-semibold',
                   t.type === 'expense'
                     ? 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200'
                     : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
@@ -1180,7 +1194,7 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
               {t.installment_id && (
                 <span
                   className={[
-                    'rounded-full px-2 py-0.5 text-xs font-semibold',
+                    'rounded-full px-2 py-0.5 text-[11px] font-semibold',
                     t.installment?.is_active
                       ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200'
                       : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
@@ -1194,7 +1208,7 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
               <StatusBadge t={t} />
 
               {t.purchase_date && t.purchase_date !== t.date && (
-                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
                   Compra {formatDateBR(t.purchase_date)}
                 </span>
               )}
@@ -1203,31 +1217,31 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
         </div>
       </td>
 
-      <td className={['px-4 py-3 text-gray-700 dark:text-slate-200', tone.cell].join(' ')}>
+      <td className={['px-3 py-3 text-gray-700 dark:text-slate-200 truncate', tone.cell].join(' ')}>
         {t.category?.name || '—'}
       </td>
 
-      <td className={['px-4 py-3', tone.cell].join(' ')}>
-        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
+      <td className={['px-3 py-3', tone.cell].join(' ')}>
+        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200 min-w-0">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
             <AccountTypeIcon type={t.account?.type} />
           </span>
           <span className="min-w-0 truncate">{t.account?.name || '—'}</span>
         </div>
       </td>
 
-      <td className={['px-4 py-3', tone.cell].join(' ')}>
-        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
+      <td className={['px-3 py-3', tone.cell].join(' ')}>
+        <div className="flex items-center gap-2 text-gray-700 dark:text-slate-200 min-w-0">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
             <PaymentIcon method={t.payment_method} />
           </span>
-          <span className="font-semibold">{PaymentLabel(t.payment_method)}</span>
+          <span className="truncate font-semibold">{PaymentLabel(t.payment_method)}</span>
         </div>
       </td>
 
       <td
         className={[
-          'px-4 py-3 text-right font-semibold',
+          'px-3 py-3 text-right font-semibold whitespace-nowrap',
           tone.cell,
           t.type === 'expense'
             ? 'text-rose-600 dark:text-rose-300'
@@ -1239,25 +1253,24 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
 
       <td
         className={[
-          'px-4 py-3 text-right sticky right-0',
+          'px-3 py-3 text-right sticky right-0',
           isInstallment(t) ? tone.sticky : 'bg-white dark:bg-slate-900',
           'shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]',
         ].join(' ')}
       >
-        <div className="inline-flex items-center gap-2 whitespace-nowrap">
+        <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
           <Link
             onClick={(e) => e.stopPropagation()}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
             href={route('transactions.edit', { transaction: t.id, month })}
             title="Editar"
           >
             <IconEdit />
-            <span className="hidden md:inline">Editar</span>
           </Link>
 
           {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
             <button
-              className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
               title="Cancelar parcelamento"
               onClick={(e) => {
                 e.stopPropagation();
@@ -1266,32 +1279,32 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
               }}
             >
               <IconBlock />
-              <span className="hidden md:inline">Cancelar</span>
             </button>
           )}
 
           {canShowPayButton(t) && (
             <button
-              className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
-              title="Marcar como pago"
-              onClick={(e) => { e.stopPropagation(); markAsCleared(t)}}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
+              title="Pagar"
+              onClick={(e) => {
+                e.stopPropagation();
+                markAsCleared(t);
+              }}
             >
               ✓
-              <span className="hidden md:inline">Pagar</span>
             </button>
           )}
 
           <button
-            className="inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
             title="Excluir"
             onClick={(e) => {
               e.stopPropagation();
               confirm('Excluir este lançamento?') &&
-              router.delete(route('transactions.destroy', { transaction: t.id, month }))
+                router.delete(route('transactions.destroy', { transaction: t.id, month }));
             }}
           >
             <IconTrash />
-            <span className="hidden md:inline">Excluir</span>
           </button>
         </div>
       </td>
