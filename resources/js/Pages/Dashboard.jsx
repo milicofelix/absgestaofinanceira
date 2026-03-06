@@ -17,10 +17,12 @@ export default function Dashboard({
   accounts,
   openingBalance,
   lifetimeIncome,
+  lifetimeExpense,
   budgetsBadge,
 }) {
   const [selectedMonth, setSelectedMonth] = useState(filters?.month || month);
-  const [showLifetimeIncome, setShowLifetimeIncome] = useState(false);
+  //const [showLifetimeIncome, setShowLifetimeIncome] = useState(false);
+  const [showAccumulatedExpense, setShowAccumulatedExpense] = useState(false);
   const { flash } = usePage().props;
   const [selectedAccountId, setSelectedAccountId] = useState(filters?.account_id || '');
   const [type, setType] = useState(filters?.type || '');
@@ -530,30 +532,31 @@ export default function Dashboard({
             </span>
           </div>
 
-          {/* toggle receitas acumuladas */}
+          {/* toggle acumulado */}
           <div className="flex items-center justify-end gap-3">
-            <span className="text-sm font-semibold text-gray-700 dark:text-slate-200">Receitas acumuladas</span>
+            <span className="text-sm font-semibold text-gray-700 dark:text-slate-200">
+              {showAccumulatedExpense ? 'Despesas acumuladas' : 'Receitas acumuladas'}
+            </span>
 
             <button
               type="button"
               role="switch"
-              aria-checked={showLifetimeIncome}
-              onClick={() => setShowLifetimeIncome((v) => !v)}
+              aria-checked={showAccumulatedExpense}
+              onClick={() => setShowAccumulatedExpense((v) => !v)}
               className={[
                 'relative inline-flex h-6 w-11 items-center rounded-full transition',
-                showLifetimeIncome ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-slate-700',
+                showAccumulatedExpense ? 'bg-rose-500' : 'bg-emerald-600',
                 'focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900',
               ].join(' ')}
             >
               <span
                 className={[
                   'inline-block h-5 w-5 transform rounded-full bg-white shadow transition',
-                  showLifetimeIncome ? 'translate-x-5' : 'translate-x-1',
+                  showAccumulatedExpense ? 'translate-x-5' : 'translate-x-1',
                 ].join(' ')}
               />
             </button>
           </div>
-
           {budgetsBadge?.total > 0 && (
             <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -593,7 +596,7 @@ export default function Dashboard({
           <div
             className={[
               'grid grid-cols-1 gap-4 items-stretch',
-              showLifetimeIncome ? 'md:grid-cols-5' : 'md:grid-cols-4',
+              'md:grid-cols-5',
             ].join(' ')}
           >
             <StatCard
@@ -629,15 +632,20 @@ export default function Dashboard({
               subLabel={balanceTone === 'yellow' ? 'atenção: sobrando pouco' : undefined}
             />
 
-            {showLifetimeIncome && (
-              <StatCard
-                title="Receitas acumuladas (até este mês)"
-                value={lifetimeIncome}
-                icon="wallet"
-                tone="purple"
-                href={route('transactions.index', { month: selectedMonth, type: 'income' })}
-              />
-            )}
+            <StatCard
+              title={
+                showAccumulatedExpense
+                  ? 'Despesas acumuladas (até este mês)'
+                  : 'Receitas acumuladas (até este mês)'
+              }
+              value={showAccumulatedExpense ? lifetimeExpense : lifetimeIncome}
+              icon={showAccumulatedExpense ? 'expense' : 'wallet'}
+              tone={showAccumulatedExpense ? 'red' : 'purple'}
+              href={route('transactions.index', {
+                month: selectedMonth,
+                type: showAccumulatedExpense ? 'expense' : 'income',
+              })}
+            />
           </div>
 
           {/* contas */}
@@ -866,7 +874,7 @@ function StatCard({ title, value, icon, tone = 'green', href, subLabel }) {
         <Icon name={icon} size={18} />
       </div>
 
-      <div className="pr-14">
+      <div className="mt-2">
         <div className={['text-sm font-semibold leading-5', toneClasses.title].join(' ')}>
           <span className="block line-clamp-2 min-h-[40px]">{title}</span>
         </div>
