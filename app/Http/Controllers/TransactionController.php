@@ -437,4 +437,64 @@ class TransactionController extends Controller
         return substr(hash('sha256', $raw), 0, 64);
     }
 
+    public function descriptionSuggestions(Request $request)
+    {
+        $userId = $request->user()->id;
+        $term = trim((string) $request->query('q', ''));
+        $type = $request->query('type');
+        $categoryId = $request->query('category_id');
+        $accountId = $request->query('account_id');
+
+        if (mb_strlen($term) < 2) {
+            return response()->json([]);
+        }
+
+        $baseQuery = Transaction::query()
+            ->where('user_id', $userId)
+            ->whereNotNull('description')
+            ->where('description', '!=', '')
+            ->where('description', 'like', '%' . $term . '%');
+
+        if ($type) {
+            $baseQuery->where('type', $type);
+        }
+
+        if ($categoryId) {
+            $baseQuery->where('category_id', $categoryId);
+        }
+
+        if ($accountId) {
+            $baseQuery->where('account_id', $accountId);
+        }
+
+        $descriptions = (clone $baseQuery)
+            ->selectRaw('description, COUNT(*) as usage_count, MAX(date) as last_used_at')
+            ->groupBy('description')
+            ->orderByDesc('usage_count')
+            ->orderByDesc('last_used_at')
+            ->limit(8)
+            ->get();
+
+        $result = $descriptions->map(function ($row) use ($userId) {
+            $latest = Transaction::query()
+                ->where('user_id', $userId)
+                ->where('description', $row->description)
+                ->latest('date')
+                ->latest('id')
+                ->first(['description', 'category_id', 'account_id', 'payment_method', 'type']);
+
+            return [
+                'label' => $row->description,
+                'description' => $row->description,
+                'usage_count' => (int) $row->usage_count,
+                'last_used_at' => $row->last_used_at,
+                'category_id' => $latest?->category_id,
+                'account_id' => $latest?->account_id,
+                'payment_method' => $latest?->payment_method,
+                'type' => $latest?->type,
+            ];
+        })->values();
+
+        return response()->json($result);
+    }
 }
