@@ -21,10 +21,8 @@ export default function Dashboard({
   budgetsBadge,
 }) {
   const [selectedMonth, setSelectedMonth] = useState(filters?.month || month);
-  //const [showLifetimeIncome, setShowLifetimeIncome] = useState(false);
   const [showAccumulatedExpense, setShowAccumulatedExpense] = useState(false);
   const { flash } = usePage().props;
-  const [selectedAccountId, setSelectedAccountId] = useState(filters?.account_id || '');
   const [type, setType] = useState(filters?.type || '');
   const [categoryId, setCategoryId] = useState(filters?.category_id || '');
   const [accountId, setAccountId] = useState(filters?.account_id || '');
@@ -48,26 +46,6 @@ export default function Dashboard({
       setShowFilters(true);
     }
   }, [hasActiveExtraFilters]);
-
-  function changeMonth(v) {
-    const m = (v || '').slice(0, 7);
-    setSelectedMonth(m);
-    router.get(
-      route('dashboard'),
-      { month: m, account_id: selectedAccountId || undefined },
-      { preserveState: true, replace: true }
-    );
-  }
-
-  function changeAccount(v) {
-    const id = String(v || '');
-    setSelectedAccountId(id);
-    router.get(
-      route('dashboard'),
-      { month: selectedMonth, account_id: id || undefined },
-      { preserveState: true, replace: true }
-    );
-  }
 
   function applyFilters(next = {}) {
     const params = {
@@ -177,6 +155,11 @@ export default function Dashboard({
     () => (accounts || []).filter((x) => String(x.type || '').toLowerCase() !== 'credit_card'),
     [accounts],
   );
+
+  const visibleAccounts = useMemo(() => {
+    if (!accountId) return accounts || [];
+    return (accounts || []).filter((a) => String(a.id) === String(accountId));
+  }, [accounts, accountId]);
 
   // --------------------------
   // Modal pagar fatura (Dashboard)
@@ -712,9 +695,9 @@ export default function Dashboard({
               </Link>
             </div>
 
-            {accounts?.length ? (
+            {visibleAccounts?.length ? (
               <ul className="divide-y divide-gray-100 dark:divide-slate-800">
-                {accounts.map((a) => (
+                {visibleAccounts.map((a) => (
                   <li key={a.id} className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="min-w-0">
                       <div className="truncate font-semibold text-gray-900 dark:text-slate-100">{a.name}</div>
@@ -756,13 +739,20 @@ export default function Dashboard({
               </ul>
             ) : (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-800">
-                <div>Sem contas cadastradas.</div>
-                <Link
-                  href={route('accounts.index')}
-                  className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
-                >
-                  + Criar conta
-                </Link>
+                <div>
+                  {accountId
+                    ? 'Nenhuma conta encontrada para o filtro selecionado.'
+                    : 'Sem contas cadastradas.'}
+                </div>
+
+                {!accountId && (
+                  <Link
+                    href={route('accounts.index')}
+                    className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600"
+                  >
+                    + Criar conta
+                  </Link>
+                )}
               </div>
             )}
           </div>
