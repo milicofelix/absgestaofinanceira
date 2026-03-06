@@ -1,7 +1,7 @@
 // resources/js/Pages/Dashboard.jsx
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { formatDateBR } from '@/utils/formatters';
 
 export default function Dashboard({
@@ -31,6 +31,23 @@ export default function Dashboard({
   const [installment, setInstallment] = useState(filters?.installment || '');
   const [status, setStatus] = useState(filters?.status || '');
   const [q, setQ] = useState(filters?.q || '');
+
+  const hasActiveExtraFilters = !!(
+    (filters?.type || '') ||
+    (filters?.category_id || '') ||
+    (filters?.account_id || '') ||
+    (filters?.installment || '') ||
+    (filters?.status || '') ||
+    (filters?.q || '')
+  );
+
+  const [showFilters, setShowFilters] = useState(hasActiveExtraFilters);
+
+  useEffect(() => {
+    if (hasActiveExtraFilters) {
+      setShowFilters(true);
+    }
+  }, [hasActiveExtraFilters]);
 
   function changeMonth(v) {
     const m = (v || '').slice(0, 7);
@@ -370,145 +387,175 @@ export default function Dashboard({
 
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-          {/* filtro + link */}
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-6">
-              {/* Mês */}
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Mês</label>
-                <input
-                  type="month"
-                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  value={selectedMonth}
-                  onChange={(e) => applyFilters({ month: (e.target.value || '').slice(0, 7) })}
-                />
-              </div>
-
-              {/* Tipo */}
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Tipo</label>
-                <select
-                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  value={type}
-                  onChange={(e) => applyFilters({ type: e.target.value })}
-                >
-                  <option value="">Todos</option>
-                  <option value="income">Receitas</option>
-                  <option value="expense">Despesas</option>
-                </select>
-              </div>
-
-              {/* Categoria */}
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Categoria</label>
-                <select
-                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  value={categoryId}
-                  onChange={(e) => applyFilters({ category_id: e.target.value })}
-                >
-                  <option value="">Todas</option>
-                  {(categories || []).map((c) => (
-                    <option key={c.id} value={String(c.id)}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Conta */}
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Conta</label>
-                <select
-                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  value={accountId}
-                  onChange={(e) => applyFilters({ account_id: e.target.value })}
-                >
-                  <option value="">Todas</option>
-                  {(accountsFilter || []).map((a) => (
-                    <option key={a.id} value={String(a.id)}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Parcelamento */}
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Parcelamento</label>
-                <select
-                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  value={installment}
-                  onChange={(e) => applyFilters({ installment: e.target.value })}
-                >
-                  <option value="">Todos</option>
-                  <option value="only">Somente parcelados</option>
-                  <option value="none">Somente à vista</option>
-                </select>
-              </div>
-
-              {/* Status */}
-              <div className="sm:col-span-1">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Status</label>
-                <select
-                  className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                  value={status}
-                  onChange={(e) => applyFilters({ status: e.target.value })}
-                >
-                  <option value="">Todos</option>
-                  <option value="open">Em aberto</option>
-                  <option value="paid">Pago</option>
-                </select>
-              </div>
-
-              {/* Busca */}
-              <div className="sm:col-span-6">
-                <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Busca</label>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Digite para buscar (descrição, conta, categoria...)"
-                    className="w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') applyFilters({ q: e.currentTarget.value });
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => applyFilters({ q })}
-                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-                  >
-                    Buscar
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
-                  >
-                    Limpar
-                  </button>
+                   {/* filtros */}
+          <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Filtros do dashboard</div>
+                <div className="text-xs text-gray-500 dark:text-slate-400">
+                  Refine os dados exibidos no resumo e nos lançamentos do mês.
                 </div>
               </div>
+
+              <div className="flex items-center gap-2">
+                {hasActiveExtraFilters && (
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200">
+                    Filtros ativos
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowFilters((v) => !v)}
+                  className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  {showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between">
-              <Link
-                href={route('transactions.index', {
-                  month: selectedMonth,
-                  type: type || undefined,
-                  category_id: categoryId || undefined,
-                  account_id: accountId || undefined,
-                  installment: installment || undefined,
-                  status: status || undefined,
-                  q: q || undefined,
-                })}
-                className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
-              >
-                Ver lançamentos →
-              </Link>
-            </div>
+            {showFilters && (
+              <div className="mt-4 space-y-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                  {/* Mês */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Mês</label>
+                    <input
+                      type="month"
+                      className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                      value={selectedMonth}
+                      onChange={(e) => applyFilters({ month: (e.target.value || '').slice(0, 7) })}
+                    />
+                  </div>
+
+                  {/* Tipo */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Tipo</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                      value={type}
+                      onChange={(e) => applyFilters({ type: e.target.value })}
+                    >
+                      <option value="">Todos</option>
+                      <option value="income">Receitas</option>
+                      <option value="expense">Despesas</option>
+                    </select>
+                  </div>
+
+                  {/* Categoria */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Categoria</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                      value={categoryId}
+                      onChange={(e) => applyFilters({ category_id: e.target.value })}
+                    >
+                      <option value="">Todas</option>
+                      {(categories || []).map((c) => (
+                        <option key={c.id} value={String(c.id)}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Conta */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Conta</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                      value={accountId}
+                      onChange={(e) => applyFilters({ account_id: e.target.value })}
+                    >
+                      <option value="">Todas</option>
+                      {(accountsFilter || []).map((a) => (
+                        <option key={a.id} value={String(a.id)}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Parcelamento */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Parcelamento</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                      value={installment}
+                      onChange={(e) => applyFilters({ installment: e.target.value })}
+                    >
+                      <option value="">Todos</option>
+                      <option value="only">Somente parcelados</option>
+                      <option value="none">Somente à vista</option>
+                    </select>
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Status</label>
+                    <select
+                      className="mt-1 w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                      value={status}
+                      onChange={(e) => applyFilters({ status: e.target.value })}
+                    >
+                      <option value="">Todos</option>
+                      <option value="open">Em aberto</option>
+                      <option value="paid">Pago</option>
+                    </select>
+                  </div>
+
+                  {/* Busca */}
+                  <div className="sm:col-span-2 xl:col-span-6">
+                    <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Busca</label>
+                    <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="text"
+                        placeholder="Digite para buscar (descrição, conta, categoria...)"
+                        className="w-full rounded-lg border-gray-300 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                        value={q}
+                        onChange={(e) => setQ(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') applyFilters({ q: e.currentTarget.value });
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => applyFilters({ q })}
+                        className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                      >
+                        Buscar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={clearFilters}
+                        className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        Limpar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Link
+                    href={route('transactions.index', {
+                      month: selectedMonth,
+                      type: type || undefined,
+                      category_id: categoryId || undefined,
+                      account_id: accountId || undefined,
+                      installment: installment || undefined,
+                      status: status || undefined,
+                      q: q || undefined,
+                    })}
+                    className="text-sm font-semibold text-emerald-700 hover:text-emerald-800 hover:underline dark:text-emerald-300 dark:hover:text-emerald-200"
+                  >
+                    Ver lançamentos →
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
           {/* resumo rápido do mês */}
           <div className="flex flex-wrap items-center gap-2">

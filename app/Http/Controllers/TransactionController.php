@@ -108,19 +108,99 @@ class TransactionController extends Controller
         ]);
     }
 
+    // public function create(Request $request)
+    // {
+    //     $userId = $request->user()->id;
+
+    //     return Inertia::render('Transactions/Form', [
+    //         'mode' => 'create',
+    //         'transaction' => null,
+    //         'return_month' => $request->query('month'),
+    //         'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
+    //         // (opcional) traz type e statement_close_day caso você queira exibir/ajudar no front
+    //         'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
+    //     ]);
+    // }
+
     public function create(Request $request)
     {
         $userId = $request->user()->id;
 
+        $returnFilters = [
+            'month' => $request->query('month'),
+            'type' => $request->query('type'),
+            'category_id' => $request->query('category_id'),
+            'account_id' => $request->query('account_id'),
+            'q' => $request->query('q'),
+            'installment' => $request->query('installment'),
+            'status' => $request->query('status'),
+        ];
+
         return Inertia::render('Transactions/Form', [
             'mode' => 'create',
             'transaction' => null,
-            'return_month' => $request->query('month'),
-            'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
-            // (opcional) traz type e statement_close_day caso você queira exibir/ajudar no front
-            'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
+            'return_filters' => $returnFilters,
+            'categories' => Category::where('user_id', $userId)
+                ->orderBy('type')->orderBy('name')
+                ->get(['id','name','type']),
+            'accounts' => Account::where('user_id', $userId)
+                ->orderBy('name')
+                ->get(['id','name','type','statement_close_day']),
         ]);
     }
+
+    // public function store(StoreTransactionRequest $request)
+    // {
+    //     $userId = $request->user()->id;
+
+    //     $categoryOk = Category::where('id', $request->integer('category_id'))->where('user_id', $userId)->exists();
+    //     $account = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->first();
+    //     abort_unless($categoryOk && $account, 422);
+
+    //     $dateYmd = $request->date('date')->format('Y-m-d');
+
+    //      // ✅ data da compra
+    //     $purchaseYmd = $dateYmd;
+
+    //     //  calcula competência
+    //     $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
+
+    //     $idemKey = $this->buildIdempotencyKey(
+    //         $userId,
+    //         (int) $account->id,
+    //         (string) $request->string('type'),
+    //         $purchaseYmd,
+    //         $request->input('amount'),
+    //         $request->input('description')
+    //     );
+
+    //     try {
+    //         Transaction::create([
+    //             'user_id' => $userId,
+    //             'type' => $request->string('type'),
+    //             'amount' => $request->input('amount'),
+    //             'date' => $dateYmd,
+    //             'purchase_date' => $dateYmd,
+    //             'competence_month' => $competenceMonth, // ✅ NOVO
+    //             'description' => $request->input('description'),
+    //             'category_id' => $request->integer('category_id'),
+    //             'account_id' => $account->id,
+    //             'payment_method' => $request->input('payment_method'),
+    //             'idempotency_key' => $idemKey,
+    //         ]);
+    //     } catch (QueryException $e) {
+    //         // 1062 = duplicate key (MySQL)
+    //         if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
+    //             return back()->withErrors([
+    //                 'description' => 'Parece um lançamento duplicado (mesma conta, tipo, data da compra e valor). Confira antes de salvar.',
+    //             ])->withInput();
+    //         }
+    //         throw $e;
+    //     }
+
+    //     // ✅ redireciona para o mês de COMPETÊNCIA (pra compra do dia 31/jan cair em fev, por exemplo)
+    //     return redirect()->route('transactions.index', ['month' => $competenceMonth]);
+    // }
 
     public function store(StoreTransactionRequest $request)
     {
@@ -131,11 +211,7 @@ class TransactionController extends Controller
         abort_unless($categoryOk && $account, 422);
 
         $dateYmd = $request->date('date')->format('Y-m-d');
-
-         // ✅ data da compra
         $purchaseYmd = $dateYmd;
-
-        //  calcula competência
         $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
 
         $idemKey = $this->buildIdempotencyKey(
@@ -154,7 +230,7 @@ class TransactionController extends Controller
                 'amount' => $request->input('amount'),
                 'date' => $dateYmd,
                 'purchase_date' => $dateYmd,
-                'competence_month' => $competenceMonth, // ✅ NOVO
+                'competence_month' => $competenceMonth,
                 'description' => $request->input('description'),
                 'category_id' => $request->integer('category_id'),
                 'account_id' => $account->id,
@@ -162,7 +238,6 @@ class TransactionController extends Controller
                 'idempotency_key' => $idemKey,
             ]);
         } catch (QueryException $e) {
-            // 1062 = duplicate key (MySQL)
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
                 return back()->withErrors([
                     'description' => 'Parece um lançamento duplicado (mesma conta, tipo, data da compra e valor). Confira antes de salvar.',
@@ -171,9 +246,43 @@ class TransactionController extends Controller
             throw $e;
         }
 
-        // ✅ redireciona para o mês de COMPETÊNCIA (pra compra do dia 31/jan cair em fev, por exemplo)
-        return redirect()->route('transactions.index', ['month' => $competenceMonth]);
+        return redirect()->route('transactions.index', array_filter([
+            'month' => $competenceMonth,
+            'type' => $request->input('return_type'),
+            'category_id' => $request->input('return_category_id'),
+            'account_id' => $request->input('return_account_id'),
+            'q' => $request->input('return_q'),
+            'installment' => $request->input('return_installment'),
+            'status' => $request->input('return_status'),
+        ], fn ($value) => $value !== null && $value !== ''));
     }
+
+    // public function edit(Transaction $transaction, Request $request)
+    // {
+    //     abort_unless($transaction->user_id === $request->user()->id, 403);
+
+    //     $userId = $request->user()->id;
+
+    //     return Inertia::render('Transactions/Form', [
+    //         'mode' => 'edit',
+    //         'return_month' => $request->query('month'),
+    //         'transaction' => [
+    //             'id' => $transaction->id,
+    //             'type' => $transaction->type,
+    //             'amount' => (float)$transaction->amount,
+    //             'date' => $transaction->date->format('Y-m-d'),
+    //             'purchase_date' => $transaction->purchase_date->format('Y-m-d'),
+    //             'description' => $transaction->description,
+    //             'category_id' => $transaction->category_id,
+    //             'account_id' => $transaction->account_id,
+    //             'payment_method' => $transaction->payment_method,
+    //             'is_cleared' => $transaction->is_cleared,
+    //         ],
+    //         'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
+    //         'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
+    //         'mode' => 'edit',
+    //     ]);
+    // }
 
     public function edit(Transaction $transaction, Request $request)
     {
@@ -181,9 +290,19 @@ class TransactionController extends Controller
 
         $userId = $request->user()->id;
 
+        $returnFilters = [
+            'month' => $request->query('month'),
+            'type' => $request->query('type'),
+            'category_id' => $request->query('category_id'),
+            'account_id' => $request->query('account_id'),
+            'q' => $request->query('q'),
+            'installment' => $request->query('installment'),
+            'status' => $request->query('status'),
+        ];
+
         return Inertia::render('Transactions/Form', [
             'mode' => 'edit',
-            'return_month' => $request->query('month'),
+            'return_filters' => $returnFilters,
             'transaction' => [
                 'id' => $transaction->id,
                 'type' => $transaction->type,
@@ -198,7 +317,6 @@ class TransactionController extends Controller
             ],
             'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
             'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
-            'mode' => 'edit',
         ]);
     }
 
@@ -320,24 +438,52 @@ class TransactionController extends Controller
             throw $e;
         }
 
-        return redirect()->route('transactions.index', ['month' => $competenceMonth]);
+        //return redirect()->route('transactions.index', ['month' => $competenceMonth]);
+        return redirect()->route('transactions.index', array_filter([
+            'month' => $competenceMonth,
+            'type' => $request->input('return_type'),
+            'category_id' => $request->input('return_category_id'),
+            'account_id' => $request->input('return_account_id'),
+            'q' => $request->input('return_q'),
+            'installment' => $request->input('return_installment'),
+            'status' => $request->input('return_status'),
+        ], fn ($value) => $value !== null && $value !== ''));
     }
+
+    // public function destroy(Transaction $transaction, Request $request)
+    // {
+    //     abort_unless($transaction->user_id === $request->user()->id, 403);
+    //      // ✅ mês de contexto (tela/lista que o usuário estava)
+    //     $returnMonth = $request->query('month');
+
+    //     // fallback: mês do próprio lançamento (se não veio month)
+    //     $fallbackMonth = $transaction->competence_month
+    //         ?: $transaction->date->format('Y-m');
+
+    //     $transaction->delete();
+
+    //     return redirect()->route('transactions.index', [
+    //         'month' => $returnMonth ?: $fallbackMonth,
+    //     ]);
+    // }
 
     public function destroy(Transaction $transaction, Request $request)
     {
         abort_unless($transaction->user_id === $request->user()->id, 403);
-         // ✅ mês de contexto (tela/lista que o usuário estava)
-        $returnMonth = $request->query('month');
 
-        // fallback: mês do próprio lançamento (se não veio month)
-        $fallbackMonth = $transaction->competence_month
-            ?: $transaction->date->format('Y-m');
+        $fallbackMonth = $transaction->competence_month ?: $transaction->date->format('Y-m');
 
         $transaction->delete();
 
-        return redirect()->route('transactions.index', [
-            'month' => $returnMonth ?: $fallbackMonth,
-        ]);
+        return redirect()->route('transactions.index', array_filter([
+            'month' => $request->query('month') ?: $fallbackMonth,
+            'type' => $request->query('type'),
+            'category_id' => $request->query('category_id'),
+            'account_id' => $request->query('account_id'),
+            'q' => $request->query('q'),
+            'installment' => $request->query('installment'),
+            'status' => $request->query('status'),
+        ], fn ($value) => $value !== null && $value !== ''));
     }
 
     private function computeCompetenceMonth(Account $account, string $dateYmd): string
