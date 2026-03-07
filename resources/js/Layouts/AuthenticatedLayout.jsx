@@ -8,6 +8,7 @@ export default function AuthenticatedLayout({ header, children }) {
   const user = page.props?.auth?.user ?? null; // ✅ evita crash quando não tiver auth
   const navBadge = page.props?.nav?.budgets_badge ?? null;
   const theme = page.props?.settings?.theme ?? null; // null|light|dark
+  const hideQuickLaunchButton = route().current('transactions.index');
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [openGroup, setOpenGroup] = useState(null);
@@ -246,14 +247,16 @@ export default function AuthenticatedLayout({ header, children }) {
               </div>
 
               {/* Desktop quick action */}
-              <div className="hidden items-center gap-2 sm:flex">
-                <Link
-                  href={route('transactions.create')}
-                  className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
-                >
-                  Lançamento
-                </Link>
-              </div>
+              {!hideQuickLaunchButton && (
+                <div className="hidden items-center gap-2 sm:flex">
+                  <Link
+                    href={route('transactions.create')}
+                    className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+                  >
+                    + Lançamento
+                  </Link>
+                </div>
+              )}
 
               {/* User dropdown */}
               <div className="flex items-center">

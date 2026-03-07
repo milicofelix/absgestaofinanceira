@@ -323,6 +323,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
           </div>
 
           <Link
+            className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
             href={route('transactions.create', {
               month: filters.month || undefined,
               type: filters.type || undefined,
@@ -332,9 +333,9 @@ export default function Index({ transactions, filters, categories, accounts }) {
               installment: filters.installment || undefined,
               status: filters.status || undefined,
             })}
-          >
-  + Novo lançamento
-</Link>
+            >
+            + Novo lançamento
+          </Link>
         </div>
       }
     >
