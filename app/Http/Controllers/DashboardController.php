@@ -12,7 +12,6 @@ use App\Models\Category;
 
 class DashboardController extends Controller
 {
-
     public function index(Request $request)
     {
         $userId = $request->user()->id;
@@ -21,13 +20,12 @@ class DashboardController extends Controller
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = (clone $start)->endOfMonth();
 
-        // ✅ Filtros (iguais Transactions)
-        $type       = $request->query('type');         // income|expense
-        $categoryId = $request->query('category_id');
-        $accountId  = $request->query('account_id');
-        $q          = $request->query('q');
-        $installment= $request->query('installment');  // only|none
-        $status     = $request->query('status');       // paid|open
+        $type        = $request->query('type');
+        $categoryId  = $request->query('category_id');
+        $accountId   = $request->query('account_id');
+        $q           = $request->query('q');
+        $installment = $request->query('installment');
+        $status      = $request->query('status');
 
         // =========================
         // 1) Base do mês (por competência) + filtros
@@ -43,7 +41,6 @@ class DashboardController extends Controller
                    });
             });
 
-        // ✅ aplica filtros (mesma lógica do TransactionController)
         if ($request->filled('type')) {
             $baseMonthReal->where('type', $request->string('type')->toString());
         }
@@ -57,8 +54,8 @@ class DashboardController extends Controller
             $term = $request->string('q')->toString();
             $baseMonthReal->where(function ($qq) use ($term) {
                 $qq->where('description', 'like', "%{$term}%")
-                   ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
-                   ->orWhereHas('account', fn($a) => $a->where('name', 'like', "%{$term}%"));
+                   ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$term}%"))
+                   ->orWhereHas('account', fn ($a) => $a->where('name', 'like', "%{$term}%"));
             });
         }
         if ($request->filled('installment')) {
@@ -78,11 +75,9 @@ class DashboardController extends Controller
             }
         }
 
-        // ✅ cards (respeitam filtros)
         $income  = (float) (clone $baseMonthReal)->where('type', 'income')->sum('amount');
         $expense = (float) (clone $baseMonthReal)->where('type', 'expense')->sum('amount');
 
-        // ✅ gráfico por categoria (naturalmente só faz sentido pra expense)
         $byCategory = (clone $baseMonthReal)
             ->where('type', 'expense')
             ->selectRaw('category_id, SUM(amount) as total')
@@ -98,7 +93,6 @@ class DashboardController extends Controller
             ])
             ->values();
 
-        // ✅ últimos lançamentos (respeita filtros)
         $latest = (clone $baseMonthReal)
             ->with(['category:id,name', 'account:id,name'])
             ->orderByDesc('date')
@@ -116,15 +110,14 @@ class DashboardController extends Controller
             ])
             ->values();
 
-         // =========================
-        // 2) Contas + agregados (SEM N+1) - por COMPETÊNCIA
+        // =========================
+        // 2) Contas + agregados
         // =========================
         $accountsRaw = Account::query()
             ->where('user_id', $userId)
             ->orderBy('name')
             ->get(['id', 'name', 'type', 'initial_balance', 'statement_close_day', 'credit_limit']);
 
-        // Tudo ANTES do mês (por competência)
         $beforeAgg = Transaction::query()
             ->where('user_id', $userId)
             ->where(function ($q) use ($month, $start) {
@@ -141,7 +134,6 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        // Só DO MÊS (por competência)
         $monthAgg = Transaction::query()
             ->where('user_id', $userId)
             ->where(function ($q) use ($month, $start, $end) {
@@ -164,10 +156,10 @@ class DashboardController extends Controller
             ->where('is_transfer', false)
             ->where(function ($q) use ($month, $start, $end) {
                 $q->where('competence_month', $month)
-                ->orWhere(function ($q2) use ($start, $end) {
-                    $q2->whereNull('competence_month')
-                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                });
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->whereNull('competence_month')
+                         ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                  });
             })
             ->selectRaw('account_id')
             ->selectRaw('COALESCE(SUM(amount),0) as total')
@@ -175,17 +167,16 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        // Quantidade de compras/lançamentos na fatura do mês
         $invoiceCountAgg = Transaction::query()
             ->where('user_id', $userId)
             ->where('type', 'expense')
             ->where('is_transfer', false)
             ->where(function ($q) use ($month, $start, $end) {
                 $q->where('competence_month', $month)
-                ->orWhere(function ($q2) use ($start, $end) {
-                    $q2->whereNull('competence_month')
-                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                });
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->whereNull('competence_month')
+                         ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                  });
             })
             ->selectRaw('account_id')
             ->selectRaw('COUNT(*) as qty')
@@ -193,12 +184,6 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        // Uso do limite do cartão até o fim do mês exibido:
-        //
-        // REGRA:
-        // - despesas reais do cartão consomem limite na data da compra (purchase_date)
-        // - se não houver purchase_date, usa date
-        // - pagamentos/compensações no cartão devolvem limite na data em que foram lançados
         $cardLimitUsageAgg = Transaction::query()
             ->where('user_id', $userId)
             ->selectRaw('account_id')
@@ -206,8 +191,8 @@ class DashboardController extends Controller
                 COALESCE(SUM(
                     CASE
                         WHEN type = 'expense'
-                            AND is_transfer = 0
-                            AND DATE(COALESCE(purchase_date, date)) <= ?
+                             AND is_transfer = 0
+                             AND DATE(COALESCE(purchase_date, date)) <= ?
                         THEN amount
                         ELSE 0
                     END
@@ -217,8 +202,8 @@ class DashboardController extends Controller
                 COALESCE(SUM(
                     CASE
                         WHEN type = 'income'
-                            AND is_transfer = 1
-                            AND DATE(date) <= ?
+                             AND is_transfer = 1
+                             AND DATE(date) <= ?
                         THEN amount
                         ELSE 0
                     END
@@ -238,10 +223,10 @@ class DashboardController extends Controller
             ->where('is_transfer', false)
             ->where(function ($q) use ($previousMonth, $previousStart, $previousEnd) {
                 $q->where('competence_month', $previousMonth)
-                ->orWhere(function ($q2) use ($previousStart, $previousEnd) {
-                    $q2->whereNull('competence_month')
-                        ->whereBetween('date', [$previousStart->toDateString(), $previousEnd->toDateString()]);
-                });
+                  ->orWhere(function ($q2) use ($previousStart, $previousEnd) {
+                      $q2->whereNull('competence_month')
+                         ->whereBetween('date', [$previousStart->toDateString(), $previousEnd->toDateString()]);
+                  });
             })
             ->selectRaw('account_id')
             ->selectRaw('COALESCE(SUM(amount),0) as total')
@@ -249,7 +234,14 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        $accounts = $accountsRaw->map(function ($a) use ($beforeAgg, $monthAgg, $cardLimitUsageAgg, $invoiceCountAgg, $invoiceAmountAgg, $previousInvoiceAmountAgg) {
+        $accounts = $accountsRaw->map(function ($a) use (
+            $beforeAgg,
+            $monthAgg,
+            $cardLimitUsageAgg,
+            $invoiceCountAgg,
+            $invoiceAmountAgg,
+            $previousInvoiceAmountAgg
+        ) {
             $initial = (float) ($a->initial_balance ?? 0);
 
             $beforeInc = (float) ($beforeAgg[$a->id]->inc ?? 0);
@@ -266,18 +258,9 @@ class DashboardController extends Controller
             $availableLimit = null;
             $invoiceAmount = 0.0;
             $previousInvoiceAmount = 0.0;
+            $invoicePurchaseCount = 0;
 
             if ($a->type === 'credit_card') {
-                $realExpense   = (float) ($cardLimitUsageAgg[$a->id]->real_expense ?? 0);
-                $paymentIncome = (float) ($cardLimitUsageAgg[$a->id]->payment_income ?? 0);
-
-                // Limite consumido = total comprado até o mês - total já pago até o mês
-                $usedLimit = max(0, $realExpense - $paymentIncome);
-
-                if ($creditLimit !== null) {
-                    $availableLimit = max(0, $creditLimit - $usedLimit);
-                }
-
                 $realExpense   = (float) ($cardLimitUsageAgg[$a->id]->real_expense ?? 0);
                 $paymentIncome = (float) ($cardLimitUsageAgg[$a->id]->payment_income ?? 0);
 
@@ -290,12 +273,6 @@ class DashboardController extends Controller
                 $invoicePurchaseCount = (int) ($invoiceCountAgg[$a->id]->qty ?? 0);
                 $invoiceAmount = (float) ($invoiceAmountAgg[$a->id]->total ?? 0);
                 $previousInvoiceAmount = (float) ($previousInvoiceAmountAgg[$a->id]->total ?? 0);
-            }
-
-            $invoicePurchaseCount = 0;
-
-            if ($a->type === 'credit_card') {
-                $invoicePurchaseCount = (int) ($invoiceCountAgg[$a->id]->qty ?? 0);
             }
 
             return [
@@ -319,7 +296,6 @@ class DashboardController extends Controller
 
         $openingBalanceAll = (float) $accounts->sum('opening_balance');
 
-        // ✅ opening balance “filtrada” (se tiver conta selecionada)
         $openingBalance = $openingBalanceAll;
         if ($accountId) {
             $acc = $accounts->firstWhere('id', $accountId);
@@ -327,7 +303,22 @@ class DashboardController extends Controller
         }
 
         // =========================
-        // 3) Acumulados até o mês (respeitam filtros de conta/busca/status/parcelamento e tipo)
+        // 2.1) Resumo consolidado dos cartões
+        // =========================
+        $cardsOnly = $accounts->filter(fn ($a) => ($a['type'] ?? null) === 'credit_card')->values();
+
+        $cardsSummary = [
+            'total_limit' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['credit_limit'] ?? 0)),
+            'total_used' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['used_limit'] ?? 0)),
+            'total_available' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['available_limit'] ?? 0)),
+            'total_invoice' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['invoice_amount'] ?? 0)),
+            'total_purchase_count' => (int) $cardsOnly->sum(fn ($a) => (int) ($a['invoice_purchase_count'] ?? 0)),
+            'total_previous_invoice' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['previous_invoice_amount'] ?? 0)),
+            'cards_count' => (int) $cardsOnly->count(),
+        ];
+
+        // =========================
+        // 3) Acumulados até o mês
         // =========================
         $lifetimeIncome = 0.0;
         $lifetimeExpense = 0.0;
@@ -339,10 +330,10 @@ class DashboardController extends Controller
                 ->where('is_transfer', false)
                 ->where(function ($q1) use ($month, $end) {
                     $q1->where('competence_month', '<=', $month)
-                    ->orWhere(function ($q2) use ($end) {
-                        $q2->whereNull('competence_month')
-                            ->whereDate('date', '<=', $end->toDateString());
-                    });
+                       ->orWhere(function ($q2) use ($end) {
+                           $q2->whereNull('competence_month')
+                              ->whereDate('date', '<=', $end->toDateString());
+                       });
                 });
 
             if ($request->filled('category_id')) {
@@ -355,8 +346,8 @@ class DashboardController extends Controller
                 $term = $request->string('q')->toString();
                 $query->where(function ($qq) use ($term) {
                     $qq->where('description', 'like', "%{$term}%")
-                    ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
-                    ->orWhereHas('account', fn($a) => $a->where('name', 'like', "%{$term}%"));
+                       ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$term}%"))
+                       ->orWhereHas('account', fn ($a) => $a->where('name', 'like', "%{$term}%"));
                 });
             }
             if ($request->filled('installment')) {
@@ -373,7 +364,6 @@ class DashboardController extends Controller
             return $query;
         };
 
-        // Se filtro de tipo existir, só calcula o acumulado compatível
         if (!$request->filled('type') || $request->string('type')->toString() === 'income') {
             $lifetimeIncome = (float) $buildLifetimeQuery('income')->sum('amount');
         }
@@ -383,7 +373,7 @@ class DashboardController extends Controller
         }
 
         // =========================
-        // 4) Badge de metas (gasto do mês) + filtros
+        // 4) Badge de metas
         // =========================
         $year = (int) substr($month, 0, 4);
         $m    = (int) substr($month, 5, 2);
@@ -409,7 +399,6 @@ class DashboardController extends Controller
             })
             ->whereIn('category_id', $budgets->pluck('category_id')->filter()->unique()->values());
 
-        // ✅ filtros que fazem sentido pro badge
         if ($request->filled('category_id')) {
             $spentByCategoryQuery->where('category_id', $request->integer('category_id'));
         }
@@ -420,8 +409,8 @@ class DashboardController extends Controller
             $term = $request->string('q')->toString();
             $spentByCategoryQuery->where(function ($qq) use ($term) {
                 $qq->where('description', 'like', "%{$term}%")
-                   ->orWhereHas('category', fn($c) => $c->where('name', 'like', "%{$term}%"))
-                   ->orWhereHas('account', fn($a) => $a->where('name', 'like', "%{$term}%"));
+                   ->orWhereHas('category', fn ($c) => $c->where('name', 'like', "%{$term}%"))
+                   ->orWhereHas('account', fn ($a) => $a->where('name', 'like', "%{$term}%"));
             });
         }
         if ($request->filled('installment')) {
@@ -466,21 +455,18 @@ class DashboardController extends Controller
             'total'    => $totalBudgets,
         ];
 
-        // ✅ listas pra montar filtros no front
         $categories = Category::query()
             ->where('user_id', $userId)
             ->orderBy('type')->orderBy('name')
-            ->get(['id','name','type']);
+            ->get(['id', 'name', 'type']);
 
         $accountsFilter = Account::query()
             ->where('user_id', $userId)
             ->orderBy('name')
-            ->get(['id','name','type','statement_close_day']);
+            ->get(['id', 'name', 'type', 'statement_close_day']);
 
         return Inertia::render('Dashboard', [
             'month' => $month,
-
-            // ✅ envia filtros pro front
             'filters' => [
                 'month' => $month,
                 'type' => $type,
@@ -492,8 +478,9 @@ class DashboardController extends Controller
             ],
 
             'categories' => $categories,
-            'accountsFilter' => $accountsFilter, // ✅ pra usar no select
-            'accounts' => $accounts, // seu array calculado (cards das contas)
+            'accountsFilter' => $accountsFilter,
+            'accounts' => $accounts,
+            'cardsSummary' => $cardsSummary,
 
             'openingBalance' => $openingBalance,
             'income' => $income,

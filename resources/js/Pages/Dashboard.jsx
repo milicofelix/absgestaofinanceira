@@ -14,6 +14,7 @@ export default function Dashboard({
   byCategory,
   latest,
   accounts,
+  cardsSummary,
   openingBalance,
   lifetimeIncome,
   lifetimeExpense,
@@ -654,7 +655,52 @@ export default function Dashboard({
               })}
             />
           </div>
+          {!!cardsSummary?.cards_count && (
+            <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-slate-100">
+                    Resumo dos cartões
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-slate-400">
+                    Consolidado de {cardsSummary.cards_count} cartão(ões) no mês de {monthLabel}
+                  </p>
+                </div>
 
+                <div className="rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700 dark:bg-violet-900/25 dark:text-violet-200">
+                  Compras no mês: {Number(cardsSummary.total_purchase_count || 0)}
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
+                <InfoPill
+                  label="Limite total"
+                  value={formatBRL(cardsSummary.total_limit || 0)}
+                  tone="sky"
+                />
+                <InfoPill
+                  label="Utilizado"
+                  value={formatBRL(cardsSummary.total_used || 0)}
+                  tone="amber"
+                />
+                <InfoPill
+                  label="Disponível"
+                  value={formatBRL(cardsSummary.total_available || 0)}
+                  tone="emerald"
+                />
+                <InfoPill
+                  label="Fatura do mês"
+                  value={formatBRL(cardsSummary.total_invoice || 0)}
+                  tone="violet"
+                />
+                <InfoPill
+                  label="Fatura anterior"
+                  value={formatBRL(cardsSummary.total_previous_invoice || 0)}
+                  tone="gray"
+                />
+              </div>
+            </div>
+          )}
           {/* contas */}
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
             <div className="mb-4 flex items-center justify-between">
@@ -683,7 +729,7 @@ export default function Dashboard({
                       key={a.id}
                       className="rounded-2xl border border-gray-100 p-4 dark:border-slate-800"
                     >
-                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between lg:gap-5">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-start justify-between gap-4 lg:hidden">
                             <div className="min-w-0">
@@ -731,23 +777,26 @@ export default function Dashboard({
                           )}
 
                           {isCard && (
-                            <div className="mt-4 border-t border-gray-100 pt-4 dark:border-slate-800">
-                              <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+                            <div className="mt-4 max-w-5xl border-t border-gray-100 pt-4 dark:border-slate-800">
+                              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
                                 <InfoPill
                                   label="Fatura atual"
                                   value={formatBRL(a.invoice_amount || 0)}
                                   tone="violet"
                                 />
+
                                 <InfoPill
                                   label="Compras"
                                   value={String(Number(a.invoice_purchase_count || 0))}
                                   tone="gray"
                                 />
+
                                 <InfoPill
                                   label="Fatura anterior"
                                   value={formatBRL(a.previous_invoice_amount || 0)}
-                                  tone="blue"
+                                  tone="gray"
                                 />
+
                                 {a.credit_limit !== null && (
                                   <>
                                     <InfoPill
@@ -785,7 +834,7 @@ export default function Dashboard({
                           )}
                         </div>
 
-                        <div className="hidden shrink-0 text-right lg:block">
+                        <div className="hidden shrink-0 pl-4 text-right lg:block xl:pl-6">
                           <div
                             className={[
                               'text-2xl font-bold',
@@ -1013,9 +1062,20 @@ function InfoPill({ label, value, tone = 'gray' }) {
   };
 
   return (
-    <div className={`rounded-xl px-3 py-2 ${tones[tone] || tones.gray}`}>
-      <div className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{label}</div>
-      <div className="mt-0.5 text-sm font-bold break-words">{value}</div>
+    <div
+      className={[
+        'rounded-xl px-3 py-2.5 sm:px-3.5',
+        'min-h-[74px]',
+        'flex flex-col items-center justify-center text-center',
+        tones[tone] || tones.gray,
+      ].join(' ')}
+    >
+      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] opacity-80 sm:text-[11px]">
+        {label}
+      </div>
+      <div className="mt-1 text-base font-bold leading-tight sm:text-[1.05rem]">
+        {value}
+      </div>
     </div>
   );
 }
