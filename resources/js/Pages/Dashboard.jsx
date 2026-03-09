@@ -720,13 +720,15 @@ export default function Dashboard({
                               </div>
                             </div>
                           </div>
-
-                          <div className="mt-4 flex flex-wrap gap-2">
-                            <InfoPill label="Inicial" value={formatBRL(a.initial_balance || 0)} tone="gray" />
-                            <InfoPill label="Entradas" value={formatBRL(a.income || 0)} tone="green" />
-                            <InfoPill label="Saídas" value={formatBRL(a.expense || 0)} tone="red" />
-                            <InfoPill label="Anterior" value={formatBRL(a.opening_balance || 0)} tone="gray" />
-                          </div>
+                          {!isCard && (
+                            
+                            <div className="mt-4 flex flex-wrap gap-2">
+                              <InfoPill label="Inicial" value={formatBRL(a.initial_balance || 0)} tone="gray" />
+                              <InfoPill label="Entradas" value={formatBRL(a.income || 0)} tone="green" />
+                              <InfoPill label="Saídas" value={formatBRL(a.expense || 0)} tone="red" />
+                              <InfoPill label="Anterior" value={formatBRL(a.opening_balance || 0)} tone="gray" />
+                            </div>
+                          )}
 
                           {isCard && (
                             <div className="mt-4 border-t border-gray-100 pt-4 dark:border-slate-800">
