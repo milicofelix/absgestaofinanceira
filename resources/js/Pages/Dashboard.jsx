@@ -734,8 +734,8 @@ export default function Dashboard({
                             <div className="mt-4 border-t border-gray-100 pt-4 dark:border-slate-800">
                               <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
                                 <InfoPill
-                                  label="Fatura"
-                                  value={formatBRL(Math.abs(Number(a.balance || 0)))}
+                                  label="Fatura atual"
+                                  value={formatBRL(a.invoice_amount || 0)}
                                   tone="violet"
                                 />
                                 <InfoPill
@@ -743,7 +743,11 @@ export default function Dashboard({
                                   value={String(Number(a.invoice_purchase_count || 0))}
                                   tone="gray"
                                 />
-
+                                <InfoPill
+                                  label="Fatura anterior"
+                                  value={formatBRL(a.previous_invoice_amount || 0)}
+                                  tone="blue"
+                                />
                                 {a.credit_limit !== null && (
                                   <>
                                     <InfoPill
