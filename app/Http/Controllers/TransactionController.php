@@ -257,33 +257,6 @@ class TransactionController extends Controller
         ], fn ($value) => $value !== null && $value !== ''));
     }
 
-    // public function edit(Transaction $transaction, Request $request)
-    // {
-    //     abort_unless($transaction->user_id === $request->user()->id, 403);
-
-    //     $userId = $request->user()->id;
-
-    //     return Inertia::render('Transactions/Form', [
-    //         'mode' => 'edit',
-    //         'return_month' => $request->query('month'),
-    //         'transaction' => [
-    //             'id' => $transaction->id,
-    //             'type' => $transaction->type,
-    //             'amount' => (float)$transaction->amount,
-    //             'date' => $transaction->date->format('Y-m-d'),
-    //             'purchase_date' => $transaction->purchase_date->format('Y-m-d'),
-    //             'description' => $transaction->description,
-    //             'category_id' => $transaction->category_id,
-    //             'account_id' => $transaction->account_id,
-    //             'payment_method' => $transaction->payment_method,
-    //             'is_cleared' => $transaction->is_cleared,
-    //         ],
-    //         'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
-    //         'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
-    //         'mode' => 'edit',
-    //     ]);
-    // }
-
     public function edit(Transaction $transaction, Request $request)
     {
         abort_unless($transaction->user_id === $request->user()->id, 403);
@@ -308,7 +281,8 @@ class TransactionController extends Controller
                 'type' => $transaction->type,
                 'amount' => (float)$transaction->amount,
                 'date' => $transaction->date->format('Y-m-d'),
-                'purchase_date' => $transaction->purchase_date->format('Y-m-d'),
+                'purchase_date' => $transaction->purchase_date?->format('Y-m-d')
+                    ?: $transaction->date?->format('Y-m-d'),
                 'description' => $transaction->description,
                 'category_id' => $transaction->category_id,
                 'account_id' => $transaction->account_id,
