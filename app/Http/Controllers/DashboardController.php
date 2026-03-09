@@ -158,6 +158,23 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
+        $invoiceAmountAgg = Transaction::query()
+            ->where('user_id', $userId)
+            ->where('type', 'expense')
+            ->where('is_transfer', false)
+            ->where(function ($q) use ($month, $start, $end) {
+                $q->where('competence_month', $month)
+                ->orWhere(function ($q2) use ($start, $end) {
+                    $q2->whereNull('competence_month')
+                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                });
+            })
+            ->selectRaw('account_id')
+            ->selectRaw('COALESCE(SUM(amount),0) as total')
+            ->groupBy('account_id')
+            ->get()
+            ->keyBy('account_id');
+
         // Quantidade de compras/lançamentos na fatura do mês
         $invoiceCountAgg = Transaction::query()
             ->where('user_id', $userId)
@@ -211,7 +228,28 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        $accounts = $accountsRaw->map(function ($a) use ($beforeAgg, $monthAgg, $cardLimitUsageAgg, $invoiceCountAgg) {
+        $previousStart = $start->copy()->subMonthNoOverflow()->startOfMonth();
+        $previousEnd   = $start->copy()->subMonthNoOverflow()->endOfMonth();
+        $previousMonth = $previousStart->format('Y-m');
+
+        $previousInvoiceAmountAgg = Transaction::query()
+            ->where('user_id', $userId)
+            ->where('type', 'expense')
+            ->where('is_transfer', false)
+            ->where(function ($q) use ($previousMonth, $previousStart, $previousEnd) {
+                $q->where('competence_month', $previousMonth)
+                ->orWhere(function ($q2) use ($previousStart, $previousEnd) {
+                    $q2->whereNull('competence_month')
+                        ->whereBetween('date', [$previousStart->toDateString(), $previousEnd->toDateString()]);
+                });
+            })
+            ->selectRaw('account_id')
+            ->selectRaw('COALESCE(SUM(amount),0) as total')
+            ->groupBy('account_id')
+            ->get()
+            ->keyBy('account_id');
+
+        $accounts = $accountsRaw->map(function ($a) use ($beforeAgg, $monthAgg, $cardLimitUsageAgg, $invoiceCountAgg, $invoiceAmountAgg, $previousInvoiceAmountAgg) {
             $initial = (float) ($a->initial_balance ?? 0);
 
             $beforeInc = (float) ($beforeAgg[$a->id]->inc ?? 0);
@@ -226,6 +264,8 @@ class DashboardController extends Controller
             $creditLimit = $a->credit_limit !== null ? (float) $a->credit_limit : null;
             $usedLimit = null;
             $availableLimit = null;
+            $invoiceAmount = 0.0;
+            $previousInvoiceAmount = 0.0;
 
             if ($a->type === 'credit_card') {
                 $realExpense   = (float) ($cardLimitUsageAgg[$a->id]->real_expense ?? 0);
@@ -237,6 +277,19 @@ class DashboardController extends Controller
                 if ($creditLimit !== null) {
                     $availableLimit = max(0, $creditLimit - $usedLimit);
                 }
+
+                $realExpense   = (float) ($cardLimitUsageAgg[$a->id]->real_expense ?? 0);
+                $paymentIncome = (float) ($cardLimitUsageAgg[$a->id]->payment_income ?? 0);
+
+                $usedLimit = max(0, $realExpense - $paymentIncome);
+
+                if ($creditLimit !== null) {
+                    $availableLimit = max(0, $creditLimit - $usedLimit);
+                }
+
+                $invoicePurchaseCount = (int) ($invoiceCountAgg[$a->id]->qty ?? 0);
+                $invoiceAmount = (float) ($invoiceAmountAgg[$a->id]->total ?? 0);
+                $previousInvoiceAmount = (float) ($previousInvoiceAmountAgg[$a->id]->total ?? 0);
             }
 
             $invoicePurchaseCount = 0;
@@ -259,6 +312,8 @@ class DashboardController extends Controller
                 'used_limit' => $usedLimit,
                 'available_limit' => $availableLimit,
                 'invoice_purchase_count' => $invoicePurchaseCount,
+                'invoice_amount' => $invoiceAmount,
+                'previous_invoice_amount' => $previousInvoiceAmount,
             ];
         })->values();
 
