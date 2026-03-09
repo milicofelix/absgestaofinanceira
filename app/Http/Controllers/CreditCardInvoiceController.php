@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Str;
 
 class CreditCardInvoiceController extends Controller
 {
@@ -82,12 +83,14 @@ class CreditCardInvoiceController extends Controller
         // - Se inc > exp (diff positivo): o cartão “fica devendo” por income -> pagar criando EXPENSE no cartão
         $cardPaymentType = ($diff < 0) ? 'income' : 'expense';
 
-        DB::transaction(function () use ($userId, $bank, $account, $month, $paidAt, $invoiceAmount, $cardPaymentType) {
+        DB::transaction(function () use ($userId, $bank, $account, $month, $paidAt, $invoiceAmount, $cardPaymentType, $start, $end) {
             $desc = "Pagamento fatura: {$account->name} ({$month})";
+            $group = (string) Str::uuid();
 
             // 1) Saída do BANCO
             Transaction::create([
                 'user_id' => $userId,
+                'transfer_group_id' => $group,
                 'type' => 'expense',
                 'amount' => $invoiceAmount,
                 'date' => $paidAt,
@@ -103,6 +106,7 @@ class CreditCardInvoiceController extends Controller
             // 2) Compensação no CARTÃO (income OU expense conforme convenção do seu saldo)
             Transaction::create([
                 'user_id' => $userId,
+                'transfer_group_id' => $group,
                 'type' => $cardPaymentType,
                 'amount' => $invoiceAmount,
                 'date' => $paidAt,
@@ -114,9 +118,31 @@ class CreditCardInvoiceController extends Controller
                 'is_transfer' => true,
                 'is_cleared' => true,
             ]);
+
+            // 3) Marca como pagas as transações reais da fatura desse cartão/mês
+            Transaction::query()
+                ->where('user_id', $userId)
+                ->where('account_id', $account->id)
+                ->where('is_transfer', false)
+                ->where(function ($q) use ($month, $start, $end) {
+                    $q->where('competence_month', $month)
+                    ->orWhere(function ($q2) use ($start, $end) {
+                        $q2->whereNull('competence_month')
+                            ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                    });
+                })
+                ->where(function ($q) {
+                    $q->where('is_cleared', false)
+                    ->orWhereNull('is_cleared');
+                })
+                ->update([
+                    'is_cleared' => true,
+                    'cleared_at' => $paidAt,
+                    'paid_bank_account_id' => $bank->id,
+                    'updated_at' => now(),
+                ]);
         });
 
-        //return back()->with('success', 'Fatura paga com sucesso.');
         return redirect()
                 ->route('dashboard', ['month' => $month])
                 ->with('success', 'Fatura paga com sucesso!');
