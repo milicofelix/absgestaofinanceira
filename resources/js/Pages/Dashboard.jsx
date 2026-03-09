@@ -1,4 +1,3 @@
-// resources/js/Pages/Dashboard.jsx
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
@@ -7,7 +6,7 @@ import { formatDateBR } from '@/utils/formatters';
 export default function Dashboard({
   month,
   filters,
-  categories,     
+  categories,
   accountsFilter,
   income,
   expense,
@@ -207,13 +206,10 @@ export default function Dashboard({
       return;
     }
 
-    // Pré-check saldo (client-side)
     const bank = bankAccounts.find((b) => Number(b.id) === bankId);
     const bankBalance = bank && bank.balance !== undefined ? Number(bank.balance || 0) : null;
 
-    // Qual valor vamos exigir? Idealmente a API paga a fatura do mês e calcula o total no backend.
-    // Aqui a gente só bloqueia se houver um "balance" negativo do cartão como sinal de dívida.
-    const cardDebt = Math.max(0, Math.abs(Number(payCard?.balance || 0))); // se cartão tiver balance negativo, vira "dívida"
+    const cardDebt = Math.max(0, Math.abs(Number(payCard?.balance || 0)));
     if (bankBalance !== null && cardDebt > 0 && bankBalance + 1e-9 < cardDebt) {
       setPayInvoiceError(
         `Saldo insuficiente na conta "${bank?.name}". Disponível: ${formatBRL(bankBalance)}. Necessário aprox.: ${formatBRL(cardDebt)}.`
@@ -273,7 +269,6 @@ export default function Dashboard({
     >
       <Head title="Dashboard" />
 
-      {/* -------------------- MODAL PAGAR FATURA (DASHBOARD) -------------------- */}
       {payInvoiceOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/40" onClick={closePayInvoiceModal} aria-hidden="true" />
@@ -359,11 +354,10 @@ export default function Dashboard({
           </div>
         </div>
       )}
-      {/* ------------------------------------------------------------------- */}
 
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-                   {/* filtros */}
+          {/* filtros */}
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -393,7 +387,6 @@ export default function Dashboard({
             {showFilters && (
               <div className="mt-4 space-y-4">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                  {/* Mês */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Mês</label>
                     <input
@@ -404,7 +397,6 @@ export default function Dashboard({
                     />
                   </div>
 
-                  {/* Tipo */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Tipo</label>
                     <select
@@ -418,7 +410,6 @@ export default function Dashboard({
                     </select>
                   </div>
 
-                  {/* Categoria */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Categoria</label>
                     <select
@@ -435,7 +426,6 @@ export default function Dashboard({
                     </select>
                   </div>
 
-                  {/* Conta */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Conta</label>
                     <select
@@ -452,7 +442,6 @@ export default function Dashboard({
                     </select>
                   </div>
 
-                  {/* Parcelamento */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Parcelamento</label>
                     <select
@@ -466,7 +455,6 @@ export default function Dashboard({
                     </select>
                   </div>
 
-                  {/* Status */}
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Status</label>
                     <select
@@ -480,7 +468,6 @@ export default function Dashboard({
                     </select>
                   </div>
 
-                  {/* Busca */}
                   <div className="sm:col-span-2 xl:col-span-6">
                     <label className="block text-xs font-semibold text-gray-700 dark:text-slate-200">Busca</label>
                     <div className="mt-1 flex flex-col gap-2 sm:flex-row">
@@ -533,6 +520,7 @@ export default function Dashboard({
               </div>
             )}
           </div>
+
           {/* resumo rápido do mês */}
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 dark:bg-slate-800 dark:text-slate-200">
@@ -580,6 +568,7 @@ export default function Dashboard({
               />
             </button>
           </div>
+
           {budgetsBadge?.total > 0 && (
             <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -616,12 +605,7 @@ export default function Dashboard({
           )}
 
           {/* cards principais */}
-          <div
-            className={[
-              'grid grid-cols-1 gap-4 items-stretch',
-              'md:grid-cols-5',
-            ].join(' ')}
-          >
+          <div className={['grid grid-cols-1 gap-4 items-stretch', 'md:grid-cols-5'].join(' ')}>
             <StatCard
               title="Saldo inicial (mês)"
               value={openingBalance}
@@ -689,74 +673,129 @@ export default function Dashboard({
             </div>
 
             {visibleAccounts?.length ? (
-              <ul className="divide-y divide-gray-100 dark:divide-slate-800">
-                {visibleAccounts.map((a) => (
-                  <li key={a.id} className="flex flex-col gap-2 py-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="truncate font-semibold text-gray-900 dark:text-slate-100">{a.name}</div>
+              <ul className="space-y-4">
+                {visibleAccounts.map((a) => {
+                  const isCard = String(a.type || '').toLowerCase() === 'credit_card';
+                  const balanceValue = Number(a.balance || 0);
 
-                      <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                        Inicial: {formatBRL(a.initial_balance)} ·{' '}
-                        <span className="text-emerald-700 dark:text-emerald-300">+{formatBRL(a.income)}</span> ·{' '}
-                        <span className="text-rose-600 dark:text-rose-300">-{formatBRL(a.expense)}</span>
-                        <span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-600 dark:bg-slate-800 dark:text-slate-300">
-                          anterior: {formatBRL(a.opening_balance)}
-                        </span>
-                      </div>
+                  return (
+                    <li
+                      key={a.id}
+                      className="rounded-2xl border border-gray-100 p-4 dark:border-slate-800"
+                    >
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start justify-between gap-4 lg:hidden">
+                            <div className="min-w-0">
+                              <div className="truncate text-lg font-semibold text-gray-900 dark:text-slate-100">
+                                {a.name}
+                              </div>
+                              <div className="mt-1 text-xs uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                                {isCard ? 'Cartão de crédito' : 'Conta'}
+                              </div>
+                            </div>
 
-                      {String(a.type || '').toLowerCase() === 'credit_card' && (
-                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                          <span className="rounded-full bg-violet-50 px-2 py-0.5 font-semibold text-violet-700 dark:bg-violet-900/25 dark:text-violet-200">
-                            Fatura: {formatBRL(Math.abs(Number(a.balance || 0)))}
-                          </span>
+                            <div className="shrink-0 text-right">
+                              <div
+                                className={[
+                                  'text-2xl font-bold',
+                                  balanceValue >= 0 ? 'text-gray-900 dark:text-slate-100' : 'text-rose-700 dark:text-rose-300',
+                                ].join(' ')}
+                              >
+                                {formatBRL(balanceValue)}
+                              </div>
+                              <div className="text-xs text-gray-400 dark:text-slate-400">
+                                {isCard ? 'fatura/saldo' : 'saldo atual'}
+                              </div>
+                            </div>
+                          </div>
 
-                          <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-700 dark:bg-slate-800 dark:text-slate-300">
-                            Compras na fatura: {Number(a.invoice_purchase_count || 0)}
-                          </span>
+                          <div className="hidden lg:flex lg:items-start lg:justify-between lg:gap-6">
+                            <div className="min-w-0">
+                              <div className="truncate text-lg font-semibold text-gray-900 dark:text-slate-100">
+                                {a.name}
+                              </div>
+                              <div className="mt-1 text-xs uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                                {isCard ? 'Cartão de crédito' : 'Conta'}
+                              </div>
+                            </div>
+                          </div>
 
-                          {a.credit_limit !== null && (
-                            <>
-                              <span className="rounded-full bg-sky-50 px-2 py-0.5 font-semibold text-sky-700 dark:bg-sky-900/25 dark:text-sky-200">
-                                Limite: {formatBRL(a.credit_limit)}
-                              </span>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <InfoPill label="Inicial" value={formatBRL(a.initial_balance || 0)} tone="gray" />
+                            <InfoPill label="Entradas" value={formatBRL(a.income || 0)} tone="green" />
+                            <InfoPill label="Saídas" value={formatBRL(a.expense || 0)} tone="red" />
+                            <InfoPill label="Anterior" value={formatBRL(a.opening_balance || 0)} tone="gray" />
+                          </div>
 
-                              <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700 dark:bg-amber-900/25 dark:text-amber-200">
-                                Utilizado: {formatBRL(a.used_limit || 0)}
-                              </span>
+                          {isCard && (
+                            <div className="mt-4 border-t border-gray-100 pt-4 dark:border-slate-800">
+                              <div className="grid grid-cols-2 gap-2 xl:grid-cols-5">
+                                <InfoPill
+                                  label="Fatura"
+                                  value={formatBRL(Math.abs(Number(a.balance || 0)))}
+                                  tone="violet"
+                                />
+                                <InfoPill
+                                  label="Compras"
+                                  value={String(Number(a.invoice_purchase_count || 0))}
+                                  tone="gray"
+                                />
 
-                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200">
-                                Disponível: {formatBRL(a.available_limit || 0)}
-                              </span>
-                            </>
+                                {a.credit_limit !== null && (
+                                  <>
+                                    <InfoPill
+                                      label="Limite"
+                                      value={formatBRL(a.credit_limit)}
+                                      tone="sky"
+                                    />
+                                    <InfoPill
+                                      label="Utilizado"
+                                      value={formatBRL(a.used_limit || 0)}
+                                      tone="amber"
+                                    />
+                                    <InfoPill
+                                      label="Disponível"
+                                      value={formatBRL(a.available_limit || 0)}
+                                      tone="emerald"
+                                    />
+                                  </>
+                                )}
+                              </div>
+
+                              {canShowPayInvoiceButton(a, selectedMonth) && (
+                                <div className="mt-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => payInvoice(a)}
+                                    className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/25 dark:text-emerald-200 dark:hover:bg-emerald-900/35"
+                                    title="Pagar fatura do cartão"
+                                  >
+                                    ✓ Pagar fatura
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
-                      )}
 
-                      {canShowPayInvoiceButton(a, selectedMonth) && (
-                        <button
-                          type="button"
-                          onClick={() => payInvoice(a)}
-                          className="mt-2 inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/25 dark:text-emerald-200 dark:hover:bg-emerald-900/35"
-                          title="Pagar fatura do cartão"
-                        >
-                          ✓ Pagar fatura
-                        </button>
-                      )}
-                    </div>
-
-                    <div className="text-right">
-                      <div
-                        className={[
-                          'text-lg font-bold',
-                          Number(a.balance) >= 0 ? 'text-gray-900 dark:text-slate-100' : 'text-rose-700 dark:text-rose-300',
-                        ].join(' ')}
-                      >
-                        {formatBRL(a.balance)}
+                        <div className="hidden shrink-0 text-right lg:block">
+                          <div
+                            className={[
+                              'text-2xl font-bold',
+                              balanceValue >= 0 ? 'text-gray-900 dark:text-slate-100' : 'text-rose-700 dark:text-rose-300',
+                            ].join(' ')}
+                          >
+                            {formatBRL(balanceValue)}
+                          </div>
+                          <div className="text-xs text-gray-400 dark:text-slate-400">
+                            {isCard ? 'fatura/saldo' : 'saldo atual'}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-400 dark:text-slate-400">saldo atual</div>
-                    </div>
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             ) : (
               <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500 dark:border-slate-800 dark:bg-slate-800">
@@ -851,8 +890,7 @@ export default function Dashboard({
                   {latest.map((t) => (
                     <li
                       key={t.id}
-                      className="group rounded-xl border border-gray-100 p-4 hover:border-gray-200 hover:bg-gray-50
-                                dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800/60"
+                      className="group rounded-xl border border-gray-100 p-4 hover:border-gray-200 hover:bg-gray-50 dark:border-slate-800 dark:hover:border-slate-700 dark:hover:bg-slate-800/60"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
@@ -866,19 +904,20 @@ export default function Dashboard({
 
                           <div className="mt-2 flex items-center gap-2">
                             {t.type === 'expense' ? (
-                              <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700
-                                              dark:bg-rose-900/25 dark:text-rose-200">
+                              <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-900/25 dark:text-rose-200">
                                 Despesa
                               </span>
                             ) : (
-                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700
-                                              dark:bg-emerald-900/25 dark:text-emerald-200">
+                              <span className="rounded-full bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200">
                                 Receita
                               </span>
                             )}
 
                             <div className="flex items-center gap-2 opacity-100 transition sm:opacity-0 sm:group-hover:opacity-100">
-                              <Link className="text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-300" href={route('transactions.edit', t.id)}>
+                              <Link
+                                className="text-xs font-semibold text-emerald-700 hover:underline dark:text-emerald-300"
+                                href={route('transactions.edit', t.id)}
+                              >
                                 Editar
                               </Link>
                               <button
@@ -907,7 +946,10 @@ export default function Dashboard({
               ) : (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-sm text-gray-500 dark:bg-slate-900 dark:ring-slate-800 dark:text-slate-400">
                   <div>Sem lançamentos neste mês.</div>
-                  <Link href={route('transactions.create')} className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
+                  <Link
+                    href={route('transactions.create')}
+                    className="mt-3 inline-flex items-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                  >
                     + Adicionar lançamento
                   </Link>
                 </div>
@@ -921,7 +963,7 @@ export default function Dashboard({
 }
 
 /**
- * tone: green | blue | purple | yellow | red | gray
+ * tone: green | blue | purple | yellow | red | gray | amber | emerald | violet | sky
  */
 function StatCard({ title, value, icon, tone = 'green', href, subLabel }) {
   const toneClasses = getPastelToneClasses(tone);
@@ -950,6 +992,25 @@ function StatCard({ title, value, icon, tone = 'green', href, subLabel }) {
     </Link>
   ) : (
     body
+  );
+}
+
+function InfoPill({ label, value, tone = 'gray' }) {
+  const tones = {
+    gray: 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300',
+    green: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
+    red: 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200',
+    violet: 'bg-violet-50 text-violet-700 dark:bg-violet-900/25 dark:text-violet-200',
+    sky: 'bg-sky-50 text-sky-700 dark:bg-sky-900/25 dark:text-sky-200',
+    amber: 'bg-amber-50 text-amber-700 dark:bg-amber-900/25 dark:text-amber-200',
+    emerald: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200',
+  };
+
+  return (
+    <div className={`rounded-xl px-3 py-2 ${tones[tone] || tones.gray}`}>
+      <div className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{label}</div>
+      <div className="mt-0.5 text-sm font-bold break-words">{value}</div>
+    </div>
   );
 }
 
