@@ -32,6 +32,13 @@ class UpdateAccountRequest extends FormRequest
                 'nullable','numeric','min:0','max:300',
                 Rule::requiredIf(fn() => $this->input('type') === 'investment'),
             ],
+
+            'credit_limit' => [
+                Rule::requiredIf(fn () => $this->input('type') === 'credit_card'),
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
         ];
     }
 

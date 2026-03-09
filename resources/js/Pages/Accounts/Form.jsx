@@ -14,6 +14,7 @@ export default function Form({ mode, account }) {
     // investimento
     yield_enabled: !!(account?.yield_enabled ?? false),
     cdi_percent: account?.cdi_percent ?? 100,
+    credit_limit: String(account?.credit_limit ?? ''),
   });
 
   const isCreditCard = data.type === 'credit_card';
@@ -190,6 +191,27 @@ export default function Form({ mode, account }) {
                     </p>
                     {errors.statement_close_day && (
                       <div className="mt-1 text-sm text-rose-600">{errors.statement_close_day}</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                      Limite do cartão
+                    </label>
+
+                    <div className="mt-1">
+                      <MoneyInput
+                        value={data.credit_limit}
+                        onValueChange={(value) => setData('credit_limit', value)}
+                      />
+                    </div>
+
+                    <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                      Usado para exibir o limite disponível no dashboard.
+                    </p>
+
+                    {errors.credit_limit && (
+                      <div className="mt-1 text-sm text-rose-600">{errors.credit_limit}</div>
                     )}
                   </div>
 

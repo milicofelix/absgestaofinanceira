@@ -704,6 +704,34 @@ export default function Dashboard({
                         </span>
                       </div>
 
+                      {String(a.type || '').toLowerCase() === 'credit_card' && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          <span className="rounded-full bg-violet-50 px-2 py-0.5 font-semibold text-violet-700 dark:bg-violet-900/25 dark:text-violet-200">
+                            Fatura: {formatBRL(Math.abs(Number(a.balance || 0)))}
+                          </span>
+
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 font-semibold text-gray-700 dark:bg-slate-800 dark:text-slate-300">
+                            Compras na fatura: {Number(a.invoice_purchase_count || 0)}
+                          </span>
+
+                          {a.credit_limit !== null && (
+                            <>
+                              <span className="rounded-full bg-sky-50 px-2 py-0.5 font-semibold text-sky-700 dark:bg-sky-900/25 dark:text-sky-200">
+                                Limite: {formatBRL(a.credit_limit)}
+                              </span>
+
+                              <span className="rounded-full bg-amber-50 px-2 py-0.5 font-semibold text-amber-700 dark:bg-amber-900/25 dark:text-amber-200">
+                                Utilizado: {formatBRL(a.used_limit || 0)}
+                              </span>
+
+                              <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200">
+                                Disponível: {formatBRL(a.available_limit || 0)}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      )}
+
                       {canShowPayInvoiceButton(a, selectedMonth) && (
                         <button
                           type="button"

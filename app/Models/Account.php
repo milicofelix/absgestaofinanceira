@@ -19,12 +19,14 @@ class Account extends Model
         'yield_enabled',
         'cdi_percent',
         'last_yield_date',
+        'credit_limit',
         ];
 
     protected $casts = [
         'initial_balance' => 'decimal:2',
         'yield_enabled' => 'boolean',
         'cdi_percent' => 'decimal:2',
+        'credit_limit' => 'decimal:2',
         'last_yield_date' => 'date',
     ];
 

@@ -15,7 +15,18 @@ class AccountController extends Controller
         $accounts = Account::query()
             ->where('user_id', $request->user()->id)
             ->orderBy('name')
-            ->get(['id','name','type','initial_balance', 'statement_close_day', 'statement_close_month', 'cdi_percent','yield_enabled','due_day']);
+            ->get([
+                'id',
+                'name',
+                'type',
+                'initial_balance', 
+                'statement_close_day', 
+                'statement_close_month', 
+                'cdi_percent',
+                'yield_enabled',
+                'due_day', 
+                'credit_limit',
+                ]);
 
         return Inertia::render('Accounts/Index', [
             'accounts' => $accounts,
@@ -34,7 +45,7 @@ class AccountController extends Controller
     {
         $data = $request->only([
             'name','type','initial_balance','statement_close_day','statement_close_month',
-            'yield_enabled','cdi_percent', 'due_day'
+            'yield_enabled','cdi_percent', 'due_day', 'credit_limit',
         ]);
 
         $data['user_id'] = $request->user()->id;
@@ -46,6 +57,9 @@ class AccountController extends Controller
         $data['initial_balance'] = $request->input('initial_balance', 0);
         $data['statement_close_day'] = $request->input('statement_close_day') ?: null;
         $data['due_day'] = $request->input('due_day') ?: null;
+        $data['credit_limit'] = $request->filled('credit_limit')
+            ? (float) $request->input('credit_limit')
+            : null;
         $data['statement_close_month'] = $request->input('statement_close_month') ?: null;
 
         $data['yield_enabled'] = $request->boolean('yield_enabled');
@@ -57,6 +71,10 @@ class AccountController extends Controller
         if ($data['type'] !== 'investment') {
             $data['yield_enabled'] = false;
             $data['cdi_percent'] = 100;
+        }
+
+        if ($data['type'] !== 'credit_card') {
+            $data['credit_limit'] = null;
         }
 
         Account::create($data);
@@ -73,7 +91,7 @@ class AccountController extends Controller
             'account' => $account->only([
                 'id','name','type','initial_balance',
                 'statement_close_day', 'due_day', 'statement_close_month',
-                'yield_enabled','cdi_percent',
+                'yield_enabled','cdi_percent','credit_limit',
             ]),
         ]);
     }
@@ -90,6 +108,9 @@ class AccountController extends Controller
             'initial_balance' => $request->input('initial_balance', 0),
             'statement_close_day' => $request->input('statement_close_day') ?: null,
             'due_day' => $request->input('due_day') ?: null,
+            'credit_limit' => $request->filled('credit_limit')
+                ? (float) $request->input('credit_limit')
+                : null,
             'statement_close_month' => $request->input('statement_close_month') ?: null,
             'yield_enabled' => $request->boolean('yield_enabled'),
             'cdi_percent' => $request->filled('cdi_percent')
@@ -100,6 +121,10 @@ class AccountController extends Controller
         if ($type !== 'investment') {
             $payload['yield_enabled'] = false;
             $payload['cdi_percent'] = 100;
+        }
+
+        if ($type !== 'credit_card') {
+            $payload['credit_limit'] = null;
         }
 
         $account->update($payload);

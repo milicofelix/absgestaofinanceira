@@ -122,7 +122,7 @@ class DashboardController extends Controller
         $accountsRaw = Account::query()
             ->where('user_id', $userId)
             ->orderBy('name')
-            ->get(['id', 'name', 'type', 'initial_balance', 'statement_close_day']);
+            ->get(['id', 'name', 'type', 'initial_balance', 'statement_close_day', 'credit_limit']);
 
         // Tudo ANTES do mês (por competência)
         $beforeAgg = Transaction::query()
@@ -158,25 +158,60 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        // Acumulado ATÉ o fim do mês (por competência)
-        // Como competence_month é "YYYY-MM", <= $month já representa "até este mês".
-        $upToEndAgg = Transaction::query()
+        // Quantidade de compras/lançamentos na fatura do mês
+        $invoiceCountAgg = Transaction::query()
             ->where('user_id', $userId)
-            ->where(function ($q) use ($month, $end) {
-                $q->where('competence_month', '<=', $month)
-                  ->orWhere(function ($q2) use ($end) {
-                      $q2->whereNull('competence_month')
-                         ->whereDate('date', '<=', $end->toDateString());
-                  });
+            ->where('type', 'expense')
+            ->where('is_transfer', false)
+            ->where(function ($q) use ($month, $start, $end) {
+                $q->where('competence_month', $month)
+                ->orWhere(function ($q2) use ($start, $end) {
+                    $q2->whereNull('competence_month')
+                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                });
             })
             ->selectRaw('account_id')
-            ->selectRaw("COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as inc")
-            ->selectRaw("COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as exp")
+            ->selectRaw('COUNT(*) as qty')
             ->groupBy('account_id')
             ->get()
             ->keyBy('account_id');
 
-        $accounts = $accountsRaw->map(function ($a) use ($beforeAgg, $monthAgg) {
+        // Uso do limite do cartão até o fim do mês exibido:
+        //
+        // REGRA:
+        // - despesas reais do cartão consomem limite na data da compra (purchase_date)
+        // - se não houver purchase_date, usa date
+        // - pagamentos/compensações no cartão devolvem limite na data em que foram lançados
+        $cardLimitUsageAgg = Transaction::query()
+            ->where('user_id', $userId)
+            ->selectRaw('account_id')
+            ->selectRaw("
+                COALESCE(SUM(
+                    CASE
+                        WHEN type = 'expense'
+                            AND is_transfer = 0
+                            AND DATE(COALESCE(purchase_date, date)) <= ?
+                        THEN amount
+                        ELSE 0
+                    END
+                ),0) as real_expense
+            ", [$end->toDateString()])
+            ->selectRaw("
+                COALESCE(SUM(
+                    CASE
+                        WHEN type = 'income'
+                            AND is_transfer = 1
+                            AND DATE(date) <= ?
+                        THEN amount
+                        ELSE 0
+                    END
+                ),0) as payment_income
+            ", [$end->toDateString()])
+            ->groupBy('account_id')
+            ->get()
+            ->keyBy('account_id');
+
+        $accounts = $accountsRaw->map(function ($a) use ($beforeAgg, $monthAgg, $cardLimitUsageAgg, $invoiceCountAgg) {
             $initial = (float) ($a->initial_balance ?? 0);
 
             $beforeInc = (float) ($beforeAgg[$a->id]->inc ?? 0);
@@ -188,16 +223,42 @@ class DashboardController extends Controller
             $openingBalance  = $initial + $beforeInc - $beforeExp;
             $monthEndBalance = $openingBalance + $monthInc - $monthExp;
 
+            $creditLimit = $a->credit_limit !== null ? (float) $a->credit_limit : null;
+            $usedLimit = null;
+            $availableLimit = null;
+
+            if ($a->type === 'credit_card') {
+                $realExpense   = (float) ($cardLimitUsageAgg[$a->id]->real_expense ?? 0);
+                $paymentIncome = (float) ($cardLimitUsageAgg[$a->id]->payment_income ?? 0);
+
+                // Limite consumido = total comprado até o mês - total já pago até o mês
+                $usedLimit = max(0, $realExpense - $paymentIncome);
+
+                if ($creditLimit !== null) {
+                    $availableLimit = max(0, $creditLimit - $usedLimit);
+                }
+            }
+
+            $invoicePurchaseCount = 0;
+
+            if ($a->type === 'credit_card') {
+                $invoicePurchaseCount = (int) ($invoiceCountAgg[$a->id]->qty ?? 0);
+            }
+
             return [
                 'id' => $a->id,
                 'name' => $a->name,
                 'type' => $a->type,
-
+                'initial_balance' => $initial,
                 'opening_balance' => $openingBalance,
                 'income' => $monthInc,
                 'expense' => $monthExp,
                 'balance' => $monthEndBalance,
                 'statement_close_day' => $a->statement_close_day,
+                'credit_limit' => $creditLimit,
+                'used_limit' => $usedLimit,
+                'available_limit' => $availableLimit,
+                'invoice_purchase_count' => $invoicePurchaseCount,
             ];
         })->values();
 
