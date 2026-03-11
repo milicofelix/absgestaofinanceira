@@ -17,4 +17,20 @@ class MarkPaidRequest extends FormRequest
             'cleared_at' => ['nullable', 'date_format:Y-m-d'],
         ];
     }
+
+    public function attributes(): array
+    {
+        return [
+            'paid_bank_account_id' => 'conta de pagamento',
+            'cleared_at' => 'data de quitação',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'paid_bank_account_id.required' => 'Selecione a conta de pagamento.',
+            'cleared_at.date_format' => 'A data de quitação deve estar no formato AAAA-MM-DD.',
+        ];
+    }
 }

@@ -17,4 +17,20 @@ class UpdateCategoryBudgetRequest extends FormRequest
             'amount' => ['required', 'numeric', 'min:0.01'],
         ];
     }
+
+    public function attributes(): array
+    {
+        return [
+            'amount' => 'valor da meta',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'amount.required' => 'Informe o valor da meta.',
+            'amount.numeric' => 'O valor da meta deve ser um número válido.',
+            'amount.min' => 'O valor da meta deve ser maior que zero.',
+        ];
+    }
 }
