@@ -1032,18 +1032,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
               </div>
 
               <div className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
-                {formatDateBR(t.date)}
-                {t.purchase_date && t.purchase_date !== t.date ? (
-                  <>
-                    {' '}
-                    •{' '}
-                    <span className="font-semibold text-gray-600 dark:text-slate-300">
-                      Compra {formatDateBR(t.purchase_date)}
-                    </span>
-                  </>
-                ) : null}
-                {' '}
-                • {t.category?.name || '—'} • {t.account?.name || '—'}
+                {formatDateBR(t.purchase_date)} • {t.category?.name || '—'} • {t.account?.name || '—'}
               </div>
             </div>
           </div>

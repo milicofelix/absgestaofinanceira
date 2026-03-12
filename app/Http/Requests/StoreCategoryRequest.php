@@ -17,4 +17,24 @@ class StoreCategoryRequest extends FormRequest
             'color' => ['nullable', 'string', 'max:20'],
         ];
     }
+
+    public function attributes(): array
+    {
+        return [
+            'name' => 'nome da categoria',
+            'type' => 'tipo',
+            'color' => 'cor',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'name.required' => 'Informe o nome da categoria.',
+            'name.max' => 'O nome da categoria deve ter no máximo 80 caracteres.',
+            'type.required' => 'Selecione o tipo da categoria.',
+            'type.in' => 'Selecione um tipo de categoria válido.',
+            'color.max' => 'A cor deve ter no máximo 20 caracteres.',
+        ];
+    }
 }
