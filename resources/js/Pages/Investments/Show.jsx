@@ -44,9 +44,9 @@ export default function Show({ account, filters = {}, summary = {}, series = [],
               <div className="min-w-0">
                 <h2 className="truncate text-xl font-semibold text-gray-900 dark:text-slate-100">{account.name}</h2>
                 <p className="text-sm text-gray-500 dark:text-slate-400">
-                  CDI: <span className="font-semibold">{formatPercent(account.cdi_percent)}</span> •{' '}
-                  Último rendimento: <span className="font-semibold">{account.last_yield_date || '—'}</span>
-                </p>
+                <span className="font-semibold">{account.yield_mode_label}</span> •
+                Última simulação: <span className="font-semibold">{formatDateBR(account.last_yield_date) || '—'}</span>
+              </p>
               </div>
             </div>
           </div>
@@ -69,7 +69,7 @@ export default function Show({ account, filters = {}, summary = {}, series = [],
           {/* Cards resumo */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <SummaryCard title="Saldo atual" value={formatBRL(summary.current_balance || 0)} icon={<IconBank />} />
-            <SummaryCard title="Rendimento no período" value={formatBRL(summary.yield || 0)} icon={<IconTrend />} />
+            <SummaryCard title="Simulação no período" value={formatBRL(summary.simulated_yield || 0)} icon={<IconTrend />} />
             <SummaryCard title="Entradas no período" value={formatBRL(summary.income || 0)} icon={<IconPlus />} />
             <SummaryCard title="Saídas no período" value={formatBRL(summary.expense || 0)} icon={<IconMinus />} />
           </div>
@@ -188,7 +188,7 @@ export default function Show({ account, filters = {}, summary = {}, series = [],
             {/* Rendimentos (resumo rápido) */}
             <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 sm:p-5">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Rendimentos (período)</div>
+                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Simulações de rendimento (período)</div>
                 <div className="text-xs text-gray-500 dark:text-slate-400">
                   Qtde: <span className="font-semibold">{yieldEvents.length}</span>
                 </div>
@@ -212,7 +212,7 @@ export default function Show({ account, filters = {}, summary = {}, series = [],
 
                 {yieldEvents.length === 0 && (
                   <div className="rounded-xl bg-gray-50 p-5 text-center text-sm text-gray-500 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-400 dark:ring-slate-800">
-                    Nenhum rendimento no período.
+                    Nenhuma simulação de rendimento no período.
                   </div>
                 )}
               </div>
@@ -311,11 +311,6 @@ export default function Show({ account, filters = {}, summary = {}, series = [],
                 </table>
               </div>
             </div>
-          </div>
-
-          <div className="text-xs text-gray-500 dark:text-slate-400">
-            * “Rendimento” é identificado por descrição começando com <span className="font-semibold">Rendimento CDI</span>.
-            Depois podemos evoluir isso para um campo próprio (ex: <span className="font-semibold">transaction_kind</span>).
           </div>
         </div>
       </div>

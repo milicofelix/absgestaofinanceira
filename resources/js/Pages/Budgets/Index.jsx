@@ -13,6 +13,7 @@ export default function Index({ filters, categories, budgets }) {
   }, [budgets]);
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState('default'); // default | override
   const [editingCategoryId, setEditingCategoryId] = useState(null);
 
   const selectedCategory = useMemo(() => {
@@ -20,7 +21,7 @@ export default function Index({ filters, categories, budgets }) {
     return (categories || []).find((c) => String(c.id) === String(editingCategoryId)) || null;
   }, [editingCategoryId, categories]);
 
-  const existingBudget = useMemo(() => {
+  const selectedBudget = useMemo(() => {
     if (!editingCategoryId) return null;
     return budgetByCategory.get(String(editingCategoryId)) || null;
   }, [editingCategoryId, budgetByCategory]);
@@ -30,6 +31,12 @@ export default function Index({ filters, categories, budgets }) {
     year: '',
     month: '',
     amount: '',
+  });
+
+  const { data: defaultData, setData: setDefaultData, post: postDefault, put: putDefault, processing: processingDefault, errors: defaultErrors, reset: resetDefault } = useForm({
+    category_id: '',
+    amount: '',
+    month: '',
   });
 
   function normalizeMonth(v) {
@@ -43,33 +50,67 @@ export default function Index({ filters, categories, budgets }) {
     router.get(route('budgets.index'), { month: m }, { preserveState: true, replace: true });
   }
 
-  function openCreateOrEdit(categoryId) {
+  function openDefaultModal(categoryId) {
+    const current = budgetByCategory.get(String(categoryId));
+    setEditingCategoryId(String(categoryId));
+    setModalMode('default');
+    setModalOpen(true);
+
+    setDefaultData({
+      category_id: String(categoryId),
+      amount: current?.default_amount ?? '',
+      month,
+    });
+  }
+
+  function openOverrideModal(categoryId) {
+    const current = budgetByCategory.get(String(categoryId));
     const m = normalizeMonth(month);
     const [y, mo] = m.split('-');
 
     setEditingCategoryId(String(categoryId));
+    setModalMode('override');
     setModalOpen(true);
 
     setData({
       category_id: String(categoryId),
       year: y,
       month: String(Number(mo)),
-      amount: existingBudget?.amount ?? '',
+      amount: current?.override_amount ?? current?.amount ?? '',
     });
   }
 
   function closeModal() {
     setModalOpen(false);
     setEditingCategoryId(null);
+    setModalMode('default');
     reset();
+    resetDefault();
   }
 
-  function submit(e) {
+  function submitDefault(e) {
     e.preventDefault();
     if (!editingCategoryId) return;
 
-    if (existingBudget?.id) {
-      put(route('budgets.update', existingBudget.id), {
+    if (selectedBudget?.default_budget_id) {
+      putDefault(route('budget-defaults.update', selectedBudget.default_budget_id), {
+        preserveScroll: true,
+        onSuccess: () => closeModal(),
+      });
+    } else {
+      postDefault(route('budget-defaults.store'), {
+        preserveScroll: true,
+        onSuccess: () => closeModal(),
+      });
+    }
+  }
+
+  function submitOverride(e) {
+    e.preventDefault();
+    if (!editingCategoryId) return;
+
+    if (selectedBudget?.id) {
+      put(route('budgets.update', selectedBudget.id), {
         preserveScroll: true,
         onSuccess: () => closeModal(),
       });
@@ -81,11 +122,24 @@ export default function Index({ filters, categories, budgets }) {
     }
   }
 
-  function removeBudget(categoryId) {
+  function removeDefault(categoryId) {
+    const b = budgetByCategory.get(String(categoryId));
+    if (!b?.default_budget_id) return;
+
+    if (!confirm('Remover a meta padrão desta categoria?')) return;
+
+    router.delete(route('budget-defaults.destroy', b.default_budget_id), {
+      data: { month },
+      preserveScroll: true,
+    });
+  }
+
+  function removeOverride(categoryId) {
     const b = budgetByCategory.get(String(categoryId));
     if (!b?.id) return;
 
-    if (!confirm('Remover esta meta do mês selecionado?')) return;
+    if (!confirm('Remover o ajuste deste mês?')) return;
+
     router.delete(route('budgets.destroy', b.id), { preserveScroll: true });
   }
 
@@ -98,7 +152,7 @@ export default function Index({ filters, categories, budgets }) {
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Metas por categoria</h2>
             <p className="text-sm text-gray-500 dark:text-slate-400">
-              Defina um teto de gastos mensal e acompanhe o consumo
+              Defina uma meta padrão e ajuste apenas os meses que precisarem de um valor diferente.
             </p>
           </div>
 
@@ -116,7 +170,6 @@ export default function Index({ filters, categories, budgets }) {
 
       <div className="py-6 sm:py-8">
         <div className="mx-auto max-w-7xl space-y-6 px-4 sm:px-6 lg:px-8">
-          {/* Filtro mês */}
           <div className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800 sm:p-5">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-slate-300">
@@ -144,7 +197,6 @@ export default function Index({ filters, categories, budgets }) {
             </div>
           </div>
 
-          {/* Grid de cards */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {(categories || []).map((c) => {
               const b = budgetByCategory.get(String(c.id));
@@ -157,72 +209,104 @@ export default function Index({ filters, categories, budgets }) {
                   key={c.id}
                   className="relative rounded-2xl bg-white p-5 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800"
                 >
-                  <div className="absolute right-4 top-4 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => openCreateOrEdit(c.id)}
-                      className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50
-                                 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
-                      title={b ? 'Editar meta' : 'Criar meta'}
-                    >
-                      {b ? 'Editar' : '+ Meta'}
-                    </button>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">{c.name}</div>
 
-                    {b?.id && (
-                      <button
-                        type="button"
-                        onClick={() => removeBudget(c.id)}
-                        className="rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100
-                                   dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300 dark:hover:bg-rose-950/70"
-                        title="Remover meta"
-                      >
-                        Remover
-                      </button>
-                    )}
+                  <div className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+                    {b?.source === 'override' && 'Usando ajuste deste mês'}
+                    {b?.source === 'default' && 'Usando meta padrão'}
+                    {(!b || b?.source === 'none') && 'Sem meta definida'}
                   </div>
 
-                  <div className="pr-24">
-                    <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">{c.name}</div>
-
-                    {b ? (
-                      <div className="mt-2 text-sm text-gray-600 dark:text-slate-300">
+                  <div className="mt-3">
+                    {b?.amount ? (
+                      <div className="text-sm text-gray-600 dark:text-slate-300">
                         <span className="font-semibold text-gray-900 dark:text-slate-100">{formatBRL(b.spent)}</span> de{' '}
                         <span className="font-semibold text-gray-900 dark:text-slate-100">{formatBRL(b.amount)}</span>
                       </div>
                     ) : (
-                      <div className="mt-2 text-sm text-gray-500 dark:text-slate-400">Sem meta definida para este mês.</div>
+                      <div className="text-sm text-gray-500 dark:text-slate-400">
+                        Defina uma meta padrão para esta categoria.
+                      </div>
                     )}
                   </div>
 
-                  {/* Progress */}
+                  {b?.source === 'override' && b?.default_amount && (
+                    <div className="mt-2 text-xs text-gray-500 dark:text-slate-400">
+                      Meta padrão: <span className="font-semibold">{formatBRL(b.default_amount)}</span>
+                    </div>
+                  )}
+
                   <div className="mt-4">
                     <div className="flex items-center justify-between text-xs font-semibold text-gray-500 dark:text-slate-400">
-                      <span className={tone.text}>{b ? labelForStatus(status) : '—'}</span>
-                      <span className="text-gray-500 dark:text-slate-400">{b ? `${pct}%` : ''}</span>
+                      <span className={tone.text}>{b?.amount ? labelForStatus(status) : '—'}</span>
+                      <span className="text-gray-500 dark:text-slate-400">{b?.amount ? `${pct}%` : ''}</span>
                     </div>
 
                     <div className="mt-2 h-2 w-full rounded-full bg-gray-100 dark:bg-slate-800">
                       <div
                         className={['h-2 rounded-full', tone.bar].join(' ')}
-                        style={{ width: `${b ? Math.max(5, Math.min(100, pct)) : 0}%` }}
-                        title={b ? `${pct}%` : ''}
+                        style={{ width: `${b?.amount ? Math.max(5, Math.min(100, pct)) : 0}%` }}
+                        title={b?.amount ? `${pct}%` : ''}
                       />
                     </div>
 
-                    {b && (
+                    {b?.amount && (
                       <div className="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-slate-400">
                         <span>
                           Restante:{' '}
-                          <span className="font-semibold text-gray-700 dark:text-slate-200">{formatBRL(b.remaining)}</span>
+                          <span className="font-semibold text-gray-700 dark:text-slate-200">
+                            {formatBRL(b.remaining)}
+                          </span>
                         </span>
+
                         {status === 'exceeded' && (
-                          <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700
-                                           dark:bg-rose-950/50 dark:text-rose-300"
-                          >
+                          <span className="rounded-full bg-rose-50 px-2 py-0.5 text-xs font-semibold text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
                             Estourou
                           </span>
                         )}
                       </div>
+                    )}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openDefaultModal(c.id)}
+                      className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50
+                                 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+                    >
+                      {b?.default_budget_id ? 'Editar padrão' : 'Definir padrão'}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => openOverrideModal(c.id)}
+                      className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 hover:bg-emerald-100
+                                 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:hover:bg-emerald-950/50"
+                    >
+                      {b?.id ? 'Editar ajuste do mês' : 'Ajustar este mês'}
+                    </button>
+
+                    {b?.default_budget_id && (
+                      <button
+                        type="button"
+                        onClick={() => removeDefault(c.id)}
+                        className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-100
+                                   dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300 dark:hover:bg-amber-950/50"
+                      >
+                        Remover padrão
+                      </button>
+                    )}
+
+                    {b?.id && (
+                      <button
+                        type="button"
+                        onClick={() => removeOverride(c.id)}
+                        className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 hover:bg-rose-100
+                                   dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
+                      >
+                        Remover ajuste
+                      </button>
                     )}
                   </div>
                 </div>
@@ -231,7 +315,7 @@ export default function Index({ filters, categories, budgets }) {
 
             {(!categories || categories.length === 0) && (
               <div className="col-span-full rounded-2xl bg-white p-6 text-sm text-gray-500 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-800">
-                Você ainda não tem categorias de <b className="text-gray-700 dark:text-slate-100">despesa</b>. Crie uma categoria para definir metas.
+                Você ainda não tem categorias de despesa. Crie uma categoria para definir metas.
                 <div className="mt-3">
                   <Link
                     href={route('categories.create')}
@@ -246,17 +330,66 @@ export default function Index({ filters, categories, budgets }) {
         </div>
       </div>
 
-      {/* Modal criar/editar */}
-      {modalOpen && (
-        <Modal onClose={closeModal} title={existingBudget ? 'Editar meta' : 'Criar meta'}>
-          <form onSubmit={submit} className="space-y-4">
+      {modalOpen && modalMode === 'default' && (
+        <Modal onClose={closeModal} title={selectedBudget?.default_budget_id ? 'Editar meta padrão' : 'Definir meta padrão'}>
+          <form onSubmit={submitDefault} className="space-y-4">
             <div>
               <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Categoria</div>
-              <div className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 ring-1 ring-gray-200
-                              dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800"
-              >
+              <div className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
                 {selectedCategory?.name || '—'}
               </div>
+            </div>
+
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-200">
+              Essa meta será usada automaticamente nos próximos meses, até você alterar.
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Valor padrão</label>
+              <div className="mt-1">
+                <MoneyInput
+                  value={defaultData.amount}
+                  onValueChange={(normalized) => setDefaultData('amount', normalized)}
+                  placeholder="0,00"
+                  prefix="R$"
+                  inputClassName="dark:bg-slate-950 dark:text-slate-100 dark:border-slate-700 dark:placeholder:text-slate-500"
+                />
+              </div>
+              {defaultErrors.amount && <div className="mt-1 text-sm text-rose-600 dark:text-rose-400">{defaultErrors.amount}</div>}
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button
+                type="button"
+                onClick={closeModal}
+                className="text-sm font-semibold text-gray-600 hover:text-gray-800 hover:underline dark:text-slate-300 dark:hover:text-slate-100"
+              >
+                Cancelar
+              </button>
+
+              <button
+                disabled={processingDefault}
+                className="inline-flex items-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+              >
+                Salvar padrão
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {modalOpen && modalMode === 'override' && (
+        <Modal onClose={closeModal} title={selectedBudget?.id ? 'Editar ajuste do mês' : 'Ajustar este mês'}>
+          <form onSubmit={submitOverride} className="space-y-4">
+            <div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Categoria</div>
+              <div className="mt-1 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
+                {selectedCategory?.name || '—'}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
+              Esse valor vale apenas para o mês selecionado e substitui a meta padrão neste período.
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -266,8 +399,7 @@ export default function Index({ filters, categories, budgets }) {
                   type="number"
                   min="2000"
                   max="2100"
-                  className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500
-                             dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   value={data.year}
                   onChange={(e) => setData('year', e.target.value)}
                 />
@@ -277,8 +409,7 @@ export default function Index({ filters, categories, budgets }) {
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Mês</label>
                 <select
-                  className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500
-                             dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  className="mt-1 w-full rounded-lg border-gray-300 text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                   value={data.month}
                   onChange={(e) => setData('month', e.target.value)}
                 >
@@ -293,7 +424,7 @@ export default function Index({ filters, categories, budgets }) {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Teto da meta</label>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">Valor para este mês</label>
               <div className="mt-1">
                 <MoneyInput
                   value={data.amount}
@@ -321,7 +452,7 @@ export default function Index({ filters, categories, budgets }) {
                 disabled={processing}
                 className="inline-flex items-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
               >
-                Salvar
+                Salvar ajuste
               </button>
             </div>
           </form>
@@ -331,8 +462,6 @@ export default function Index({ filters, categories, budgets }) {
   );
 }
 
-/* ----------------- UI helpers ----------------- */
-
 function Modal({ title, children, onClose }) {
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
@@ -341,9 +470,6 @@ function Modal({ title, children, onClose }) {
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
             <div className="text-lg font-semibold text-gray-900 dark:text-slate-100">{title}</div>
-            <div className="text-xs text-gray-500 dark:text-slate-400">
-              Defina um teto de gastos para o mês selecionado
-            </div>
           </div>
 
           <button
@@ -364,44 +490,53 @@ function Modal({ title, children, onClose }) {
   );
 }
 
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
+function formatBRL(value) {
+  const n = Number(value || 0);
+  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
-function formatBRL(v) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v || 0));
+function formatMonthPtBR(value) {
+  if (!value) return '';
+  const [y, m] = String(value).split('-');
+  const d = new Date(Number(y), Number(m) - 1, 1);
+  return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+}
+
+function clamp(v, min, max) {
+  return Math.max(min, Math.min(max, v));
 }
 
 function labelForStatus(status) {
-  switch (status) {
-    case 'ok':
-      return 'OK';
-    case 'warning':
-      return 'Atenção';
-    case 'exceeded':
-      return 'Acima da meta';
-    default:
-      return '—';
-  }
+  if (status === 'exceeded') return 'Acima da meta';
+  if (status === 'warning') return 'Quase no limite';
+  if (status === 'ok') return 'Dentro da meta';
+  return 'Sem meta';
 }
 
 function getBudgetTone(status) {
-  switch (status) {
-    case 'warning':
-      return { bar: 'bg-amber-500', text: 'text-amber-700 dark:text-amber-300' };
-    case 'exceeded':
-      return { bar: 'bg-rose-600', text: 'text-rose-700 dark:text-rose-300' };
-    case 'ok':
-      return { bar: 'bg-emerald-600', text: 'text-emerald-700 dark:text-emerald-300' };
-    default:
-      return { bar: 'bg-gray-300 dark:bg-slate-700', text: 'text-gray-500 dark:text-slate-400' };
+  if (status === 'exceeded') {
+    return {
+      text: 'text-rose-700 dark:text-rose-300',
+      bar: 'bg-rose-500',
+    };
   }
-}
 
-function formatMonthPtBR(yyyyMm) {
-  const v = String(yyyyMm || '').slice(0, 7);
-  if (!/^\d{4}-\d{2}$/.test(v)) return v || '—';
-  const [y, m] = v.split('-');
-  const d = new Date(Number(y), Number(m) - 1, 1);
-  return new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(d);
+  if (status === 'warning') {
+    return {
+      text: 'text-amber-700 dark:text-amber-300',
+      bar: 'bg-amber-500',
+    };
+  }
+
+  if (status === 'ok') {
+    return {
+      text: 'text-emerald-700 dark:text-emerald-300',
+      bar: 'bg-emerald-500',
+    };
+  }
+
+  return {
+    text: 'text-gray-500 dark:text-slate-400',
+    bar: 'bg-gray-300 dark:bg-slate-700',
+  };
 }

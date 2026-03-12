@@ -1,5 +1,6 @@
 // resources/js/Pages/Investments/Index.jsx
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import { formatDateBR } from '@/utils/formatters';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
 
@@ -25,7 +26,7 @@ export default function Index({ accounts = [], filters = {}, totals = {} }) {
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-slate-100">Investimentos</h2>
             <p className="text-sm text-gray-500 dark:text-slate-400">
-              Acompanhe saldo atual, rendimento do mês e detalhes por conta
+              Acompanhe saldo atual e a simulação de rendimento por conta
             </p>
           </div>
 
@@ -52,10 +53,11 @@ export default function Index({ accounts = [], filters = {}, totals = {} }) {
               icon={<IconBank />}
             />
             <SummaryCard
-              title="Rendimento do mês"
+              title="Simulação no mês"
               value={formatBRL(totals.total_month_yield || 0)}
               icon={<IconTrend />}
             />
+
             <SummaryCard
               title="Contas de investimento"
               value={String(accounts.length)}
@@ -122,23 +124,18 @@ export default function Index({ accounts = [], filters = {}, totals = {} }) {
                       <div className="min-w-0">
                         <div className="truncate font-semibold text-gray-900 dark:text-slate-100">{a.name}</div>
                         <div className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
-                          CDI: <span className="font-semibold">{formatPercent(a.cdi_percent)}</span> •{' '}
-                          {a.yield_enabled ? (
-                            <span className="text-emerald-600 dark:text-emerald-300 font-semibold">Rendimento ON</span>
-                          ) : (
-                            <span className="text-gray-500 dark:text-slate-400 font-semibold">Rendimento OFF</span>
-                          )}
+                          <span className="font-semibold">{a.yield_mode_label}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="mt-3 grid grid-cols-2 gap-2">
                       <MiniStat label="Saldo atual" value={formatBRL(a.current_balance || 0)} />
-                      <MiniStat label="Rend. mês" value={formatBRL(a.month_yield || 0)} />
+                      <MiniStat label="Simulação no mês" value={formatBRL(a.simulated_month_yield || 0)} />
                     </div>
 
                     <div className="mt-2 text-xs text-gray-500 dark:text-slate-400">
-                      Último rendimento: <span className="font-semibold">{a.last_yield_date || '—'}</span>
+                      Última simulação: <span className="font-semibold">{formatDateBR(a.last_yield_date) || '—'}</span>
                     </div>
                   </div>
 
@@ -174,7 +171,7 @@ export default function Index({ accounts = [], filters = {}, totals = {} }) {
                     <th className="px-4 py-3 font-semibold">Status</th>
                     <th className="px-4 py-3 font-semibold">Último rendimento</th>
                     <th className="px-4 py-3 text-right font-semibold">Saldo atual</th>
-                    <th className="px-4 py-3 text-right font-semibold">Rendimento mês</th>
+                    <th className="px-4 py-3 text-right font-semibold">Simulação mês</th>
                     <th
                       className="px-4 py-3 text-right font-semibold sticky right-0 z-10 bg-gray-50 dark:bg-slate-950
                                  shadow-[-8px_0_12px_-12px_rgba(0,0,0,0.35)]"
@@ -196,7 +193,10 @@ export default function Index({ accounts = [], filters = {}, totals = {} }) {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{formatPercent(a.cdi_percent)}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">
+                        {a.yield_mode_label}
+                      </td>
+
 
                       <td className="px-4 py-3">
                         {a.yield_enabled ? (
@@ -212,14 +212,17 @@ export default function Index({ accounts = [], filters = {}, totals = {} }) {
                         )}
                       </td>
 
-                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{a.last_yield_date || '—'}</td>
+                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">{formatDateBR(a.last_yield_date) || '—'}</td>
 
                       <td className="px-4 py-3 text-right font-semibold text-gray-900 dark:text-slate-100">
                         {formatBRL(a.current_balance || 0)}
                       </td>
 
-                      <td className="px-4 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-300">
+                      {/* <td className="px-4 py-3 text-right font-semibold text-emerald-700 dark:text-emerald-300">
                         {formatBRL(a.month_yield || 0)}
+                      </td> */}
+                      <td className="px-4 py-3 text-gray-700 dark:text-slate-200">
+                        {formatBRL(a.simulated_month_yield || 0)}
                       </td>
 
                       <td
@@ -309,11 +312,6 @@ function formatBRL(v) {
 function normalizeMonth(v) {
   if (!v) return new Date().toISOString().slice(0, 7);
   return String(v).slice(0, 7);
-}
-
-function formatPercent(v) {
-  const n = Number(v ?? 0);
-  return `${n.toFixed(2).replace('.', ',')}%`;
 }
 
 /* ---------- icons (inline SVG) ---------- */

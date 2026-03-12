@@ -78,10 +78,12 @@ export default function Index({ recurrings }) {
                               {r.description || '(sem descrição)'}
                             </div>
                             <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                              Auto: {r.auto_post ? 'sim' : 'não'} · Intervalo: {r.interval || 1}
+                              {r.frequency === 'monthly'
+                              ? `Repete a cada ${r.interval || 1} ${Number(r.interval || 1) === 1 ? 'mês' : 'meses'}`
+                              : `Repete a cada ${r.interval || 1} ${Number(r.interval || 1) === 1 ? 'ano' : 'anos'}`}
                             </div>
                           </td>
-
+                          
                           <td className="py-4 pr-4">
                             {r.type === 'expense' ? (
                               <span className="rounded-full bg-rose-50 px-2 py-1 text-xs font-semibold text-rose-700 dark:bg-rose-900/30 dark:text-rose-200 dark:ring-1 dark:ring-rose-900/40">

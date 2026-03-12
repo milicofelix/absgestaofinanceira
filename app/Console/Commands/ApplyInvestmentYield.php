@@ -29,7 +29,7 @@ class ApplyInvestmentYield extends Command
         // OBS: retorna "valor" como string (ex: "0.0456") => % ao dia
         $cdi = $this->fetchCdiPercentForDate($day);
         if ($cdi === null) {
-            $this->warn("CDI não encontrado para {$day->toDateString()} (talvez fim de semana/feriado).");
+            $this->warn("Nenhum CDI disponível foi encontrado até {$day->toDateString()}.");
             return self::SUCCESS;
         }
 
@@ -69,7 +69,7 @@ class ApplyInvestmentYield extends Command
                                 'date' => $day->toDateString(),
                                 'purchase_date' => $day->toDateString(),
                                 'competence_month' => $day->format('Y-m'),
-                                'description' => 'Rendimento CDI ('.number_format((float)$acc->cdi_percent, 2, ',', '.').'%)',
+                                'description' => 'Simulação de rendimento CDI ('.number_format((float)$acc->cdi_percent, 2, ',', '.').'%)',
                                 'payment_method' => 'other',
                                 'is_cleared' => true,
                                 'cleared_at' => $day->toDateString().' 00:00:00',
@@ -91,9 +91,9 @@ class ApplyInvestmentYield extends Command
 
     private function fetchCdiPercentForDate(Carbon $day): ?float
     {
-        // Busca uma janela de dias pra garantir que o dia exista
-        $start = $day->copy()->subDays(10)->format('d/m/Y');
-        $end   = $day->copy()->addDays(1)->format('d/m/Y');
+        // Busca uma janela de dias para encontrar o último CDI disponível
+        $start = $day->copy()->subDays(15)->format('d/m/Y');
+        $end   = $day->copy()->format('d/m/Y');
 
         $url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.12/dados?formato=json&dataInicial={$start}&dataFinal={$end}";
 
@@ -103,14 +103,37 @@ class ApplyInvestmentYield extends Command
             return null;
         }
 
-        $needle = $day->format('d/m/Y');
-        foreach (($rows ?: []) as $r) {
-            if (($r['data'] ?? null) === $needle) {
-                $v = str_replace(',', '.', (string)($r['valor'] ?? ''));
-                return is_numeric($v) ? (float)$v : null; // % ao dia
+        if (!is_array($rows) || empty($rows)) {
+            return null;
+        }
+
+        $target = $day->copy()->startOfDay();
+        $lastValid = null;
+
+        foreach ($rows as $r) {
+            $rawDate = $r['data'] ?? null;
+            $rawValue = $r['valor'] ?? null;
+
+            if (!$rawDate || $rawValue === null) {
+                continue;
+            }
+
+            try {
+                $rowDate = Carbon::createFromFormat('d/m/Y', $rawDate)->startOfDay();
+            } catch (\Throwable $e) {
+                continue;
+            }
+
+            if ($rowDate->lte($target)) {
+                $v = str_replace(',', '.', (string) $rawValue);
+
+                if (is_numeric($v)) {
+                    $lastValid = (float) $v;
+                }
             }
         }
-        return null;
+
+        return $lastValid;
     }
 
     private function balanceAtDate(int $accountId, int $userId, Carbon $date): float

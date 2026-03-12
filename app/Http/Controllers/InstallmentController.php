@@ -3,28 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Services\InstallmentService;
-use Illuminate\Http\Request;
+use App\Http\Requests\StoreInstallmentRequest;
 use App\Models\Installment;
 use App\Models\Transaction;
 use DB;
 
 class InstallmentController extends Controller
 {
-  public function store(Request $request, InstallmentService $service)
+  public function store(StoreInstallmentRequest $request, InstallmentService $service)
   {
-    $userId = $request->user()->id;
 
-    $data = $request->validate([
-      'account_id' => ['required','integer'],
-      'category_id' => ['nullable','integer'],
-      'description' => ['nullable','string','max:255'],
-      'total_amount' => ['required','numeric','min:0.01'],
-      'installments_count' => ['required','integer','min:2','max:60'],
-      'purchase_date' => ['required','date_format:Y-m-d'],
-      'first_due_date' => ['nullable','date_format:Y-m-d'],
-    ]);
+    $data = $request->validated();
 
-    $data['user_id'] = $userId;
+    $data['user_id'] = $request->user()->id;
 
     $service->createInstallmentAndTransactions($data);
 
@@ -33,7 +24,7 @@ class InstallmentController extends Controller
     ]);
   }
 
-  public function cancel(Request $request, Installment $installment)
+  public function cancel(StoreInstallmentRequest $request, Installment $installment)
   {
     abort_unless($installment->user_id === $request->user()->id, 403);
 

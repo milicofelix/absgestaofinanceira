@@ -1,11 +1,9 @@
-// resources/js/Pages/Recurrings/Form.jsx
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { useMemo } from 'react';
 import MoneyInput from '@/Components/MoneyInput';
 
 function formatBRLInput(v) {
-  // mantém string (não formata pra não atrapalhar digitação)
   return String(v ?? '');
 }
 
@@ -56,7 +54,7 @@ export default function Form({ mode, recurring, accounts, categories }) {
             <h2 className="text-xl font-semibold leading-tight text-gray-900 dark:text-slate-100">
               {isEdit ? 'Editar recorrência' : 'Nova recorrência'}
             </h2>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Defina lançamentos automáticos (mensal/anual)</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400">Programe receitas ou despesas que se repetem ao longo do tempo.</p>
           </div>
 
           <Link
@@ -171,7 +169,7 @@ export default function Form({ mode, recurring, accounts, categories }) {
 
               {/* intervalo */}
               <div>
-                <label className={labelBase}>Intervalo</label>
+                <label className={labelBase}>Repetir a cada</label>
                 <input
                   type="number"
                   min="1"
@@ -180,13 +178,21 @@ export default function Form({ mode, recurring, accounts, categories }) {
                   value={data.interval}
                   onChange={(e) => setData('interval', e.target.value)}
                 />
-                <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">Ex.: 1 = todo mês / todo ano</div>
+                <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                  {Number(data.interval || 1) === 1
+                    ? data.frequency === 'monthly'
+                      ? 'A recorrência será criada todo mês.'
+                      : 'A recorrência será criada todo ano.'
+                    : data.frequency === 'monthly'
+                      ? `A recorrência será criada a cada ${data.interval || 1} meses.`
+                      : `A recorrência será criada a cada ${data.interval || 1} anos.`}
+                </div>
                 {errorText(errors.interval)}
               </div>
 
               {/* próxima execução */}
               <div>
-                <label className={labelBase}>Próximo lançamento</label>
+                <label className={labelBase}>Primeiro lançamento</label>
                 <input
                   type="date"
                   className={inputBase}
@@ -198,7 +204,7 @@ export default function Form({ mode, recurring, accounts, categories }) {
 
               {/* início */}
               <div>
-                <label className={labelBase}>Data de início (opcional)</label>
+                <label className={labelBase}>Começar em (opcional)</label>
                 <input
                   type="date"
                   className={inputBase}
@@ -210,7 +216,7 @@ export default function Form({ mode, recurring, accounts, categories }) {
 
               {/* fim */}
               <div>
-                <label className={labelBase}>Data de fim (opcional)</label>
+                <label className={labelBase}>Encerrar em (opcional)</label>
                 <input
                   type="date"
                   className={inputBase}
@@ -225,29 +231,20 @@ export default function Form({ mode, recurring, accounts, categories }) {
             <div className="mt-6 space-y-3">
               <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
                 <div>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Gerar automaticamente</div>
+                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Recorrência ativa</div>
                   <div className="text-xs text-gray-500 dark:text-slate-400">
-                    Se ligado, o sistema cria o lançamento sozinho no dia.
+                    Quando ativada, o sistema cria os lançamentos nas datas programadas.
                   </div>
                 </div>
                 <input
                   type="checkbox"
                   className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700"
-                  checked={!!data.auto_post}
-                  onChange={(e) => setData('auto_post', e.target.checked)}
-                />
-              </label>
-
-              <label className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-slate-800 dark:bg-slate-950">
-                <div>
-                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">Ativa</div>
-                  <div className="text-xs text-gray-500 dark:text-slate-400">Se desligado, não gera lançamentos.</div>
-                </div>
-                <input
-                  type="checkbox"
-                  className="h-5 w-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700"
                   checked={!!data.is_active}
-                  onChange={(e) => setData('is_active', e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setData('is_active', checked);
+                    setData('auto_post', checked);
+                  }}
                 />
               </label>
             </div>
@@ -272,14 +269,14 @@ export default function Form({ mode, recurring, accounts, categories }) {
           </form>
 
           {/* dica */}
-          <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-xs text-gray-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
+          {/* <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-xs text-gray-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
             Dica: para testar rapidamente, crie uma recorrência com <b className="text-gray-700 dark:text-slate-200">Próximo lançamento</b>{' '}
             hoje e rode{' '}
             <code className="rounded bg-white px-1 py-0.5 text-gray-800 dark:bg-slate-900 dark:text-slate-100 dark:ring-1 dark:ring-slate-800">
               php artisan recurring:post
             </code>
             .
-          </div>
+          </div> */}
         </div>
       </div>
     </AuthenticatedLayout>
