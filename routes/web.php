@@ -15,6 +15,7 @@ use App\Http\Controllers\TransferContactController;
 use App\Http\Controllers\RecurringTransactionController;
 use App\Http\Controllers\InstallmentController;
 use App\Http\Controllers\CategoryBudgetController;
+use App\Http\Controllers\CategoryBudgetDefaultController;
 use App\Http\Controllers\ThemeSettingsController;
 use App\Http\Controllers\CreditCardInvoiceController;
 use App\Http\Controllers\InvestmentController;
@@ -70,11 +71,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/installments/{installment}/cancel', [\App\Http\Controllers\InstallmentController::class, 'cancel'])
         ->name('installments.cancel');
 
-    // Orcamentos
+    // Orçamentos
     Route::get('/budgets', [CategoryBudgetController::class, 'index'])->name('budgets.index');
     Route::post('/budgets', [CategoryBudgetController::class, 'store'])->name('budgets.store');
     Route::put('/budgets/{budget}', [CategoryBudgetController::class, 'update'])->name('budgets.update');
     Route::delete('/budgets/{budget}', [CategoryBudgetController::class, 'destroy'])->name('budgets.destroy');
+
+    // Orçamentos padrão
+    Route::post('/budget-defaults', [CategoryBudgetDefaultController::class, 'store'])->name('budget-defaults.store');
+    Route::put('/budget-defaults/{budgetDefault}', [CategoryBudgetDefaultController::class, 'update'])->name('budget-defaults.update');
+    Route::delete('/budget-defaults/{budgetDefault}', [CategoryBudgetDefaultController::class, 'destroy'])->name('budget-defaults.destroy');
 
     // Configurações
     Route::get('/settings/theme', [ThemeSettingsController::class, 'edit'])->name('settings.theme.edit');

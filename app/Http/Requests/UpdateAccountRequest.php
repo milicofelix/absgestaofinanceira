@@ -30,7 +30,7 @@ class UpdateAccountRequest extends FormRequest
 
             'cdi_percent' => [
                 'nullable','numeric','min:0','max:300',
-                Rule::requiredIf(fn() => $this->input('type') === 'investment'),
+                // Rule::requiredIf(fn() => $this->input('type') === 'investment'),
             ],
 
             'credit_limit' => [
@@ -70,7 +70,7 @@ class UpdateAccountRequest extends FormRequest
             'statement_close_month.integer' => 'O mês de fechamento deve ser um número inteiro.',
             'statement_close_month.min' => 'O mês de fechamento deve ser entre 1 e 12.',
             'statement_close_month.max' => 'O mês de fechamento deve ser entre 1 e 12.',
-            'cdi_percent.required' => 'Informe o percentual do CDI para a conta de investimento.',
+            // 'cdi_percent.required' => 'Informe o percentual do CDI para a conta de investimento.',
             'cdi_percent.numeric' => 'O percentual do CDI deve ser um número válido.',
             'cdi_percent.min' => 'O percentual do CDI não pode ser negativo.',
             'cdi_percent.max' => 'O percentual do CDI não pode ser maior que 300.',

@@ -41,7 +41,7 @@ class InvestmentService
                     ->where('account_id', $acc->id)
                     ->whereBetween('date', [$from, $to])
                     ->where('type', 'income')
-                    ->where('description', 'like', 'Rendimento CDI%')
+                    ->where('description', 'like', 'Simulação de rendimento CDI%')
                     ->sum('amount');
 
                 return [
@@ -54,14 +54,16 @@ class InvestmentService
                     'current_balance' => (float) $currentBalance,
                     'month_income' => (float) $monthIncome,
                     'month_expense' => (float) $monthExpense,
-                    'month_yield' => (float) $monthYield,
+                    'simulated_month_yield' => (float) $monthYield,
+                    'yield_mode_label' => (bool) $acc->yield_enabled ? 'Simulação automática' : 'Sem simulação automática',
+
                 ];
             })
             ->values();
 
         $totals = [
             'total_current_balance' => (float) $accounts->sum('current_balance'),
-            'total_month_yield' => (float) $accounts->sum('month_yield'),
+            'total_month_yield' => (float) $accounts->sum('simulated_month_yield'),
         ];
 
         return compact('accounts', 'totals');
@@ -98,7 +100,7 @@ class InvestmentService
             ->where('account_id', $accountId)
             ->whereBetween('date', [$from->toDateString(), $to->toDateString()])
             ->where('type', 'income')
-            ->where('description', 'like', 'Rendimento CDI%')
+            ->where('description', 'like', 'Simulação de rendimento CDI%')
             ->sum('amount');
 
         $currentBalance = $this->balanceAtDate($accountId, $userId, Carbon::parse($to));
@@ -106,7 +108,7 @@ class InvestmentService
         $summary = [
             'income' => (float)$income,
             'expense' => (float)$expense,
-            'yield' => (float)$yield,
+            'simulated_yield' => (float)$yield,
             'current_balance' => (float)$currentBalance,
         ];
 
@@ -143,6 +145,7 @@ class InvestmentService
                 'yield_enabled' => (bool) $account->yield_enabled,
                 'last_yield_date' => $account->last_yield_date,
                 'initial_balance' => (float) ($account->initial_balance ?? 0),
+                'yield_mode_label' => (bool) $account->yield_enabled ? 'Simulação automática' : 'Sem simulação automática',
             ],
             'summary' => $summary,
             'series' => $series,

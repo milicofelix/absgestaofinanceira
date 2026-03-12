@@ -82,7 +82,7 @@ class InstallmentService
           $competence = Carbon::parse($inst->first_due_date)->startOfMonth();
 
           for ($i = 1; $i <= $n; $i++) {
-              $cents = $base + ($i === $n ? $remainder : 0);
+              $cents = $base + ($i === 1 ? $remainder : 0);
               $amount = $cents / 100;
 
               $date = $competence->copy()

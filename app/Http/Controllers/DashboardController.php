@@ -8,6 +8,7 @@ use Inertia\Inertia;
 use Carbon\Carbon;
 use App\Models\Account;
 use App\Models\CategoryBudget;
+use App\Models\CategoryBudgetDefault;
 use App\Models\Category;
 
 class DashboardController extends Controller
@@ -373,18 +374,46 @@ class DashboardController extends Controller
         }
 
         // =========================
-        // 4) Badge de metas
+        // 4) Badge de metas (agora com herança automática)
         // =========================
         $year = (int) substr($month, 0, 4);
         $m    = (int) substr($month, 5, 2);
 
-        $budgets = CategoryBudget::query()
+        $expenseCategories = Category::query()
+            ->where('user_id', $userId)
+            ->where('type', 'expense')
+            ->get(['id']);
+
+        $defaultBudgets = CategoryBudgetDefault::query()
+            ->where('user_id', $userId)
+            ->get()
+            ->keyBy('category_id');
+
+        $monthlyBudgets = CategoryBudget::query()
             ->where('user_id', $userId)
             ->where('year', $year)
             ->where('month', $m)
-            ->get();
+            ->get()
+            ->keyBy('category_id');
 
-        $totalBudgets = $budgets->count();
+        // meta efetiva por categoria = override > default
+        $effectiveBudgets = $expenseCategories->map(function ($category) use ($defaultBudgets, $monthlyBudgets) {
+            $monthly = $monthlyBudgets->get($category->id);
+            $default = $defaultBudgets->get($category->id);
+
+            $amount = $monthly?->amount ?? $default?->amount;
+
+            if ($amount === null) {
+                return null;
+            }
+
+            return [
+                'category_id' => $category->id,
+                'amount' => (float) $amount,
+            ];
+        })->filter()->values();
+
+        $totalBudgets = $effectiveBudgets->count();
 
         $spentByCategoryQuery = Transaction::query()
             ->where('user_id', $userId)
@@ -397,7 +426,8 @@ class DashboardController extends Controller
                           ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
                    });
             })
-            ->whereIn('category_id', $budgets->pluck('category_id')->filter()->unique()->values());
+            ->whereIn('category_id', $effectiveBudgets->pluck('category_id')->filter()->unique()->values());
+
 
         if ($request->filled('category_id')) {
             $spentByCategoryQuery->where('category_id', $request->integer('category_id'));
@@ -432,11 +462,11 @@ class DashboardController extends Controller
         $exceeded = 0;
         $warning  = 0;
 
-        foreach ($budgets as $b) {
+        foreach ($effectiveBudgets as $b) {
             $limit = (float) ($b->amount ?? 0);
             if ($limit <= 0) continue;
 
-            $spent = (float) ($spentByCategory[$b->category_id] ?? 0);
+            $spent = (float) ($spentByCategory[$b['category_id']] ?? 0);
 
             $spentCents = (int) round($spent * 100);
             $limitCents = (int) round($limit * 100);

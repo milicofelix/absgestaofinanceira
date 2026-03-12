@@ -57,16 +57,20 @@ export default function Form({ mode, account }) {
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
             <form onSubmit={submit} className="space-y-5">
               {/* Ajuda rápida */}
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-700 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
                 <div className="font-semibold">Dica</div>
                 <div className="mt-1 text-gray-700 dark:text-slate-200">
                   {isCreditCard ? (
                     <>
-                      Cartão de crédito gera <b>fatura</b>. O <b>fechamento</b> define em qual mês a compra entra.
+                      Informe o dia de <b>fechamento</b> e o <b>vencimento</b> para o sistema organizar compras e parcelas corretamente.
+                    </>
+                  ) : isInvestment ? (
+                    <>
+                      Cadastre a conta de investimento e, se quiser, ative a simulação de rendimento automático.
                     </>
                   ) : (
                     <>
-                      Conta é onde seu dinheiro “fica” (banco/carteira). O saldo inicial é o valor com que você começa.
+                      Informe o nome da conta e o saldo inicial para começar o controle.
                     </>
                   )}
                 </div>
@@ -114,15 +118,15 @@ export default function Form({ mode, account }) {
                 {errors.type && <div className="mt-1 text-sm text-rose-600">{errors.type}</div>}
               </div>
 
-              {isInvestment && (
-                <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-800 dark:bg-slate-950">
+             {isInvestment && (
+                <div className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-slate-800 dark:bg-slate-950">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">
-                        Rendimento automático (CDI)
+                        Simular rendimento automático
                       </div>
                       <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                        Aplica rendimento diário automaticamente (via scheduler).
+                        Cria lançamentos automáticos de rendimento com base no CDI. Use esta opção apenas se quiser acompanhar uma estimativa.
                       </div>
                     </div>
 
@@ -145,28 +149,45 @@ export default function Form({ mode, account }) {
                     </button>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">% do CDI</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="300"
-                        className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
-                        value={data.cdi_percent}
-                        onChange={(e) => setData('cdi_percent', e.target.value === '' ? '' : Number(e.target.value))}
-                      />
-                      {errors.cdi_percent && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.cdi_percent}</div>}
-                    </div>
-
-                    <div className="rounded-xl bg-white p-3 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-slate-900 dark:text-slate-300 dark:ring-slate-800">
-                      Ex.: <b>100%</b> (igual CDI), <b>101%</b>, <b>102%</b>…
-                      <div className="mt-2 text-gray-500 dark:text-slate-400">
-                        O rendimento vira uma transação do tipo <b>Receita</b> na própria conta.
-                      </div>
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-900/50 dark:bg-sky-950/30 dark:text-sky-200">
+                    <div className="font-semibold">Importante</div>
+                    <div className="mt-1">
+                      Esse rendimento é <b>simulado pelo sistema</b> e pode ser diferente do valor mostrado pelo banco.
                     </div>
                   </div>
+
+                  <details className="rounded-xl bg-white p-3 text-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
+                    <summary className="cursor-pointer font-semibold text-gray-700 dark:text-slate-200">
+                      Configuração avançada
+                    </summary>
+
+                    <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                          Percentual do CDI
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="300"
+                          className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                          value={data.cdi_percent}
+                          onChange={(e) => setData('cdi_percent', e.target.value === '' ? '' : Number(e.target.value))}
+                        />
+                        {errors.cdi_percent && (
+                          <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.cdi_percent}</div>
+                        )}
+                      </div>
+
+                      <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800">
+                        Ex.: <b>100%</b> = rende igual ao CDI.
+                        <div className="mt-2 text-gray-500 dark:text-slate-400">
+                          Só altere esse campo se você realmente souber qual percentual usar.
+                        </div>
+                      </div>
+                    </div>
+                  </details>
                 </div>
               )}
 
@@ -187,7 +208,7 @@ export default function Form({ mode, account }) {
                       onChange={(e) => setData('statement_close_day', e.target.value)}
                     />
                     <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                      Compras após o fechamento entram na fatura do mês seguinte.
+                      Compras feitas após esse dia entram na próxima fatura.
                     </p>
                     {errors.statement_close_day && (
                       <div className="mt-1 text-sm text-rose-600">{errors.statement_close_day}</div>
@@ -207,7 +228,7 @@ export default function Form({ mode, account }) {
                     </div>
 
                     <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                      Usado para exibir o limite disponível no dashboard.
+                      Serve para acompanhar quanto ainda está disponível para uso.
                     </p>
 
                     {errors.credit_limit && (
@@ -229,7 +250,7 @@ export default function Form({ mode, account }) {
                       onChange={(e) => setData('due_day', e.target.value)}
                     />
                     <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                      Usado para definir a <b>primeira parcela</b> e o mês de competência do cartão.
+                       Usado para calcular a primeira parcela e organizar a fatura do cartão.
                     </p>
                     {errors.due_day && (
                       <div className="mt-1 text-sm text-rose-600">{errors.due_day}</div>
@@ -254,22 +275,12 @@ export default function Form({ mode, account }) {
                   </div>
 
                   <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
-                    Valor disponível no início do controle
+                    Quanto havia disponível quando você começou a controlar esta conta.
                   </p>
 
                   {errors.initial_balance && (
                     <div className="mt-1 text-sm text-rose-600">{errors.initial_balance}</div>
                   )}
-                </div>
-              )}
-
-              {/* Aviso para cartão */}
-              {isCreditCard && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-100">
-                  <div className="font-semibold">Observação</div>
-                  <div className="mt-1 text-amber-800 dark:text-amber-100/90">
-                    Para cartão, o “saldo” é a <b>fatura</b>. Por isso, o campo de saldo inicial não é usado aqui.
-                  </div>
                 </div>
               )}
 
@@ -290,10 +301,6 @@ export default function Form({ mode, account }) {
                 </button>
               </div>
             </form>
-          </div>
-
-          <div className="mt-4 text-xs text-gray-400 dark:text-slate-500">
-            Dica: configure o fechamento certinho para o parcelamento cair no mês certo.
           </div>
         </div>
       </div>

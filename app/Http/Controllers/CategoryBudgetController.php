@@ -6,6 +6,7 @@ use App\Http\Requests\StoreCategoryBudgetRequest;
 use App\Http\Requests\UpdateCategoryBudgetRequest;
 use App\Models\Category;
 use App\Models\CategoryBudget;
+use App\Models\CategoryBudgetDefault;
 use App\Models\Transaction;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -19,69 +20,96 @@ class CategoryBudgetController extends Controller
 
         $monthParam = $request->query('month', now()->format('Y-m'));
         $start = Carbon::createFromFormat('Y-m', $monthParam)->startOfMonth();
+        $end = (clone $start)->endOfMonth();
         $year = (int) $start->year;
         $month = (int) $start->month;
 
-        // categorias de despesa (metas só pra expense)
+        // 1) Sempre partimos das categorias de despesa
         $categories = Category::query()
             ->where('user_id', $userId)
             ->where('type', 'expense')
             ->orderBy('name')
             ->get(['id', 'name', 'type']);
 
-        // metas do mês
-        $budgets = CategoryBudget::query()
+        // 2) Metas padrão por categoria
+        $defaultBudgets = CategoryBudgetDefault::query()
+            ->where('user_id', $userId)
+            ->get()
+            ->keyBy('category_id');
+
+        // 3) Overrides do mês
+        $monthlyBudgets = CategoryBudget::query()
             ->where('user_id', $userId)
             ->where('year', $year)
             ->where('month', $month)
-            ->with('category:id,name,type')
-            ->get();
+            ->get()
+            ->keyBy('category_id');
 
-        // gasto por categoria no mês (somente despesas)
+        // 4) Gastos do mês por categoria
         $spentByCategory = Transaction::query()
             ->where('user_id', $userId)
             ->where('is_transfer', false)
             ->where('type', 'expense')
-            ->where(function ($q) use ($monthParam, $start) {
-                // competência preenchida
+            ->where(function ($q) use ($monthParam, $start, $end) {
                 $q->where('competence_month', $monthParam)
-                // fallback para dados antigos sem competence_month
-                ->orWhere(function ($q2) use ($start) {
-                    $q2->whereNull('competence_month')
-                        ->whereBetween(
-                            'date',
-                            [
-                                $start->toDateString(),
-                                $start->copy()->endOfMonth()->toDateString()
-                            ]
-                        );
-                });
+                  ->orWhere(function ($q2) use ($start, $end) {
+                      $q2->whereNull('competence_month')
+                         ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                  });
             })
             ->selectRaw('category_id, SUM(amount) as total')
             ->groupBy('category_id')
             ->pluck('total', 'category_id');
 
-        // monta cards por categoria com meta+gasto
-        $items = $budgets->map(function (CategoryBudget $b) use ($spentByCategory) {
-            $spent = (float) ($spentByCategory[$b->category_id] ?? 0);
-            $limit = (float) $b->amount;
-            $pct = $limit > 0 ? round(($spent / $limit) * 100) : 0;
+        // 5) montar tudo por categoria,
+        // escolhendo override > default > sem meta
+        $items = $categories->map(function (Category $category) use ($defaultBudgets, $monthlyBudgets, $spentByCategory, $monthParam) {
+            $defaultBudget = $defaultBudgets->get($category->id);
+            $monthlyBudget = $monthlyBudgets->get($category->id);
 
-            $status = 'ok';
-            if ($pct >= 100) $status = 'exceeded';
-            else if ($pct >= 70) $status = 'warning';
+            $effectiveAmount = $monthlyBudget?->amount ?? $defaultBudget?->amount;
+            $source = $monthlyBudget ? 'override' : ($defaultBudget ? 'default' : 'none');
+
+            $spent = (float) ($spentByCategory[$category->id] ?? 0);
+            $limit = $effectiveAmount !== null ? (float) $effectiveAmount : 0.0;
+
+            $percent = $limit > 0 ? round(($spent / $limit) * 100) : 0;
+
+            $status = 'none';
+            if ($source !== 'none') {
+                $status = 'ok';
+                if ($percent >= 100) {
+                    $status = 'exceeded';
+                } elseif ($percent >= 70) {
+                    $status = 'warning';
+                }
+            }
 
             return [
-                'id' => $b->id,
-                'category_id' => $b->category_id,
-                'category' => $b->category?->name,
-                'amount' => (string) $b->amount,
+                'category_id' => $category->id,
+                'category' => $category->name,
+
+                // meta do mês (override)
+                'id' => $monthlyBudget?->id,
+                'override_amount' => $monthlyBudget ? (string) $monthlyBudget->amount : null,
+
+                // meta padrão
+                'default_budget_id' => $defaultBudget?->id,
+                'default_amount' => $defaultBudget ? (string) $defaultBudget->amount : null,
+
+                // meta efetiva exibida na tela
+                'amount' => $effectiveAmount !== null ? number_format((float) $effectiveAmount, 2, '.', '') : null,
+                'source' => $source,
+                'month' => $monthParam,
+
                 'spent' => number_format($spent, 2, '.', ''),
-                'remaining' => number_format(max(0, $limit - $spent), 2, '.', ''),
-                'percent' => $pct,
+                'remaining' => $effectiveAmount !== null
+                    ? number_format(($limit - $spent), 2, '.', '')
+                    : null,
+                'percent' => $percent,
                 'status' => $status,
             ];
-        });
+        })->values();
 
         return Inertia::render('Budgets/Index', [
             'filters' => [
