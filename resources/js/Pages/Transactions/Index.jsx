@@ -1,14 +1,19 @@
 // resources/js/Pages/Transactions/Index.jsx
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { formatDateBR } from '@/utils/formatters';
 
 export default function Index({ transactions, filters, categories, accounts }) {
   const [month, setMonth] = useState(filters.month || new Date().toISOString().slice(0, 7));
   const [type, setType] = useState(filters.type || '');
   const [categoryId, setCategoryId] = useState(filters.category_id || '');
-  const [accountId, setAccountId] = useState(filters.account_id || '');
+  //const [accountId, setAccountId] = useState(filters.account_id || '');
+  const [accountIds, setAccountIds] = useState(
+    Array.isArray(filters.account_ids)
+      ? filters.account_ids.map(String)
+      : (filters.account_id ? [String(filters.account_id)] : [])
+  );
   const [q, setQ] = useState(filters.q || '');
   const [exportFormat, setExportFormat] = useState('xlsx');
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -21,6 +26,35 @@ export default function Index({ transactions, filters, categories, accounts }) {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState('');
   const [details, setDetails] = useState(null); // { transaction, summary, installments }
+  // -------------------------- 
+  // Dropdown de contas
+  // --------------------------
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+  const accountDropdownRef = useRef(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target)) {
+        setAccountDropdownOpen(false);
+      }
+  }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const selectedAccountsLabel = useMemo(() => {
+  if (!accountIds.length) return 'Todas';
+
+    const selected = (accounts || []).filter((a) => accountIds.includes(String(a.id)));
+
+    if (selected.length === 1) return selected[0].name;
+    if (selected.length === 2) return selected.map((a) => a.name).join(', ');
+
+    return `${selected.length} contas selecionadas`;
+  }, [accountIds, accounts]);
+
+  
 
   async function openDetails(t) {
     try {
@@ -103,12 +137,15 @@ export default function Index({ transactions, filters, categories, accounts }) {
       month,
       type: type || undefined,
       category_id: categoryId || undefined,
-      account_id: accountId || undefined,
+      // account_id: accountId || undefined,
+      account_ids: accountIds.length ? accountIds : undefined,
       q: q || undefined,
       installment: installmentFilter || undefined,
       status: status || undefined,
     }),
-    [month, type, categoryId, accountId, q, installmentFilter, status],
+    // [month, type, categoryId, accountId, q, installmentFilter, status],
+    [month, type, categoryId, accountIds, q, installmentFilter, status],
+
   );
 
   const bankAccounts = useMemo(
@@ -209,7 +246,8 @@ export default function Index({ transactions, filters, categories, accounts }) {
   function clearFilters() {
     setType('');
     setCategoryId('');
-    setAccountId('');
+    // setAccountId('');
+    setAccountIds([]);
     setQ('');
     setInstallmentFilter('');
     setStatus('');
@@ -328,7 +366,9 @@ export default function Index({ transactions, filters, categories, accounts }) {
               month: filters.month || undefined,
               type: filters.type || undefined,
               category_id: filters.category_id || undefined,
-              account_id: filters.account_id || undefined,
+              // account_id: filters.account_id || undefined,
+              // account_ids: filters.account_ids?.length ? filters.account_ids : undefined,
+              account_id: filters.account_ids?.[0] || filters.account_id || undefined,
               q: filters.q || undefined,
               installment: filters.installment || undefined,
               status: filters.status || undefined,
@@ -634,25 +674,87 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     ))}
                   </select>
                 </div>
-
-                <div>
+                 {/* Conta */}
+                <div className="sm:col-span-2 relative" ref={accountDropdownRef}>
                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                     Conta
                   </label>
-                  <select
-                    className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
-                    value={accountId}
-                    onChange={(e) => setAccountId(e.target.value)}
-                  >
-                    <option value="">Todas</option>
-                    {(accounts || []).map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
+                  <button
+                    type="button"
+                    onClick={() => setAccountDropdownOpen((v) => !v)}
+                    className="mt-1 flex w-full items-center justify-between rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-left text-sm text-gray-700 shadow-sm
+                              focus:border-emerald-500 focus:outline-none focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    <span className="truncate">{selectedAccountsLabel}</span>
+                    <svg className="h-4 w-4 shrink-0 opacity-70" viewBox="0 0 20 20" fill="none" stroke="currentColor">
+                      <path d="M5 7l5 5 5-5" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+
+                  {accountDropdownOpen && (
+                    <div
+                      className="absolute z-30 mt-2 w-full min-w-[260px] rounded-xl border border-gray-200 bg-white p-2 shadow-xl
+                                dark:border-slate-800 dark:bg-slate-900"
+                    >
+                      <div className="max-h-64 overflow-y-auto">
+                        <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-slate-800">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700"
+                            checked={accountIds.length === 0}
+                            onChange={() => setAccountIds([])}
+                          />
+                          <span className="text-sm text-gray-700 dark:text-slate-200">Todas as contas</span>
+                        </label>
+
+                        {(accounts || []).map((a) => {
+                          const checked = accountIds.includes(String(a.id));
+
+                          return (
+                            <label
+                              key={a.id}
+                              className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 hover:bg-gray-50 dark:hover:bg-slate-800"
+                            >
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 dark:border-slate-700"
+                                checked={checked}
+                                onChange={() => {
+                                  setAccountIds((prev) => {
+                                    const id = String(a.id);
+                                    return prev.includes(id)
+                                      ? prev.filter((x) => x !== id)
+                                      : [...prev, id];
+                                  });
+                                }}
+                              />
+                              <span className="text-sm text-gray-700 dark:text-slate-200">{a.name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between border-t border-gray-100 px-2 pt-2 dark:border-slate-800">
+                        <button
+                          type="button"
+                          onClick={() => setAccountIds([])}
+                          className="text-xs font-semibold text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200"
+                        >
+                          Limpar
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setAccountDropdownOpen(false)}
+                          className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700"
+                        >
+                          OK
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
                 <div>
                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
                     Parcelamento
@@ -1032,8 +1134,12 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
               </div>
 
               <div className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
-                {formatDateBR(t.purchase_date)} • {t.category?.name || '—'} • {t.account?.name || '—'}
+                {formatDateBR(t.purchase_date)} • {t.category?.name || '—'} •{' '}
+                {t.payment_method === 'transfer' && t.transfer_label
+                  ? t.transfer_label
+                  : (t.account?.name || '—')}
               </div>
+
             </div>
           </div>
 
@@ -1076,6 +1182,11 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
             )}
 
             <StatusBadge t={t} />
+            {t.payment_method === 'transfer' && t.transfer_label && (
+              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/25 dark:text-indigo-200">
+                {t.transfer_label}
+              </span>
+            )}
           </div>
         </div>
 
