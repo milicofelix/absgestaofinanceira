@@ -47,13 +47,22 @@ class TransactionController extends Controller
             ->orderByDesc('date')
             ->orderByDesc('id');
 
+        $accountIds = collect($request->input('account_ids', []))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
         if ($request->filled('type')) {
             $query->where('type', $request->string('type')->toString());
         }
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->integer('category_id'));
         }
-        if ($request->filled('account_id')) {
+        if ($accountIds->isNotEmpty()) {
+            $query->whereIn('account_id', $accountIds);
+        } elseif ($request->filled('account_id')) {
+            // compatibilidade com filtro antigo
             $query->where('account_id', $request->integer('account_id'));
         }
         if ($request->filled('q')) {
@@ -81,6 +90,42 @@ class TransactionController extends Controller
 
         $transactions = $query->paginate(15)->withQueryString();
 
+        $transferGroupIds = collect($transactions->items())
+            ->filter(fn ($t) => !empty($t->transfer_group_id))
+            ->pluck('transfer_group_id')
+            ->unique()
+            ->values();
+
+        $transferPairs = collect();
+
+        if ($transferGroupIds->isNotEmpty()) {
+            $transferPairs = Transaction::query()
+                ->where('user_id', $userId)
+                ->whereIn('transfer_group_id', $transferGroupIds)
+                ->with('account:id,name')
+                ->get()
+                ->groupBy('transfer_group_id');
+        }
+
+        $transactions->getCollection()->transform(function ($t) use ($transferPairs) {
+            $transferLabel = null;
+
+            if (!empty($t->transfer_group_id) && $transferPairs->has($t->transfer_group_id)) {
+                $group = $transferPairs[$t->transfer_group_id];
+
+                $expenseTx = $group->firstWhere('type', 'expense');
+                $incomeTx = $group->firstWhere('type', 'income');
+
+                if ($expenseTx && $incomeTx && $expenseTx->account && $incomeTx->account) {
+                    $transferLabel = $expenseTx->account->name . ' → ' . $incomeTx->account->name;
+                }
+            }
+
+            $t->transfer_label = $transferLabel;
+
+            return $t;
+        });
+
         $categories = Category::query()
             ->where('user_id', $userId)
             ->orderBy('type')->orderBy('name')
@@ -97,7 +142,8 @@ class TransactionController extends Controller
                 'month' => $month,
                 'type' => $request->query('type'),
                 'category_id' => $request->query('category_id'),
-                'account_id' => $request->query('account_id'),
+                'account_id' => $request->query('account_id'),      // compatibilidade com filtro antigo    
+                'account_ids' => $accountIds->values()->all(),
                 'q' => $request->query('q'),
                 'installment' => $request->query('installment'),
                 'status' => $request->query('status'),
@@ -107,20 +153,6 @@ class TransactionController extends Controller
             'accounts' => $accounts,
         ]);
     }
-
-    // public function create(Request $request)
-    // {
-    //     $userId = $request->user()->id;
-
-    //     return Inertia::render('Transactions/Form', [
-    //         'mode' => 'create',
-    //         'transaction' => null,
-    //         'return_month' => $request->query('month'),
-    //         'categories' => Category::where('user_id', $userId)->orderBy('type')->orderBy('name')->get(['id','name','type']),
-    //         // (opcional) traz type e statement_close_day caso você queira exibir/ajudar no front
-    //         'accounts' => Account::where('user_id', $userId)->orderBy('name')->get(['id','name','type','statement_close_day']),
-    //     ]);
-    // }
 
     public function create(Request $request)
     {

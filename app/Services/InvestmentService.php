@@ -127,7 +127,7 @@ class InvestmentService
                 'type' => $t->type,
                 'amount' => (float)$t->amount,
                 'description' => $t->description,
-                'is_yield' => str_starts_with((string)$t->description, 'Rendimento CDI'),
+                'is_yield' => str_starts_with((string)$t->description, 'Simulação de rendimento CDI'),
                 'payment_method' => $t->payment_method,
                 'category_id' => $t->category_id,
                 'is_cleared' => (bool)$t->is_cleared,

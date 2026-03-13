@@ -877,7 +877,7 @@ export default function Dashboard({
             {/* top categorias */}
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Top categorias (despesas)</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-slate-100">Despesas por categoria</h3>
                 <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200">
                   {monthLabel}
                 </span>
