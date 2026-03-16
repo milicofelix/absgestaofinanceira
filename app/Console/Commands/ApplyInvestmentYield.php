@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Account;
 use App\Models\Transaction;
+use App\Models\Category;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -35,12 +36,19 @@ class ApplyInvestmentYield extends Command
 
         $countApplied = 0;
 
+        $incomeCategoryIds = Category::query()
+            ->where('type', 'income')
+            ->where('name', 'Rendimentos')
+            ->get(['id', 'user_id'])
+            ->mapWithKeys(fn ($c) => [(int) $c->user_id => (int) $c->id]);
+
+
         Account::query()
             ->where('type', 'investment')
             ->where('yield_enabled', true)
-            ->chunkById(50, function ($accounts) use ($day, $cdi, &$countApplied) {
+            ->chunkById(50, function ($accounts) use ($day, $cdi, $incomeCategoryIds, &$countApplied) {
                 foreach ($accounts as $acc) {
-                    DB::transaction(function () use ($acc, $day, $cdi, &$countApplied) {
+                    DB::transaction(function () use ($acc, $day, $cdi, $incomeCategoryIds, &$countApplied) {
 
                         // idempotência por conta/dia
                         if ($acc->last_yield_date && $acc->last_yield_date === $day->toDateString()) {
@@ -61,9 +69,12 @@ class ApplyInvestmentYield extends Command
 
                         // ignora migalhas
                         if ($rendimento >= 0.01) {
+                            $yieldCategoryId = $incomeCategoryIds->get((int) $acc->user_id);
+
                             Transaction::create([
                                 'user_id' => $acc->user_id,
                                 'account_id' => $acc->id,
+                                'category_id' => $yieldCategoryId,
                                 'type' => 'income',
                                 'amount' => round($rendimento, 2),
                                 'date' => $day->toDateString(),
@@ -75,7 +86,6 @@ class ApplyInvestmentYield extends Command
                                 'cleared_at' => $day->toDateString().' 00:00:00',
                                 'is_transfer' => false,
                             ]);
-
                             $countApplied++;
                         }
 
