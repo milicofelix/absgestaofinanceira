@@ -151,9 +151,8 @@ class DashboardController extends Controller
             ->get()
             ->keyBy('account_id');
 
-        $invoiceAmountAgg = Transaction::query()
+        $invoiceGrossAgg = Transaction::query()
             ->where('user_id', $userId)
-            ->where('type', 'expense')
             ->where('is_transfer', false)
             ->where(function ($q) use ($month, $start, $end) {
                 $q->where('competence_month', $month)
@@ -162,6 +161,18 @@ class DashboardController extends Controller
                          ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
                   });
             })
+            ->selectRaw('account_id')
+            ->selectRaw("COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as exp")
+            ->selectRaw("COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as inc")
+            ->groupBy('account_id')
+            ->get()
+            ->keyBy('account_id');
+
+        $invoicePaidAgg = Transaction::query()
+            ->where('user_id', $userId)
+            ->where('type', 'income')
+            ->where('is_transfer', true)
+            ->where('competence_month', $month)
             ->selectRaw('account_id')
             ->selectRaw('COALESCE(SUM(amount),0) as total')
             ->groupBy('account_id')
@@ -240,7 +251,8 @@ class DashboardController extends Controller
             $monthAgg,
             $cardLimitUsageAgg,
             $invoiceCountAgg,
-            $invoiceAmountAgg,
+            $invoiceGrossAgg,
+            $invoicePaidAgg,
             $previousInvoiceAmountAgg
         ) {
             $initial = (float) ($a->initial_balance ?? 0);
@@ -257,7 +269,9 @@ class DashboardController extends Controller
             $creditLimit = $a->credit_limit !== null ? (float) $a->credit_limit : null;
             $usedLimit = null;
             $availableLimit = null;
-            $invoiceAmount = 0.0;
+            $invoiceAmount = 0.0; // bruto líquido (despesas - reembolsos)
+            $invoicePaidAmount = 0.0;
+            $invoiceOutstandingAmount = 0.0;
             $previousInvoiceAmount = 0.0;
             $invoicePurchaseCount = 0;
 
@@ -272,7 +286,14 @@ class DashboardController extends Controller
                 }
 
                 $invoicePurchaseCount = (int) ($invoiceCountAgg[$a->id]->qty ?? 0);
-                $invoiceAmount = (float) ($invoiceAmountAgg[$a->id]->total ?? 0);
+
+                $grossExp = (float) ($invoiceGrossAgg[$a->id]->exp ?? 0);
+                $grossInc = (float) ($invoiceGrossAgg[$a->id]->inc ?? 0);
+                $invoiceAmount = max(0, $grossExp - $grossInc);
+
+                $invoicePaidAmount = (float) ($invoicePaidAgg[$a->id]->total ?? 0);
+                $invoiceOutstandingAmount = max(0, $invoiceAmount - $invoicePaidAmount);
+
                 $previousInvoiceAmount = (float) ($previousInvoiceAmountAgg[$a->id]->total ?? 0);
             }
 
@@ -291,7 +312,9 @@ class DashboardController extends Controller
                 'available_limit' => $availableLimit,
                 'invoice_purchase_count' => $invoicePurchaseCount,
                 'invoice_amount' => $invoiceAmount,
-                'previous_invoice_amount' => $previousInvoiceAmount,
+                'invoice_paid_amount' => $invoicePaidAmount,
+                'invoice_outstanding_amount' => $invoiceOutstandingAmount,
+                'previous_invoice_amount' => $previousInvoiceAmount, 
             ];
         })->values();
 
@@ -313,6 +336,8 @@ class DashboardController extends Controller
             'total_used' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['used_limit'] ?? 0)),
             'total_available' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['available_limit'] ?? 0)),
             'total_invoice' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['invoice_amount'] ?? 0)),
+            'total_paid_invoice' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['invoice_paid_amount'] ?? 0)),
+            'total_outstanding_invoice' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['invoice_outstanding_amount'] ?? 0)),
             'total_purchase_count' => (int) $cardsOnly->sum(fn ($a) => (int) ($a['invoice_purchase_count'] ?? 0)),
             'total_previous_invoice' => (float) $cardsOnly->sum(fn ($a) => (float) ($a['previous_invoice_amount'] ?? 0)),
             'cards_count' => (int) $cardsOnly->count(),
