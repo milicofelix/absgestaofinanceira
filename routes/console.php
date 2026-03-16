@@ -14,6 +14,7 @@ Schedule::command('recurring:post')
     ->runInBackground();
 
 Schedule::command('investments:apply-yield')
+    ->weekdays()
     ->dailyAt('03:10')
     ->withoutOverlapping()
     ->runInBackground();

@@ -306,25 +306,67 @@ export default function Index({ transactions, filters, categories, accounts }) {
     return (list || []).find((a) => Number(a.id) === Number(id));
   }
 
-  function canShowPayButton(t) {
-    if (t.is_cleared) return false;
-    if (String(t.type || '').toLowerCase() !== 'expense') return false;
+  // function canShowPayButton(t) {
+  //   if (t.is_cleared) return false;
+  //   if (String(t.type || '').toLowerCase() !== 'expense') return false;
 
+  //   const accFromTx = t.account;
+  //   const accFromList = getAccountById(accounts, t.account_id);
+
+  //   const acc =
+  //     accFromTx && (accFromTx.statement_close_day || accFromTx.closing_day) ? accFromTx : accFromList || accFromTx;
+
+  //   if (!acc) return false;
+
+  //   const isCreditCard = String(acc.type || '').toLowerCase() === 'credit_card';
+  //   if (!isCreditCard) return false;
+
+  //   const closingDay = acc.statement_close_day ?? acc.closing_day;
+  //   if (!closingDay) return false;
+
+  //   return isClosedForMonth(month, closingDay);
+  // }
+
+  function canShowPayButton(t) {
     const accFromTx = t.account;
     const accFromList = getAccountById(accounts, t.account_id);
 
     const acc =
-      accFromTx && (accFromTx.statement_close_day || accFromTx.closing_day) ? accFromTx : accFromList || accFromTx;
+      accFromTx && (accFromTx.statement_close_day || accFromTx.closing_day)
+        ? accFromTx
+        : accFromList || accFromTx;
 
-    if (!acc) return false;
+    const result = (() => {
+      if (t.is_cleared) return false;
+      if (String(t.type || '').toLowerCase() !== 'expense') return false;
+      if (!acc) return false;
 
-    const isCreditCard = String(acc.type || '').toLowerCase() === 'credit_card';
-    if (!isCreditCard) return false;
+      const isCreditCard = String(acc.type || '').toLowerCase() === 'credit_card';
+      if (!isCreditCard) return false;
 
-    const closingDay = acc.statement_close_day ?? acc.closing_day;
-    if (!closingDay) return false;
+      const closingDay = acc.statement_close_day ?? acc.closing_day;
+      if (!closingDay) return false;
 
-    return isClosedForMonth(month, closingDay);
+      return isClosedForMonth(month, closingDay);
+    })();
+
+    if (String(t.account_id) === '6' && t.competence_month === '2026-01') {
+      console.log('pay-check jan/2026', {
+        txId: t.id,
+        description: t.description,
+        type: t.type,
+        is_cleared: t.is_cleared,
+        account_id: t.account_id,
+        competence_month: t.competence_month,
+        txAccount: accFromTx,
+        listAccount: accFromList,
+        resolvedAccount: acc,
+        result,
+        month,
+      });
+    }
+
+    return result;
   }
 
   // --------------------------

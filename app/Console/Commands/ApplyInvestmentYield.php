@@ -17,10 +17,16 @@ class ApplyInvestmentYield extends Command
 
     public function handle(): int
     {
-        $date = (string) ($this->argument('date') ?: now()->toDateString());
-
         try {
-            $day = Carbon::createFromFormat('Y-m-d', $date)->startOfDay();
+            $day = $this->argument('date')
+                ? Carbon::createFromFormat('Y-m-d', $this->argument('date'))->startOfDay()
+                : now()->startOfDay();
+
+            if ($day->isWeekend()) {
+                $this->info("Data {$day->toDateString()} é fim de semana. Nenhuma simulação será gerada.");
+                return self::SUCCESS;
+            }
+
         } catch (\Throwable $e) {
             $this->error('Data inválida. Use YYYY-MM-DD.');
             return self::FAILURE;
@@ -35,23 +41,45 @@ class ApplyInvestmentYield extends Command
         }
 
         $countApplied = 0;
+        $countSkipped = 0;
 
         $incomeCategoryIds = Category::query()
             ->where('type', 'income')
-            ->where('name', 'Rendimentos')
-            ->get(['id', 'user_id'])
-            ->mapWithKeys(fn ($c) => [(int) $c->user_id => (int) $c->id]);
-
+            ->orderByRaw("CASE WHEN name = 'Rendimentos' THEN 0 ELSE 1 END")
+            ->orderBy('name')
+            ->get(['id', 'user_id', 'name'])
+            ->groupBy('user_id')
+            ->map(fn ($items) => (int) $items->first()->id);
 
         Account::query()
             ->where('type', 'investment')
             ->where('yield_enabled', true)
-            ->chunkById(50, function ($accounts) use ($day, $cdi, $incomeCategoryIds, &$countApplied) {
+            ->chunkById(50, function ($accounts) use ($day, $cdi, $incomeCategoryIds, &$countApplied, &$countSkipped) {
                 foreach ($accounts as $acc) {
-                    DB::transaction(function () use ($acc, $day, $cdi, $incomeCategoryIds, &$countApplied) {
+                    DB::transaction(function () use ($acc, $day, $cdi, $incomeCategoryIds, &$countApplied, &$countSkipped) {
 
-                        // idempotência por conta/dia
-                        if ($acc->last_yield_date && $acc->last_yield_date === $day->toDateString()) {
+                        // se a simulação já foi aplicada, ignora
+                        $lastYieldDate = $acc->last_yield_date
+                            ? Carbon::parse($acc->last_yield_date)->toDateString()
+                            : null;
+
+                        if ($lastYieldDate === $day->toDateString()) {
+                            $this->line("Simulação já aplicada em {$day->toDateString()} para a conta {$acc->name}.");
+                            $countSkipped++;
+                            return;
+                        }
+
+                        $alreadyExists = Transaction::query()
+                            ->where('user_id', $acc->user_id)
+                            ->where('account_id', $acc->id)
+                            ->where('type', 'income')
+                            ->whereDate('date', $day->toDateString())
+                            ->where('description', 'like', 'Simulação de rendimento CDI%')
+                            ->exists();
+
+                        if ($alreadyExists) {
+                            $this->line("Simulação já registrada em {$day->toDateString()} para a conta {$acc->name}.");
+                            $countSkipped++;
                             return;
                         }
 
@@ -71,6 +99,11 @@ class ApplyInvestmentYield extends Command
                         if ($rendimento >= 0.01) {
                             $yieldCategoryId = $incomeCategoryIds->get((int) $acc->user_id);
 
+                            $cdiPercentValue = (float) ($acc->cdi_percent ?? 100);
+                            $cdiPercentLabel = fmod($cdiPercentValue, 1.0) === 0.0
+                                ? number_format($cdiPercentValue, 0, ',', '.')
+                                : number_format($cdiPercentValue, 2, ',', '.');
+
                             Transaction::create([
                                 'user_id' => $acc->user_id,
                                 'account_id' => $acc->id,
@@ -80,12 +113,13 @@ class ApplyInvestmentYield extends Command
                                 'date' => $day->toDateString(),
                                 'purchase_date' => $day->toDateString(),
                                 'competence_month' => $day->format('Y-m'),
-                                'description' => 'Simulação de rendimento CDI ('.number_format((float)$acc->cdi_percent, 2, ',', '.').'%)',
+                                'description' => 'Simulação de rendimento CDI ('.$cdiPercentLabel.'%)',
                                 'payment_method' => 'other',
                                 'is_cleared' => true,
                                 'cleared_at' => $day->toDateString().' 00:00:00',
                                 'is_transfer' => false,
                             ]);
+                            
                             $countApplied++;
                         }
 
@@ -95,7 +129,7 @@ class ApplyInvestmentYield extends Command
                 }
             });
 
-        $this->info("Rendimentos aplicados: {$countApplied}. CDI do dia: {$cdi}%");
+        $this->info("Simulações aplicadas: {$countApplied}. Ignoradas por duplicidade: {$countSkipped}. CDI usado: {$cdi}%");
         return self::SUCCESS;
     }
 
