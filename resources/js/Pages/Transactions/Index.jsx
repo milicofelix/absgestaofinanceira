@@ -8,7 +8,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
   const [month, setMonth] = useState(filters.month || new Date().toISOString().slice(0, 7));
   const [type, setType] = useState(filters.type || '');
   const [categoryId, setCategoryId] = useState(filters.category_id || '');
-  //const [accountId, setAccountId] = useState(filters.account_id || '');
+
   const [accountIds, setAccountIds] = useState(
     Array.isArray(filters.account_ids)
       ? filters.account_ids.map(String)
@@ -509,14 +509,51 @@ export default function Index({ transactions, filters, categories, accounts }) {
                 </div>
               ) : details ? (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <InfoBox label="Valor (lançamento)" value={formatBRL(details.transaction.amount)} />
-                    <InfoBox label="Data" value={formatDateBR(details.transaction.date)} />
-                    <InfoBox label="Compra" value={formatDateBR(details.transaction.purchase_date)} />
-                    <InfoBox label="Competência" value={details.transaction.competence_month || '—'} />
-                    <InfoBox label="Conta" value={details.transaction.account?.name || '—'} />
-                    <InfoBox label="Categoria" value={details.transaction.category?.name || '—'} />
-                  </div>
+                  {(() => {
+                    const tx = details.transaction;
+                    const isInvestmentSimulation = isInvestmentSimulationTx(tx);
+
+                    return (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <InfoBox
+                          label={isInvestmentSimulation ? 'Valor da simulação' : 'Valor (lançamento)'}
+                          value={formatBRL(tx.amount)}
+                        />
+
+                        <InfoBox
+                          label={isInvestmentSimulation ? 'Data da simulação' : 'Data'}
+                          value={formatDateBR(tx.date)}
+                        />
+
+                        <InfoBox
+                          label={isInvestmentSimulation ? 'Referência' : 'Compra'}
+                          value={formatDateBR(tx.purchase_date)}
+                        />
+
+                        <InfoBox
+                          label="Competência"
+                          value={tx.competence_month || '—'}
+                        />
+
+                        <InfoBox
+                          label={isInvestmentSimulation ? 'Conta de investimento' : 'Conta'}
+                          value={tx.account?.name || '—'}
+                        />
+
+                        <InfoBox
+                          label="Categoria"
+                          value={tx.category?.name || '—'}
+                        />
+
+                        {isInvestmentSimulation && (
+                          <InfoBox
+                            label="Pagamento"
+                            value="Simulação automática"
+                          />
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {details.summary?.is_installment && (
                     <div className="rounded-2xl bg-violet-50/60 p-4 ring-1 ring-violet-200 dark:bg-violet-900/10 dark:ring-violet-900/40">
@@ -1046,6 +1083,10 @@ function getClearedLabel(transaction) {
   return transaction.is_cleared ? 'Paga' : 'Em aberto';
 }
 
+function isInvestmentSimulationTx(t) {
+  return String(t?.description || '').startsWith('Simulação de rendimento CDI');
+}
+
 /* ---------- UI bits: payment/account/status + icons ---------- */
 
 function PaymentIcon({ method, className = '' }) {
@@ -1151,7 +1192,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
 
             <span className="inline-flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1 font-semibold text-gray-700 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-200 dark:ring-slate-800">
               <PaymentIcon method={t.payment_method} />
-              {PaymentLabel(t.payment_method)}
+              {isInvestmentSimulationTx(t) ? 'Simulação automática' : PaymentLabel(t.payment_method)}
             </span>
           </div>
 
@@ -1310,9 +1351,11 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
 
               {t.purchase_date && t.purchase_date !== t.date && (
                 <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
-                  Compra {formatDateBR(t.purchase_date)}
+                  {isInvestmentSimulationTx(t) ? 'Referência ' : 'Compra '}
+                  {formatDateBR(t.purchase_date)}
                 </span>
               )}
+
             </div>
           </div>
         </div>
@@ -1336,7 +1379,9 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
           <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gray-100 ring-1 ring-gray-200 dark:bg-slate-800 dark:ring-slate-700">
             <PaymentIcon method={t.payment_method} />
           </span>
-          <span className="truncate font-semibold">{PaymentLabel(t.payment_method)}</span>
+          <span className="truncate font-semibold">
+            {isInvestmentSimulationTx(t) ? 'Simulação automática' : PaymentLabel(t.payment_method)}
+          </span>
         </div>
       </td>
 
