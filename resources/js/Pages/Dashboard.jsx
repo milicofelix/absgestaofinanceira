@@ -148,7 +148,7 @@ export default function Dashboard({
 
     if (!isClosedForMonth(selectedMonth, closingDay)) return false;
 
-    return Math.abs(Number(a?.balance || 0)) > 0.00001;
+    return Number(a?.invoice_outstanding_amount || 0) > 0.00001;
   }
 
   const bankAccounts = useMemo(
@@ -210,7 +210,7 @@ export default function Dashboard({
     const bank = bankAccounts.find((b) => Number(b.id) === bankId);
     const bankBalance = bank && bank.balance !== undefined ? Number(bank.balance || 0) : null;
 
-    const cardDebt = Math.max(0, Math.abs(Number(payCard?.balance || 0)));
+    const cardDebt = Math.max(0, Number(payCard?.invoice_outstanding_amount || 0));
     if (bankBalance !== null && cardDebt > 0 && bankBalance + 1e-9 < cardDebt) {
       setPayInvoiceError(
         `Saldo insuficiente na conta "${bank?.name}". Disponível: ${formatBRL(bankBalance)}. Necessário aprox.: ${formatBRL(cardDebt)}.`
@@ -242,6 +242,103 @@ export default function Dashboard({
 
   function payInvoice(cardAccount) {
     openPayInvoiceModal(cardAccount);
+  }
+
+  // --------------------------
+  // Modal antecipar fatura
+  // --------------------------
+  const [advanceInvoiceOpen, setAdvanceInvoiceOpen] = useState(false);
+  const [advanceCard, setAdvanceCard] = useState(null);
+  const [advanceInvoiceBankId, setAdvanceInvoiceBankId] = useState('');
+  const [advanceInvoiceDate, setAdvanceInvoiceDate] = useState(new Date().toISOString().slice(0, 10));
+  const [advanceAmount, setAdvanceAmount] = useState('');
+  const [advanceDescription, setAdvanceDescription] = useState('');
+  const [advanceNote, setAdvanceNote] = useState('');
+  const [advanceInvoiceError, setAdvanceInvoiceError] = useState('');
+
+  function openAdvanceInvoiceModal(cardAccount) {
+    if (!bankAccounts.length) {
+      alert('Cadastre uma conta bancária para registrar a antecipação do cartão.');
+      return;
+    }
+
+    setAdvanceInvoiceError('');
+    setAdvanceCard(cardAccount);
+    setAdvanceInvoiceBankId(String(bankAccounts[0]?.id || ''));
+    setAdvanceInvoiceDate(new Date().toISOString().slice(0, 10));
+    setAdvanceAmount('');
+    setAdvanceDescription(`Antecipação fatura: ${cardAccount?.name} (${selectedMonth})`);
+    setAdvanceNote('');
+    setAdvanceInvoiceOpen(true);
+  }
+
+  function closeAdvanceInvoiceModal() {
+    setAdvanceInvoiceOpen(false);
+    setAdvanceCard(null);
+    setAdvanceAmount('');
+    setAdvanceDescription('');
+    setAdvanceNote('');
+    setAdvanceInvoiceError('');
+  }
+
+  function confirmAdvanceInvoice() {
+    if (!advanceCard) return;
+
+    const bankId = Number(advanceInvoiceBankId);
+    if (!bankId || !bankAccounts.some((b) => Number(b.id) === bankId)) {
+      setAdvanceInvoiceError('Conta inválida.');
+      return;
+    }
+
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(advanceInvoiceDate || ''))) {
+      setAdvanceInvoiceError('Data inválida.');
+      return;
+    }
+
+    const amount = Number(advanceAmount);
+    if (!amount || amount <= 0) {
+      setAdvanceInvoiceError('Informe um valor válido para antecipação.');
+      return;
+    }
+
+    const outstanding = Number(advanceCard?.invoice_outstanding_amount || 0);
+    if (amount - outstanding > 0.00001) {
+      setAdvanceInvoiceError(`O valor excede o saldo em aberto da fatura (${formatBRL(outstanding)}).`);
+      return;
+    }
+
+    const bank = bankAccounts.find((b) => Number(b.id) === bankId);
+    const bankBalance = bank && bank.balance !== undefined ? Number(bank.balance || 0) : null;
+    if (bankBalance !== null && bankBalance + 1e-9 < amount) {
+      setAdvanceInvoiceError(
+        `Saldo insuficiente na conta "${bank?.name}". Disponível: ${formatBRL(bankBalance)}. Necessário: ${formatBRL(amount)}.`
+      );
+      return;
+    }
+
+    setAdvanceInvoiceError('');
+
+    router.post(
+      route('credit-cards.advance-invoice', advanceCard.id),
+      {
+        month: selectedMonth,
+        paid_bank_account_id: bankId,
+        paid_at: advanceInvoiceDate,
+        amount,
+        description: advanceDescription || undefined,
+        note: advanceNote || undefined,
+      },
+      {
+        preserveScroll: true,
+        onSuccess: () => closeAdvanceInvoiceModal(),
+        onError: (errors) => {
+          const msg =
+            (errors && (errors.message || errors.error || errors.amount || errors.paid_at || errors.paid_bank_account_id || errors.month)) ||
+            'Não foi possível registrar a antecipação.';
+          setAdvanceInvoiceError(String(msg));
+        },
+      },
+    );
   }
 
   return (
@@ -349,6 +446,127 @@ export default function Dashboard({
                   className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                 >
                   Confirmar pagamento
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {advanceInvoiceOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAdvanceInvoiceModal} aria-hidden="true" />
+          <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-lg ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-lg font-bold text-gray-900 dark:text-slate-100">Antecipar valor da fatura</div>
+                <div className="mt-1 text-sm text-gray-600 dark:text-slate-300">
+                  {advanceCard?.name} · {formatMonthPtBR(selectedMonth)}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={closeAdvanceInvoiceModal}
+                className="rounded-lg px-2 py-1 text-sm font-semibold text-gray-500 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-800"
+                title="Fechar"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                  Conta pagadora
+                </label>
+                <select
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-sky-500 focus:ring-sky-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  value={advanceInvoiceBankId}
+                  onChange={(e) => setAdvanceInvoiceBankId(e.target.value)}
+                >
+                  {bankAccounts.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                  Data
+                </label>
+                <input
+                  type="date"
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-sky-500 focus:ring-sky-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  value={advanceInvoiceDate}
+                  onChange={(e) => setAdvanceInvoiceDate(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                  Valor
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-sky-500 focus:ring-sky-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  value={advanceAmount}
+                  onChange={(e) => setAdvanceAmount(e.target.value)}
+                />
+                <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                  Em aberto: <span className="font-semibold">{formatBRL(advanceCard?.invoice_outstanding_amount || 0)}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                  Descrição
+                </label>
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-sky-500 focus:ring-sky-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  value={advanceDescription}
+                  onChange={(e) => setAdvanceDescription(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                  Observação
+                </label>
+                <textarea
+                  rows={3}
+                  className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-sky-500 focus:ring-sky-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                  value={advanceNote}
+                  onChange={(e) => setAdvanceNote(e.target.value)}
+                />
+              </div>
+
+              {advanceInvoiceError && (
+                <div className="rounded-lg bg-rose-50 p-3 text-sm font-semibold text-rose-800 dark:bg-rose-900/25 dark:text-rose-200">
+                  {advanceInvoiceError}
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={closeAdvanceInvoiceModal}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="button"
+                  onClick={confirmAdvanceInvoice}
+                  className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+                >
+                  Confirmar antecipação
                 </button>
               </div>
             </div>
@@ -672,7 +890,7 @@ export default function Dashboard({
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-5">
+              <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-7">
                 <InfoPill
                   label="Limite total"
                   value={formatBRL(cardsSummary.total_limit || 0)}
@@ -698,6 +916,17 @@ export default function Dashboard({
                   value={formatBRL(cardsSummary.total_previous_invoice || 0)}
                   tone="gray"
                 />
+                <InfoPill
+                  label="Pago / adiantado"
+                  value={formatBRL(cardsSummary.total_paid_invoice || 0)}
+                  tone="emerald"
+                />
+
+                <InfoPill
+                  label="Em aberto"
+                  value={formatBRL(cardsSummary.total_outstanding_invoice || 0)}
+                  tone="amber"
+                />
               </div>
             </div>
           )}
@@ -722,6 +951,9 @@ export default function Dashboard({
               <ul className="space-y-4">
                 {visibleAccounts.map((a) => {
                   const isCard = String(a.type || '').toLowerCase() === 'credit_card';
+                  const canAdvanceInvoice = isCard && Number(a?.invoice_outstanding_amount || 0) > 0.00001;
+                  const canPayInvoice = canShowPayInvoiceButton(a, selectedMonth);
+
                   const balanceValue = Number(a.balance || 0);
 
                   return (
@@ -767,7 +999,6 @@ export default function Dashboard({
                             </div>
                           </div>
                           {!isCard && (
-                            
                             <div className="mt-4 flex flex-wrap gap-2">
                               <InfoPill label="Inicial" value={formatBRL(a.initial_balance || 0)} tone="gray" />
                               <InfoPill label="Entradas" value={formatBRL(a.income || 0)} tone="green" />
@@ -783,6 +1014,18 @@ export default function Dashboard({
                                   label="Fatura atual"
                                   value={formatBRL(a.invoice_amount || 0)}
                                   tone="violet"
+                                />
+
+                                <InfoPill
+                                  label="Pago / adiantado"
+                                  value={formatBRL(a.invoice_paid_amount || 0)}
+                                  tone="emerald"
+                                />
+
+                                <InfoPill
+                                  label="Em aberto"
+                                  value={formatBRL(a.invoice_outstanding_amount || 0)}
+                                  tone="amber"
                                 />
 
                                 <InfoPill
@@ -818,16 +1061,28 @@ export default function Dashboard({
                                 )}
                               </div>
 
-                              {canShowPayInvoiceButton(a, selectedMonth) && (
-                                <div className="mt-4">
-                                  <button
-                                    type="button"
-                                    onClick={() => payInvoice(a)}
-                                    className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/25 dark:text-emerald-200 dark:hover:bg-emerald-900/35"
-                                    title="Pagar fatura do cartão"
-                                  >
-                                    ✓ Pagar fatura
-                                  </button>
+                              {(canPayInvoice || canAdvanceInvoice) && (
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  {canPayInvoice && (
+                                    <button
+                                      type="button"
+                                      onClick={() => payInvoice(a)}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/25 dark:text-emerald-200 dark:hover:bg-emerald-900/35"
+                                      title="Pagar fatura do cartão"
+                                    >
+                                      ✓ Pagar fatura
+                                    </button>
+                                  )}
+
+                                  {canAdvanceInvoice && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openAdvanceInvoiceModal(a)}
+                                      className="inline-flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-900/25 dark:text-sky-200 dark:hover:bg-sky-900/35"
+                                    >
+                                      ↗ Antecipar valor
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </div>

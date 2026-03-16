@@ -86,7 +86,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/settings/theme', [ThemeSettingsController::class, 'edit'])->name('settings.theme.edit');
     Route::put('/settings/theme', [ThemeSettingsController::class, 'update'])->name('settings.theme.update');
 
-    // Cartão de crédito - faturas
+    // Cartão de crédito - pagamento e antecipação de faturas
+    Route::post('/credit-cards/{account}/advance-invoice', [CreditCardInvoiceController::class, 'advance'])
+    ->name('credit-cards.advance-invoice');
     Route::post('/credit-cards/{account}/pay-invoice', [CreditCardInvoiceController::class, 'pay'])
         ->name('credit-cards.pay-invoice');
 

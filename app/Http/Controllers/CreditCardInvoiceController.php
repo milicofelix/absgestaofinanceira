@@ -4,29 +4,34 @@ namespace App\Http\Controllers;
 
 use App\Models\Account;
 use App\Models\Transaction;
+use App\Services\CreditCardInvoiceAdvanceService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
 
 class CreditCardInvoiceController extends Controller
 {
-    public function pay(Request $request, Account $account)
+    public function __construct(
+        protected CreditCardInvoiceAdvanceService $advanceService
+    ) {
+    }
+
+    public function advance(Request $request, Account $account)
     {
         $userId = $request->user()->id;
-
-        // garante que a conta é do usuário
         abort_unless($account->user_id === $userId, 404);
 
-        // validações básicas
         $data = $request->validate([
             'month' => ['required', 'regex:/^\d{4}-\d{2}$/'],
             'paid_bank_account_id' => ['required', 'integer'],
             'paid_at' => ['nullable', 'date'],
+            'amount' => ['required', 'numeric', 'gt:0'],
+            'description' => ['nullable', 'string', 'max:255'],
+            'note' => ['nullable', 'string'],
         ]);
 
-        if (strtolower((string) $account->type) !== 'credit_card') {
+        if ((string) $account->type !== 'credit_card') {
             return back()->with('error', 'Esta conta não é um cartão de crédito.');
         }
 
@@ -35,64 +40,66 @@ class CreditCardInvoiceController extends Controller
             ->where('id', $data['paid_bank_account_id'])
             ->firstOrFail();
 
-        if (strtolower((string) $bank->type) === 'credit_card') {
+        $this->advanceService->createAdvance(
+            $account,
+            $bank,
+            $data['month'],
+            (float) $data['amount'],
+            $data['paid_at'] ?? null,
+            $data['description'] ?? null,
+            $data['note'] ?? null
+        );
+
+        return redirect()
+            ->route('dashboard', ['month' => $data['month']])
+            ->with('success', 'Antecipação da fatura registrada com sucesso!');
+    }
+
+    public function pay(Request $request, Account $account)
+    {
+        $userId = $request->user()->id;
+        abort_unless($account->user_id === $userId, 404);
+
+        $data = $request->validate([
+            'month' => ['required', 'regex:/^\d{4}-\d{2}$/'],
+            'paid_bank_account_id' => ['required', 'integer'],
+            'paid_at' => ['nullable', 'date'],
+        ]);
+
+        if ((string) $account->type !== 'credit_card') {
+            return back()->with('error', 'Esta conta não é um cartão de crédito.');
+        }
+
+        $bank = Account::query()
+            ->where('user_id', $userId)
+            ->where('id', $data['paid_bank_account_id'])
+            ->firstOrFail();
+
+        if ((string) $bank->type === 'credit_card') {
             return back()->with('error', 'A conta pagadora deve ser bancária (não cartão).');
         }
 
         $month = $data['month'];
         $paidAt = Carbon::parse($data['paid_at'] ?? now())->toDateString();
 
+        $remainingAmount = $this->advanceService->getOutstandingAmount($userId, (int) $account->id, $month);
+
+        if ($remainingAmount <= 0.00001) {
+            return back()->with('error', 'Não há saldo em aberto para esta fatura.');
+        }
+
         $start = Carbon::createFromFormat('Y-m', $month)->startOfMonth();
         $end   = (clone $start)->endOfMonth();
 
-        /**
-         * Calcula a “fatura do mês” do cartão SOMENTE com lançamentos reais (is_transfer = false)
-         * e por competência (com fallback).
-         *
-         * Observação importante:
-         * Você pode ter convenção diferente de sinal (cartão mostrando dívida positiva ou negativa).
-         * Então aqui eu faço um cálculo "adaptativo" por diferença entre inc e exp.
-         */
-        $cardAgg = Transaction::query()
-            ->where('user_id', $userId)
-            ->where('account_id', $account->id)
-            ->where('is_transfer', false)
-            ->where(function ($q) use ($month, $start, $end) {
-                $q->where('competence_month', $month)
-                  ->orWhere(function ($q2) use ($start, $end) {
-                      $q2->whereNull('competence_month')
-                         ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                  });
-            })
-            ->selectRaw("COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE 0 END),0) as inc")
-            ->selectRaw("COALESCE(SUM(CASE WHEN type='expense' THEN amount ELSE 0 END),0) as exp")
-            ->first();
-
-        $inc = (float) ($cardAgg->inc ?? 0);
-        $exp = (float) ($cardAgg->exp ?? 0);
-
-        $diff = $inc - $exp;         // positivo => “mais income”; negativo => “mais expense”
-        $invoiceAmount = abs($diff); // total a “zerar” no mês (aproximação bem consistente)
-
-        if ($invoiceAmount <= 0.00001) {
-            return back()->with('error', 'Não há fatura em aberto para este mês.');
-        }
-
-        // Regra de compensação do cartão (adaptativa):
-        // - Se exp > inc (diff negativo): o cartão “fica devendo” por expense -> pagar criando INCOME no cartão
-        // - Se inc > exp (diff positivo): o cartão “fica devendo” por income -> pagar criando EXPENSE no cartão
-        $cardPaymentType = ($diff < 0) ? 'income' : 'expense';
-
-        DB::transaction(function () use ($userId, $bank, $account, $month, $paidAt, $invoiceAmount, $cardPaymentType, $start, $end) {
+        DB::transaction(function () use ($userId, $bank, $account, $month, $paidAt, $remainingAmount, $start, $end) {
             $desc = "Pagamento fatura: {$account->name} ({$month})";
             $group = (string) Str::uuid();
 
-            // 1) Saída do BANCO
             Transaction::create([
                 'user_id' => $userId,
                 'transfer_group_id' => $group,
                 'type' => 'expense',
-                'amount' => $invoiceAmount,
+                'amount' => $remainingAmount,
                 'date' => $paidAt,
                 'competence_month' => $month,
                 'description' => $desc,
@@ -103,12 +110,11 @@ class CreditCardInvoiceController extends Controller
                 'is_cleared' => true,
             ]);
 
-            // 2) Compensação no CARTÃO (income OU expense conforme convenção do seu saldo)
             Transaction::create([
                 'user_id' => $userId,
                 'transfer_group_id' => $group,
-                'type' => $cardPaymentType,
-                'amount' => $invoiceAmount,
+                'type' => 'income',
+                'amount' => $remainingAmount,
                 'date' => $paidAt,
                 'competence_month' => $month,
                 'description' => $desc,
@@ -119,21 +125,20 @@ class CreditCardInvoiceController extends Controller
                 'is_cleared' => true,
             ]);
 
-            // 3) Marca como pagas as transações reais da fatura desse cartão/mês
             Transaction::query()
                 ->where('user_id', $userId)
                 ->where('account_id', $account->id)
                 ->where('is_transfer', false)
                 ->where(function ($q) use ($month, $start, $end) {
                     $q->where('competence_month', $month)
-                    ->orWhere(function ($q2) use ($start, $end) {
-                        $q2->whereNull('competence_month')
-                            ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                    });
+                        ->orWhere(function ($q2) use ($start, $end) {
+                            $q2->whereNull('competence_month')
+                                ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+                        });
                 })
                 ->where(function ($q) {
                     $q->where('is_cleared', false)
-                    ->orWhereNull('is_cleared');
+                        ->orWhereNull('is_cleared');
                 })
                 ->update([
                     'is_cleared' => true,
@@ -144,7 +149,7 @@ class CreditCardInvoiceController extends Controller
         });
 
         return redirect()
-                ->route('dashboard', ['month' => $month])
-                ->with('success', 'Fatura paga com sucesso!');
+            ->route('dashboard', ['month' => $month])
+            ->with('success', 'Fatura paga com sucesso!');
     }
 }
