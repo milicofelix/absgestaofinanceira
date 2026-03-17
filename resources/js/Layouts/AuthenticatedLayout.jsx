@@ -2,6 +2,7 @@ import Dropdown from '@/Components/Dropdown';
 import ResponsiveNavLink from '@/Components/ResponsiveNavLink';
 import { Link, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
+import FlashToast from '@/Components/FlashToast';
 
 export default function AuthenticatedLayout({ header, children }) {
   const page = usePage();
@@ -100,284 +101,287 @@ export default function AuthenticatedLayout({ header, children }) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 overflow-x-hidden transition-colors">
-      {/* Overlay mobile */}
-      <div
-        className={`fixed left-0 right-0 top-0 bottom-0 z-40 bg-black/40 transition-opacity sm:hidden ${
-          sidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
-        }`}
-        onClick={() => setSidebarOpen(false)}
-      />
+    <>
+      <FlashToast />
+      <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-gray-900 dark:text-slate-100 overflow-x-hidden transition-colors">
+        {/* Overlay mobile */}
+        <div
+          className={`fixed left-0 right-0 top-0 bottom-0 z-40 bg-black/40 transition-opacity sm:hidden ${
+            sidebarOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
+          }`}
+          onClick={() => setSidebarOpen(false)}
+        />
 
-      {/* Sidebar */}
-      <aside
-        className={[
-          'fixed left-0 top-0 z-50 h-full w-72 transform border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-transform',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-          sidebarCollapsed ? 'sm:-translate-x-full' : 'sm:translate-x-0',
-          'sm:block',
-        ].join(' ')}
-      >
-        <div className="flex h-16 items-center justify-between border-b border-gray-100 dark:border-slate-800 px-4">
-          <Link href={route('dashboard')} className="inline-flex items-center gap-3">
-            <img
-              src="/images/abs_logo_light.png"
-              alt="ABS Gestão Financeira"
-              className="h-20 w-auto dark:hidden"
-            />
-            <img
-              src="/images/abs_logo_dark.png"
-              alt="ABS Gestão Financeira"
-              className="hidden h-20 w-auto dark:block"
-            />
-          </Link>
+        {/* Sidebar */}
+        <aside
+          className={[
+            'fixed left-0 top-0 z-50 h-full w-72 transform border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 transition-transform',
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+            sidebarCollapsed ? 'sm:-translate-x-full' : 'sm:translate-x-0',
+            'sm:block',
+          ].join(' ')}
+        >
+          <div className="flex h-16 items-center justify-between border-b border-gray-100 dark:border-slate-800 px-4">
+            <Link href={route('dashboard')} className="inline-flex items-center gap-3">
+              <img
+                src="/images/abs_logo_light.png"
+                alt="ABS Gestão Financeira"
+                className="h-20 w-auto dark:hidden"
+              />
+              <img
+                src="/images/abs_logo_dark.png"
+                alt="ABS Gestão Financeira"
+                className="hidden h-20 w-auto dark:block"
+              />
+            </Link>
 
-          <button
-            className="rounded-md p-2 text-gray-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 sm:hidden"
-            onClick={() => setSidebarOpen(false)}
-            aria-label="Fechar menu"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-              <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="px-3 py-4">
-          <div className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-400">
-            Menu
+            <button
+              className="rounded-md p-2 text-gray-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-800 sm:hidden"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Fechar menu"
+            >
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          <nav className="space-y-1">
-            {navItems.map((item) => {
-              const hasChildren = Array.isArray(item.children) && item.children.length > 0;
-              if (!hasChildren) {
+          <div className="px-3 py-4">
+            <div className="mb-3 px-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-slate-400">
+              Menu
+            </div>
+
+            <nav className="space-y-1">
+              {navItems.map((item) => {
+                const hasChildren = Array.isArray(item.children) && item.children.length > 0;
+                if (!hasChildren) {
+                  return (
+                    <SidebarLink
+                      key={item.name}
+                      href={item.href}
+                      active={item.active}
+                      badge={item.badge}
+                      badgeTone={item.badgeTone}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      {item.name}
+                    </SidebarLink>
+                  );
+                }
+
                 return (
-                  <SidebarLink
+                  <SidebarGroup
                     key={item.name}
-                    href={item.href}
-                    active={item.active}
-                    badge={item.badge}
-                    badgeTone={item.badgeTone}
-                    onClick={() => setSidebarOpen(false)}
-                  >
-                    {item.name}
-                  </SidebarLink>
+                    item={item}
+                    open={openGroup === item.name}
+                    onToggle={() => setOpenGroup((v) => (v === item.name ? null : item.name))}
+                    onNavigate={() => setSidebarOpen(false)}
+                  />
                 );
-              }
+              })}
+            </nav>
 
-              return (
-                <SidebarGroup
-                  key={item.name}
-                  item={item}
-                  open={openGroup === item.name}
-                  onToggle={() => setOpenGroup((v) => (v === item.name ? null : item.name))}
-                  onNavigate={() => setSidebarOpen(false)}
-                />
-              );
-            })}
-          </nav>
-
-          <div className="mt-6 border-t border-gray-100 dark:border-slate-800 pt-4">
-            <div className="px-2">
-              <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">{user.name}</div>
-              <div className="text-xs text-gray-500 dark:text-slate-400">{user.email}</div>
-            </div>
-
-            <div className="mt-3 space-y-1">
-              <SidebarLink href={route('profile.edit')} active={route().current('profile.edit')}>
-                Perfil
-              </SidebarLink>
-
-              <Link
-                href={route('logout')}
-                method="post"
-                as="button"
-                className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-              >
-                Sair
-              </Link>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main area */}
-      <div className={sidebarCollapsed ? 'sm:pl-0' : 'sm:pl-72'}>
-        {/* Top bar */}
-        <nav className="sticky top-0 z-30 border-b border-gray-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur transition-colors">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex h-16 items-center justify-between">
-              <div className="flex items-center gap-3">
-                {/* Mobile hamburger */}
-                <button
-                  onClick={() => setSidebarOpen(true)}
-                  className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 sm:hidden"
-                  aria-label="Abrir menu"
-                >
-                  <svg className="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-
-                {/* Desktop toggle sidebar */}
-                <button
-                  type="button"
-                  onClick={() => setSidebarCollapsed((v) => !v)}
-                  className="hidden sm:inline-flex items-center justify-center rounded-md p-2 text-gray-600 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800"
-                  aria-label={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
-                  title={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
-                >
-                  {sidebarCollapsed ? (
-                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M3 6h18M3 18h18" />
-                    </svg>
-                  ) : (
-                    <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                      <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 6h7M4 12h7M4 18h7M15 6h5M15 12h5M15 18h5" />
-                    </svg>
-                  )}
-                </button>
-
-                {/* Title */}
-                <div className="hidden sm:block">
-                  <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">ABS Gestão Financeira</div>
-                  <div className="text-xs text-gray-500 dark:text-slate-400">Controle de gastos</div>
-                </div>
+            <div className="mt-6 border-t border-gray-100 dark:border-slate-800 pt-4">
+              <div className="px-2">
+                <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">{user.name}</div>
+                <div className="text-xs text-gray-500 dark:text-slate-400">{user.email}</div>
               </div>
 
-              {/* Desktop quick action */}
-              {!hideQuickLaunchButton && (
-                <div className="hidden items-center gap-2 sm:flex">
-                  <Link
-                    href={route('transactions.create')}
-                    className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
+              <div className="mt-3 space-y-1">
+                <SidebarLink href={route('profile.edit')} active={route().current('profile.edit')}>
+                  Perfil
+                </SidebarLink>
+
+                <Link
+                  href={route('logout')}
+                  method="post"
+                  as="button"
+                  className="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                >
+                  Sair
+                </Link>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Main area */}
+        <div className={sidebarCollapsed ? 'sm:pl-0' : 'sm:pl-72'}>
+          {/* Top bar */}
+          <nav className="sticky top-0 z-30 border-b border-gray-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur transition-colors">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="flex h-16 items-center justify-between">
+                <div className="flex items-center gap-3">
+                  {/* Mobile hamburger */}
+                  <button
+                    onClick={() => setSidebarOpen(true)}
+                    className="inline-flex items-center justify-center rounded-md p-2 text-gray-600 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800 sm:hidden"
+                    aria-label="Abrir menu"
                   >
-                    + Lançamento
-                  </Link>
+                    <svg className="h-6 w-6" stroke="currentColor" fill="none" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                    </svg>
+                  </button>
+
+                  {/* Desktop toggle sidebar */}
+                  <button
+                    type="button"
+                    onClick={() => setSidebarCollapsed((v) => !v)}
+                    className="hidden sm:inline-flex items-center justify-center rounded-md p-2 text-gray-600 dark:text-slate-200 hover:bg-gray-100 dark:hover:bg-slate-800"
+                    aria-label={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
+                    title={sidebarCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
+                  >
+                    {sidebarCollapsed ? (
+                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M3 12h18M3 6h18M3 18h18" />
+                      </svg>
+                    ) : (
+                      <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" d="M4 6h7M4 12h7M4 18h7M15 6h5M15 12h5M15 18h5" />
+                      </svg>
+                    )}
+                  </button>
+
+                  {/* Title */}
+                  <div className="hidden sm:block">
+                    <div className="text-sm font-semibold text-gray-900 dark:text-slate-100">ABS Gestão Financeira</div>
+                    <div className="text-xs text-gray-500 dark:text-slate-400">Controle de gastos</div>
+                  </div>
                 </div>
-              )}
 
-              {/* User dropdown */}
-              <div className="flex items-center">
-                <div className="relative">
-                  <Dropdown>
-                    <Dropdown.Trigger>
-                      <span className="inline-flex rounded-md">
-                        <button
-                          type="button"
-                          className="inline-flex items-center rounded-md border border-transparent bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold leading-4 text-gray-600 dark:text-slate-200 transition hover:text-gray-900 dark:hover:text-white focus:outline-none"
-                        >
-                          {user.name}
-                          <svg
-                            className="-me-0.5 ms-2 h-4 w-4"
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </button>
-                      </span>
-                    </Dropdown.Trigger>
-
-                    <Dropdown.Content>
-                      <Dropdown.Link href={route('profile.edit')}>Perfil</Dropdown.Link>
-                      <Dropdown.Link href={route('logout')} method="post" as="button">
-                        Sair
-                      </Dropdown.Link>
-                    </Dropdown.Content>
-                  </Dropdown>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Mobile quick links */}
-          <div className="border-t border-gray-100 dark:border-slate-800 px-4 py-2 sm:hidden">
-            <div className="flex gap-2 overflow-x-auto whitespace-nowrap py-1 scrollbar-hide">
-              <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')}>
-                Dashboard
-              </ResponsiveNavLink>
-
-              <ResponsiveNavLink href={route('transactions.index')} active={route().current('transactions.*')}>
-                Lançamentos
-              </ResponsiveNavLink>
-
-              <ResponsiveNavLink href={route('budgets.index')} active={route().current('budgets.*')}>
-                Metas
-              </ResponsiveNavLink>
-
-              <ResponsiveNavLink href={route('investments.index')} active={route().current('investments.*')}>
-                Investimentos
-              </ResponsiveNavLink>
-
-              {/* Transferências dropdown */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setOpenGroup((v) => (v === '__top_transfers__' ? null : '__top_transfers__'))}
-                  className={[
-                    'inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition',
-                    route().current('transfers.*') || route().current('transfer_contacts.*')
-                      ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
-                      : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
-                  ].join(' ')}
-                >
-                  Transferências
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-
-                {openGroup === '__top_transfers__' && (
-                  <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 p-1 shadow-lg ring-1 ring-gray-200 dark:ring-slate-800">
+                {/* Desktop quick action */}
+                {!hideQuickLaunchButton && (
+                  <div className="hidden items-center gap-2 sm:flex">
                     <Link
-                      href={route('transfers.create')}
-                      className={[
-                        'block rounded-lg px-3 py-2 text-sm font-semibold transition',
-                        route().current('transfers.*')
-                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
-                          : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
-                      ].join(' ')}
-                      onClick={() => setOpenGroup(null)}
+                      href={route('transactions.create')}
+                      className="inline-flex items-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
                     >
-                      Nova transferência
-                    </Link>
-                    <Link
-                      href={route('transfer_contacts.index')}
-                      className={[
-                        'block rounded-lg px-3 py-2 text-sm font-semibold transition',
-                        route().current('transfer_contacts.*')
-                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
-                          : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
-                      ].join(' ')}
-                      onClick={() => setOpenGroup(null)}
-                    >
-                      Contatos
+                      + Lançamento
                     </Link>
                   </div>
                 )}
+
+                {/* User dropdown */}
+                <div className="flex items-center">
+                  <div className="relative">
+                    <Dropdown>
+                      <Dropdown.Trigger>
+                        <span className="inline-flex rounded-md">
+                          <button
+                            type="button"
+                            className="inline-flex items-center rounded-md border border-transparent bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold leading-4 text-gray-600 dark:text-slate-200 transition hover:text-gray-900 dark:hover:text-white focus:outline-none"
+                          >
+                            {user.name}
+                            <svg
+                              className="-me-0.5 ms-2 h-4 w-4"
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </button>
+                        </span>
+                      </Dropdown.Trigger>
+
+                      <Dropdown.Content>
+                        <Dropdown.Link href={route('profile.edit')}>Perfil</Dropdown.Link>
+                        <Dropdown.Link href={route('logout')} method="post" as="button">
+                          Sair
+                        </Dropdown.Link>
+                      </Dropdown.Content>
+                    </Dropdown>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </nav>
 
-        {/* Header */}
-        {header && (
-          <header className="bg-white dark:bg-slate-900 shadow-sm ring-1 ring-transparent dark:ring-slate-800 transition-colors">
-            <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{header}</div>
-          </header>
-        )}
+            {/* Mobile quick links */}
+            <div className="border-t border-gray-100 dark:border-slate-800 px-4 py-2 sm:hidden">
+              <div className="flex gap-2 overflow-x-auto whitespace-nowrap py-1 scrollbar-hide">
+                <ResponsiveNavLink href={route('dashboard')} active={route().current('dashboard')}>
+                  Dashboard
+                </ResponsiveNavLink>
 
-        <main>{children}</main>
+                <ResponsiveNavLink href={route('transactions.index')} active={route().current('transactions.*')}>
+                  Lançamentos
+                </ResponsiveNavLink>
+
+                <ResponsiveNavLink href={route('budgets.index')} active={route().current('budgets.*')}>
+                  Metas
+                </ResponsiveNavLink>
+
+                <ResponsiveNavLink href={route('investments.index')} active={route().current('investments.*')}>
+                  Investimentos
+                </ResponsiveNavLink>
+
+                {/* Transferências dropdown */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setOpenGroup((v) => (v === '__top_transfers__' ? null : '__top_transfers__'))}
+                    className={[
+                      'inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm font-semibold transition',
+                      route().current('transfers.*') || route().current('transfer_contacts.*')
+                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                        : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
+                    ].join(' ')}
+                  >
+                    Transferências
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+
+                  {openGroup === '__top_transfers__' && (
+                    <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl bg-white dark:bg-slate-900 p-1 shadow-lg ring-1 ring-gray-200 dark:ring-slate-800">
+                      <Link
+                        href={route('transfers.create')}
+                        className={[
+                          'block rounded-lg px-3 py-2 text-sm font-semibold transition',
+                          route().current('transfers.*')
+                            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                            : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
+                        ].join(' ')}
+                        onClick={() => setOpenGroup(null)}
+                      >
+                        Nova transferência
+                      </Link>
+                      <Link
+                        href={route('transfer_contacts.index')}
+                        className={[
+                          'block rounded-lg px-3 py-2 text-sm font-semibold transition',
+                          route().current('transfer_contacts.*')
+                            ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200'
+                            : 'text-gray-700 dark:text-slate-200 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-900 dark:hover:text-white',
+                        ].join(' ')}
+                        onClick={() => setOpenGroup(null)}
+                      >
+                        Contatos
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </nav>
+
+          {/* Header */}
+          {header && (
+            <header className="bg-white dark:bg-slate-900 shadow-sm ring-1 ring-transparent dark:ring-slate-800 transition-colors">
+              <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">{header}</div>
+            </header>
+          )}
+
+          <main>{children}</main>
+        </div>
       </div>
-    </div>
-  );
+    </>
+    );
 }
 
 function SidebarLink({ href, active, children, onClick, badge, badgeTone = 'gray' }) {
