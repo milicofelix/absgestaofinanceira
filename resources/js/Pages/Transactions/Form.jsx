@@ -27,6 +27,7 @@ export default function Form({ mode, transaction, categories, accounts, return_f
     return_type: return_filters?.type ?? '',
     return_category_id: return_filters?.category_id ?? '',
     return_account_id: return_filters?.account_id ?? '',
+    return_account_ids: return_filters?.account_ids ?? [],
     return_q: return_filters?.q ?? '',
     return_installment: return_filters?.installment ?? '',
     return_status: return_filters?.status ?? '',
@@ -158,14 +159,23 @@ export default function Form({ mode, transaction, categories, accounts, return_f
     // CREATE: parcelado -> installments.store
     if (canInstallment && data.is_installment) {
       const installmentPayload = {
-        account_id: data.account_id,
-        category_id: data.category_id || null,
-        description: data.description,
-        total_amount: data.amount,
-        installments_count: data.installments_count,
-        purchase_date: data.date,
-        first_due_date: null, // backend calcula com statement_close_day
-      };
+      account_id: data.account_id,
+      category_id: data.category_id || null,
+      description: data.description,
+      total_amount: data.amount,
+      installments_count: data.installments_count,
+      purchase_date: data.date,
+      first_due_date: null,
+
+      return_month: data.return_month,
+      return_type: data.return_type,
+      return_category_id: data.return_category_id,
+      return_account_id: data.return_account_id,
+      return_account_ids: data.return_account_ids,
+      return_q: data.return_q,
+      return_installment: data.return_installment,
+      return_status: data.return_status,
+    };
 
       return router.post(route('installments.store'), installmentPayload, {
         preserveScroll: true,
@@ -596,14 +606,15 @@ export default function Form({ mode, transaction, categories, accounts, return_f
               <div className="flex items-center justify-between pt-4">
                 <Link
                   href={route('transactions.index', {
-                  month: return_filters?.month || undefined,
-                  type: return_filters?.type || undefined,
-                  category_id: return_filters?.category_id || undefined,
-                  account_id: return_filters?.account_id || undefined,
-                  q: return_filters?.q || undefined,
-                  installment: return_filters?.installment || undefined,
-                  status: return_filters?.status || undefined,
-                })}
+                    month: return_filters?.month || undefined,
+                    type: return_filters?.type || undefined,
+                    category_id: return_filters?.category_id || undefined,
+                    account_id: return_filters?.account_id || undefined,
+                    account_ids: return_filters?.account_ids?.length ? return_filters.account_ids : undefined,
+                    q: return_filters?.q || undefined,
+                    installment: return_filters?.installment || undefined,
+                    status: return_filters?.status || undefined,
+                  })}
                   className="text-sm font-semibold text-gray-600 hover:text-gray-800 hover:underline dark:text-slate-300 dark:hover:text-slate-100"
                 >
                   Voltar

@@ -163,6 +163,7 @@ class TransactionController extends Controller
             'type' => $request->query('type'),
             'category_id' => $request->query('category_id'),
             'account_id' => $request->query('account_id'),
+            'account_ids' => array_values(array_filter((array) $request->query('account_ids', []), fn ($id) => is_numeric($id))),
             'q' => $request->query('q'),
             'installment' => $request->query('installment'),
             'status' => $request->query('status'),
@@ -225,7 +226,7 @@ class TransactionController extends Controller
             throw $e;
         }
 
-        return redirect()->route('transactions.index', array_filter([
+       $params = array_filter([
             'month' => $competenceMonth,
             'type' => $request->input('return_type'),
             'category_id' => $request->input('return_category_id'),
@@ -233,7 +234,21 @@ class TransactionController extends Controller
             'q' => $request->input('return_q'),
             'installment' => $request->input('return_installment'),
             'status' => $request->input('return_status'),
-        ], fn ($value) => $value !== null && $value !== ''))->with('success', 'Lançamento criado com sucesso!');
+        ], fn ($value) => $value !== null && $value !== '');
+
+        $accountIds = collect((array) $request->input('return_account_ids', []))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if (!empty($accountIds)) {
+            $params['account_ids'] = $accountIds;
+        }
+
+        return redirect()
+            ->route('transactions.index', $params)
+            ->with('success', 'Lançamento criado com sucesso!');
     }
 
     public function edit(Transaction $transaction, Request $request)
@@ -247,6 +262,7 @@ class TransactionController extends Controller
             'type' => $request->query('type'),
             'category_id' => $request->query('category_id'),
             'account_id' => $request->query('account_id'),
+            'account_ids' => array_values(array_filter((array) $request->query('account_ids', []), fn ($id) => is_numeric($id))),
             'q' => $request->query('q'),
             'installment' => $request->query('installment'),
             'status' => $request->query('status'),
@@ -391,7 +407,7 @@ class TransactionController extends Controller
             throw $e;
         }
 
-        return redirect()->route('transactions.index', array_filter([
+        $params = array_filter([
             'month' => $competenceMonth,
             'type' => $request->input('return_type'),
             'category_id' => $request->input('return_category_id'),
@@ -399,7 +415,21 @@ class TransactionController extends Controller
             'q' => $request->input('return_q'),
             'installment' => $request->input('return_installment'),
             'status' => $request->input('return_status'),
-        ], fn ($value) => $value !== null && $value !== ''))->with('success', 'Transação atualizada.');
+        ], fn ($value) => $value !== null && $value !== '');
+
+        $accountIds = collect((array) $request->input('return_account_ids', []))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if (!empty($accountIds)) {
+            $params['account_ids'] = $accountIds;
+        }
+
+        return redirect()
+            ->route('transactions.index', $params)
+            ->with('success', 'Transação atualizada.');
     }
 
     public function destroy(Transaction $transaction, Request $request)
@@ -410,7 +440,7 @@ class TransactionController extends Controller
 
         $transaction->delete();
 
-        return redirect()->route('transactions.index', array_filter([
+        $params = array_filter([
             'month' => $request->query('month') ?: $fallbackMonth,
             'type' => $request->query('type'),
             'category_id' => $request->query('category_id'),
@@ -418,7 +448,21 @@ class TransactionController extends Controller
             'q' => $request->query('q'),
             'installment' => $request->query('installment'),
             'status' => $request->query('status'),
-        ], fn ($value) => $value !== null && $value !== ''))->with('success', 'Transação excluida.');
+        ], fn ($value) => $value !== null && $value !== '');
+
+        $accountIds = collect((array) $request->query('account_ids', []))
+            ->filter(fn ($id) => is_numeric($id))
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
+        if (!empty($accountIds)) {
+            $params['account_ids'] = $accountIds;
+        }
+
+        return redirect()
+            ->route('transactions.index', $params)
+            ->with('success', 'Transação excluida.');
     }
 
     private function computeCompetenceMonth(Account $account, string $dateYmd): string
