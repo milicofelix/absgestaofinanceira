@@ -79,7 +79,7 @@ class AccountController extends Controller
 
         Account::create($data);
 
-        return redirect()->route('accounts.index');
+        return redirect()->route('accounts.index')->with('success', 'Conta criada com sucesso!');
     }
 
     public function edit(Account $account, Request $request)
@@ -129,7 +129,7 @@ class AccountController extends Controller
 
         $account->update($payload);
 
-        return redirect()->route('accounts.index');
+        return redirect()->route('accounts.index')->with('success', 'Conta atualizada com sucesso!');
     }
 
     public function destroy(Account $account, Request $request)
@@ -137,6 +137,6 @@ class AccountController extends Controller
         abort_unless($account->user_id === $request->user()->id, 403);
         $account->delete();
 
-        return redirect()->route('accounts.index');
+        return redirect()->route('accounts.index')->with('success', 'Conta excluida com sucesso!');
     }
 }

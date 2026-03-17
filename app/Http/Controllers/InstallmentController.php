@@ -21,7 +21,7 @@ class InstallmentController extends Controller
 
     return redirect()->route('transactions.index', [
       'month' => now()->format('Y-m'),
-    ]);
+    ])->with('success', 'Parcela criada com sucesso!');
   }
 
   public function cancel(StoreInstallmentRequest $request, Installment $installment)
@@ -40,7 +40,7 @@ class InstallmentController extends Controller
         ->delete();
     });
 
-    return back();
+    return back()->with('success', 'Parcela cancelada com sucesso!');
   }
 }
 

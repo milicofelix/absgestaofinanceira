@@ -61,7 +61,7 @@ class TransferContactController extends Controller
             'contact_user_id' => (int) $data['contact_user_id'],
         ]);
 
-        return redirect()->route('transfer_contacts.index');
+        return redirect()->route('transfer_contacts.index')->with('success', 'Transferencia criada com sucesso!');
     }
 
     public function destroy(Request $request, int $contactUserId)
@@ -73,7 +73,7 @@ class TransferContactController extends Controller
             ->where('contact_user_id', $contactUserId)
             ->delete();
 
-        return redirect()->route('transfer_contacts.index');
+        return redirect()->route('transfer_contacts.index')->with('success', 'Transferencia excluida com sucesso!');
     }
 }
 
