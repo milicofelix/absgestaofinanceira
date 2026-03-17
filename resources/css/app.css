@@ -8,3 +8,11 @@
 .dark input[type="time"] {
   color-scheme: dark;
 }
+@keyframes toast-shrink {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}
