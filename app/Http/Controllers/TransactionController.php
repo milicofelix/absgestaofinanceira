@@ -181,59 +181,6 @@ class TransactionController extends Controller
         ]);
     }
 
-    // public function store(StoreTransactionRequest $request)
-    // {
-    //     $userId = $request->user()->id;
-
-    //     $categoryOk = Category::where('id', $request->integer('category_id'))->where('user_id', $userId)->exists();
-    //     $account = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->first();
-    //     abort_unless($categoryOk && $account, 422);
-
-    //     $dateYmd = $request->date('date')->format('Y-m-d');
-
-    //      // ✅ data da compra
-    //     $purchaseYmd = $dateYmd;
-
-    //     //  calcula competência
-    //     $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
-
-    //     $idemKey = $this->buildIdempotencyKey(
-    //         $userId,
-    //         (int) $account->id,
-    //         (string) $request->string('type'),
-    //         $purchaseYmd,
-    //         $request->input('amount'),
-    //         $request->input('description')
-    //     );
-
-    //     try {
-    //         Transaction::create([
-    //             'user_id' => $userId,
-    //             'type' => $request->string('type'),
-    //             'amount' => $request->input('amount'),
-    //             'date' => $dateYmd,
-    //             'purchase_date' => $dateYmd,
-    //             'competence_month' => $competenceMonth, // ✅ NOVO
-    //             'description' => $request->input('description'),
-    //             'category_id' => $request->integer('category_id'),
-    //             'account_id' => $account->id,
-    //             'payment_method' => $request->input('payment_method'),
-    //             'idempotency_key' => $idemKey,
-    //         ]);
-    //     } catch (QueryException $e) {
-    //         // 1062 = duplicate key (MySQL)
-    //         if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
-    //             return back()->withErrors([
-    //                 'description' => 'Parece um lançamento duplicado (mesma conta, tipo, data da compra e valor). Confira antes de salvar.',
-    //             ])->withInput();
-    //         }
-    //         throw $e;
-    //     }
-
-    //     // ✅ redireciona para o mês de COMPETÊNCIA (pra compra do dia 31/jan cair em fev, por exemplo)
-    //     return redirect()->route('transactions.index', ['month' => $competenceMonth]);
-    // }
-
     public function store(StoreTransactionRequest $request)
     {
         $userId = $request->user()->id;
@@ -286,7 +233,7 @@ class TransactionController extends Controller
             'q' => $request->input('return_q'),
             'installment' => $request->input('return_installment'),
             'status' => $request->input('return_status'),
-        ], fn ($value) => $value !== null && $value !== ''));
+        ], fn ($value) => $value !== null && $value !== ''))->with('success', 'Lançamento criado com sucesso!');
     }
 
     public function edit(Transaction $transaction, Request $request)
@@ -444,7 +391,6 @@ class TransactionController extends Controller
             throw $e;
         }
 
-        //return redirect()->route('transactions.index', ['month' => $competenceMonth]);
         return redirect()->route('transactions.index', array_filter([
             'month' => $competenceMonth,
             'type' => $request->input('return_type'),
@@ -453,25 +399,8 @@ class TransactionController extends Controller
             'q' => $request->input('return_q'),
             'installment' => $request->input('return_installment'),
             'status' => $request->input('return_status'),
-        ], fn ($value) => $value !== null && $value !== ''));
+        ], fn ($value) => $value !== null && $value !== ''))->with('success', 'Transação atualizada.');
     }
-
-    // public function destroy(Transaction $transaction, Request $request)
-    // {
-    //     abort_unless($transaction->user_id === $request->user()->id, 403);
-    //      // ✅ mês de contexto (tela/lista que o usuário estava)
-    //     $returnMonth = $request->query('month');
-
-    //     // fallback: mês do próprio lançamento (se não veio month)
-    //     $fallbackMonth = $transaction->competence_month
-    //         ?: $transaction->date->format('Y-m');
-
-    //     $transaction->delete();
-
-    //     return redirect()->route('transactions.index', [
-    //         'month' => $returnMonth ?: $fallbackMonth,
-    //     ]);
-    // }
 
     public function destroy(Transaction $transaction, Request $request)
     {
@@ -489,7 +418,7 @@ class TransactionController extends Controller
             'q' => $request->query('q'),
             'installment' => $request->query('installment'),
             'status' => $request->query('status'),
-        ], fn ($value) => $value !== null && $value !== ''));
+        ], fn ($value) => $value !== null && $value !== ''))->with('success', 'Transação excluida.');
     }
 
     private function computeCompetenceMonth(Account $account, string $dateYmd): string

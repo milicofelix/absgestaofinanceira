@@ -25,7 +25,7 @@ class CategoryBudgetDefaultController extends Controller
 
         return redirect()->route('budgets.index', [
             'month' => $request->input('month', now()->format('Y-m')),
-        ]);
+        ])->with('success', 'Meta criada com sucesso!');
     }
 
     public function update(UpdateCategoryBudgetDefaultRequest $request, CategoryBudgetDefault $budgetDefault)
@@ -38,7 +38,7 @@ class CategoryBudgetDefaultController extends Controller
 
         return redirect()->route('budgets.index', [
             'month' => $request->input('month', now()->format('Y-m')),
-        ]);
+        ])->with('success', 'Meta atualizada com sucesso!');
     }
 
     public function destroy(Request $request, CategoryBudgetDefault $budgetDefault)
@@ -49,6 +49,6 @@ class CategoryBudgetDefaultController extends Controller
 
         return redirect()->route('budgets.index', [
             'month' => $request->query('month', now()->format('Y-m')),
-        ]);
+        ])->with('success', 'Meta excluida com sucesso!');
     }
 }

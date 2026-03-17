@@ -63,7 +63,7 @@ class RecurringTransactionController extends Controller
 
     RecurringTransaction::create($data);
 
-    return redirect()->route('recurrings.index');
+    return redirect()->route('recurrings.index')->with('success', 'Recorrente criado com sucesso!');
   }
 
   public function edit(Request $request, RecurringTransaction $recurring)
@@ -127,14 +127,14 @@ class RecurringTransactionController extends Controller
 
     $recurring->update($data);
 
-    return redirect()->route('recurrings.index');
+    return redirect()->route('recurrings.index')->with('success', 'Recorrente atualizado com sucesso!');
   }
 
   public function destroy(Request $request, RecurringTransaction $recurring)
   {
     abort_unless($recurring->user_id === $request->user()->id, 403);
     $recurring->delete();
-    return redirect()->route('recurrings.index');
+    return redirect()->route('recurrings.index')->with('success', 'Recorrente excluida com sucesso!');
   }
 }
 

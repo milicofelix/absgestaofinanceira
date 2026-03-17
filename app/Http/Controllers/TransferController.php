@@ -224,7 +224,7 @@ class TransferController extends Controller
         }
 
         $month = substr($date, 0, 7);
-        return redirect()->route('transactions.index', ['month' => $month]);
+        return redirect()->route('transactions.index', ['month' => $month])->with('success', 'Transferência criada com sucesso!');
     }
 
     public function recipientSearch(Request $request)
