@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Services\InstallmentService;
 use App\Http\Requests\StoreInstallmentRequest;
+use Symfony\Component\HttpFoundation\Request;
 use App\Models\Installment;
 use App\Models\Transaction;
 use DB;
-
 class InstallmentController extends Controller
 {
   public function store(StoreInstallmentRequest $request, InstallmentService $service)
@@ -24,7 +24,7 @@ class InstallmentController extends Controller
     ])->with('success', 'Parcela criada com sucesso!');
   }
 
-  public function cancel(StoreInstallmentRequest $request, Installment $installment)
+  public function cancel(Request $request, Installment $installment)
   {
     abort_unless($installment->user_id === $request->user()->id, 403);
 
