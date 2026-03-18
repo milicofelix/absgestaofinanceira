@@ -25,27 +25,21 @@ class TransactionController extends Controller
         $end   = (clone $start)->endOfMonth();
 
        $query = Transaction::query()
-            ->where('user_id', $userId)
-            ->where(function ($q) use ($month, $start, $end) {
-                $q->where('competence_month', $month)
-                ->orWhere(function ($q2) use ($start, $end) {
-                    $q2->whereNull('competence_month')
-                        ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
-                });
-            })
-            ->with([
-                'category:id,name',
-                'account:id,name,type,statement_close_day',
-                'installment:id,installments_count,is_active'
-            ])
-
-            // ✅ 1) primeiro as NÃO parceladas (installment_id NULL)
-            // ✅ 2) depois as parceladas (installment_id NOT NULL)
-            ->orderByRaw('(installment_id IS NOT NULL) ASC')
-
-            // ✅ dentro de cada grupo, mantém por data/id
-            ->orderByDesc('date')
-            ->orderByDesc('id');
+        ->where('user_id', $userId)
+        ->where(function ($q) use ($month, $start, $end) {
+            $q->where('competence_month', $month)
+            ->orWhere(function ($q2) use ($start, $end) {
+                $q2->whereNull('competence_month')
+                    ->whereBetween('date', [$start->toDateString(), $end->toDateString()]);
+            });
+        })
+        ->with([
+            'category:id,name',
+            'account:id,name,type,statement_close_day',
+            'installment:id,installments_count,is_active'
+        ])
+        ->orderByDesc('date')
+        ->orderByDesc('id');
 
         $accountIds = collect($request->input('account_ids', []))
             ->filter(fn ($id) => is_numeric($id))

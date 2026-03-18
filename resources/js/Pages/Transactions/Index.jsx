@@ -386,19 +386,35 @@ export default function Index({ transactions, filters, categories, accounts }) {
   }
 
   // --------------------------
-  // ✅ AGRUPAMENTO (front-only)
+  // ✅ AGRUPAMENTO PARCELAS 
   // --------------------------
   const data = transactions?.data || [];
 
-  const normalRows = useMemo(
-    () => data.filter((t) => !isOldInstallment(t)),
-    [data],
-  );
+  const normalRows = useMemo(() => {
+    return data
+      .filter((t) => !shouldGroupAsPreviousInstallment(t, month, accounts))
+      .slice()
+      .sort((a, b) => {
+        const da = getDisplayDate(a, month, accounts);
+        const db = getDisplayDate(b, month, accounts);
 
-  const installmentRows = useMemo(
-    () => data.filter((t) => isOldInstallment(t)),
-    [data],
-  );
+        if (da !== db) return db.localeCompare(da);
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
+  }, [data, month, accounts]);
+
+  const installmentRows = useMemo(() => {
+    return data
+      .filter((t) => shouldGroupAsPreviousInstallment(t, month, accounts))
+      .slice()
+      .sort((a, b) => {
+        const da = String(a?.date || '').slice(0, 10);
+        const db = String(b?.date || '').slice(0, 10);
+
+        if (da !== db) return db.localeCompare(da);
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
+  }, [data, month, accounts]);
 
   const showInstallmentHeader = installmentRows.length > 0;
   const headerTitle = 'Compras parceladas anteriores';
@@ -1068,13 +1084,126 @@ function isInstallment(t) {
   return !!t?.installment_id;
 }
 
-function isOldInstallment(t) {
-  if (!t?.installment_id) return false;
+function parseYmdToLocalDate(ymd) {
+  const v = String(ymd || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return null;
 
-  const n = Number(t.installment_number || 0);
+  const [y, m, d] = v.split('-').map(Number);
+  const date = new Date(y, m - 1, d, 12, 0, 0, 0); // meio-dia evita bugs de timezone
+  return Number.isNaN(date.getTime()) ? null : date;
+}
 
-  // somente parcelas > 1 entram no agrupamento
-  return n > 1;
+function parseYm(ym) {
+  const v = String(ym || '').slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(v)) return null;
+  const [y, m] = v.split('-').map(Number);
+  return { y, m };
+}
+
+function daysInMonth(y, m1to12) {
+  return new Date(y, m1to12, 0).getDate();
+}
+
+function buildDateSafe(y, m1to12, d) {
+  const last = daysInMonth(y, m1to12);
+  return new Date(y, m1to12 - 1, Math.min(Math.max(1, d), last), 12, 0, 0, 0);
+}
+
+/**
+ * Retorna a janela de compras que alimenta a competência/fatura selecionada,
+ * com base no fechamento do cartão.
+ *
+ * Exemplo simplificado:
+ * competência 2026-04 e fechamento dia 20
+ * -> compras entre 21/02 e 20/03 entram na fatura/competência 2026-04
+ *
+ * Isso casa com a lógica do backend atual do ABS, onde competence_month
+ * representa o mês da fatura/vencimento.
+ */
+  function getPurchaseCycleRangeForCompetence(selectedMonth, closingDay) {
+    const ym = parseYm(selectedMonth);
+    if (!ym) return null;
+
+    const close = Number(closingDay || 0);
+    if (!close) return null;
+
+    const competenceStart = buildDateSafe(ym.y, ym.m, 1);
+
+    // mês anterior à competência
+    const prevMonthDate = new Date(ym.y, ym.m - 2, 1, 12, 0, 0, 0);
+    const prev2MonthDate = new Date(ym.y, ym.m - 3, 1, 12, 0, 0, 0);
+
+    const prevY = prevMonthDate.getFullYear();
+    const prevM = prevMonthDate.getMonth() + 1;
+
+    const prev2Y = prev2MonthDate.getFullYear();
+    const prev2M = prev2MonthDate.getMonth() + 1;
+
+    // fim da janela = dia de fechamento do mês anterior à competência
+    const end = buildDateSafe(prevY, prevM, close);
+
+    // início da janela = dia seguinte ao fechamento do mês retrasado
+    const prev2Close = buildDateSafe(prev2Y, prev2M, close);
+    const start = new Date(prev2Close);
+    start.setDate(start.getDate() + 1);
+
+    return { start, end, competenceStart };
+  }
+
+  function isWithinRange(date, start, end) {
+    if (!date || !start || !end) return false;
+    return date >= start && date <= end;
+  }
+
+  function resolveCardAccountFromTx(t, accounts) {
+    const accFromTx = t?.account || null;
+    const accFromList = (accounts || []).find((a) => Number(a.id) === Number(t?.account_id)) || null;
+
+    const acc =
+      accFromTx && (accFromTx.statement_close_day || accFromTx.closing_day || accFromTx.type)
+        ? accFromTx
+        : accFromList || accFromTx;
+
+    return acc;
+  }
+
+  /**
+   * Regra de agrupamento "nível cartão":
+   * - só agrupa parceladas
+   * - só agrupa quando for cartão de crédito com fechamento configurado
+   * - mantém no fluxo normal as compras que pertencem ao ciclo atual da competência filtrada
+   * - manda para "parceladas anteriores" apenas as que ficaram fora desse ciclo
+   *
+   * Fallback seguro:
+   * - se não conseguir determinar ciclo/cartão/data, usa regra simples: parcelas > 1 agrupam
+   */
+  function shouldGroupAsPreviousInstallment(t, selectedMonth, accounts = []) {
+    if (!t?.installment_id) return false;
+
+    const installmentNumber = Number(t?.installment_number || 0);
+
+    const acc = resolveCardAccountFromTx(t, accounts);
+    const isCreditCard = String(acc?.type || '').toLowerCase() === 'credit_card';
+    const closingDay = Number(acc?.statement_close_day ?? acc?.closing_day ?? 0);
+
+    const purchaseDate = parseYmdToLocalDate(t?.purchase_date);
+    const range = getPurchaseCycleRangeForCompetence(selectedMonth, closingDay);
+
+    // fallback: se não conseguir calcular bem, usa a regra simples
+    if (!isCreditCard || !closingDay || !purchaseDate || !range) {
+      return installmentNumber > 1;
+    }
+
+  const belongsToCurrentCycle = isWithinRange(purchaseDate, range.start, range.end);
+
+  // Se a compra pertence ao ciclo atual da competência filtrada,
+  // ela fica na ordem normal da listagem.
+  if (belongsToCurrentCycle) {
+    return false;
+  }
+
+  // Fora do ciclo atual: trata como parcelada anterior.
+  return true;
 }
 
 // ✅ "Novo": prioriza created_at (se existir), fallback para date
@@ -1130,6 +1259,21 @@ function Pagination({ links }) {
       </div>
     </div>
   );
+}
+
+function getDisplayDate(t, selectedMonth, accounts = []) {
+  const acc = resolveCardAccountFromTx(t, accounts);
+  const isCreditCard = String(acc?.type || '').toLowerCase() === 'credit_card';
+
+  if (
+    isCreditCard &&
+    t?.purchase_date &&
+    !shouldGroupAsPreviousInstallment(t, selectedMonth, accounts)
+  ) {
+    return String(t.purchase_date).slice(0, 10);
+  }
+
+  return String(t?.date || '').slice(0, 10);
 }
 
 function formatBRL(v) {
@@ -1208,7 +1352,7 @@ function InfoBox({ label, value }) {
 
 /* ---------- MOBILE CARD (extraído p/ não duplicar lógica) ---------- */
 
-function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails, queryParams }) {
+function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails, queryParams, accounts }) {
   const showNew = isNewTx(t, 24);
 
   return (
@@ -1377,7 +1521,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
 
 /* ---------- DESKTOP ROW (extraído) ---------- */
 
-function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails, queryParams }) {
+function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails, queryParams, accounts }) {
   const tone = rowTone(t);
   const showNew = isNewTx(t, 24);
 
@@ -1387,7 +1531,7 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
       onClick={() => onOpenDetails?.(t)}
     >
       <td className={['px-3 py-3 text-gray-700 dark:text-slate-200 whitespace-nowrap', tone.cell, tone.left].join(' ')}>
-        {formatDateBR(t.date)}
+        {formatDateBR(getDisplayDate(t, month, queryParams?.accounts || []))}
       </td>
 
       <td className={['px-3 py-3', tone.cell].join(' ')}>
