@@ -43,6 +43,29 @@ export default function Index({ transactions, filters, categories, accounts }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    setMonth(filters.month || new Date().toISOString().slice(0, 7));
+    setType(filters.type || '');
+    setCategoryId(filters.category_id || '');
+    setAccountIds(
+      Array.isArray(filters.account_ids)
+        ? filters.account_ids.map(String)
+        : (filters.account_id ? [String(filters.account_id)] : [])
+    );
+    setQ(filters.q || '');
+    setInstallmentFilter(filters.installment || '');
+    setStatus(filters.status || '');
+  }, [
+    filters.month,
+    filters.type,
+    filters.category_id,
+    filters.account_id,
+    JSON.stringify(filters.account_ids || []),
+    filters.q,
+    filters.installment,
+    filters.status,
+  ]);
+
   const selectedAccountsLabel = useMemo(() => {
   if (!accountIds.length) return 'Todas';
 
@@ -392,16 +415,14 @@ export default function Index({ transactions, filters, categories, accounts }) {
           <Link
             className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
             href={route('transactions.create', {
-              month: filters.month || undefined,
-              type: filters.type || undefined,
-              category_id: filters.category_id || undefined,
-              // account_id: filters.account_id || undefined,
-              // account_ids: filters.account_ids?.length ? filters.account_ids : undefined,
-              account_id: filters.account_ids?.[0] || filters.account_id || undefined,
-              q: filters.q || undefined,
-              installment: filters.installment || undefined,
-              status: filters.status || undefined,
-            })}
+            month: queryParams.month || undefined,
+            type: queryParams.type || undefined,
+            category_id: queryParams.category_id || undefined,
+            account_ids: queryParams.account_ids?.length ? queryParams.account_ids : undefined,
+            q: queryParams.q || undefined,
+            installment: queryParams.installment || undefined,
+            status: queryParams.status || undefined,
+          })}
             >
             + Novo lançamento
           </Link>
@@ -924,6 +945,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     markAsCleared={markAsCleared}
                     canShowPayButton={canShowPayButton}
                     onOpenDetails={openDetails}
+                    queryParams={queryParams}
                   />
                 ))}
 
@@ -944,6 +966,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     markAsCleared={markAsCleared}
                     canShowPayButton={canShowPayButton}
                     onOpenDetails={openDetails} 
+                     queryParams={queryParams}
                   />
                 ))}
               </>
@@ -996,6 +1019,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           canShowPayButton={canShowPayButton}
                           onOpenDetails={openDetails}
                           accounts={accounts}
+                          queryParams={queryParams}
                         />
                       ))}
 
@@ -1021,6 +1045,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                           canShowPayButton={canShowPayButton}
                           onOpenDetails={openDetails}
                           accounts={accounts}
+                          queryParams={queryParams}
                         />
                       ))}
                     </>
@@ -1041,12 +1066,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
 function isInstallment(t) {
   return !!t?.installment_id;
-}
-
-function monthStart(yyyyMm) {
-  const v = String(yyyyMm || '').slice(0, 7);
-  if (!/^\d{4}-\d{2}$/.test(v)) return null;
-  return `${v}-01`;
 }
 
 function isOldInstallment(t) {
@@ -1189,7 +1208,7 @@ function InfoBox({ label, value }) {
 
 /* ---------- MOBILE CARD (extraído p/ não duplicar lógica) ---------- */
 
-function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails }) {
+function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails, queryParams }) {
   const showNew = isNewTx(t, 24);
 
   return (
@@ -1291,7 +1310,16 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
           <div className="mt-2 flex justify-end gap-2">
             <Link
               onClick={(e) => e.stopPropagation()}
-              href={route('transactions.edit', { transaction: t.id, month })}
+              href={route('transactions.edit', {
+                transaction: t.id,
+                month: queryParams?.month || month,
+                type: queryParams?.type || undefined,
+                category_id: queryParams?.category_id || undefined,
+                account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
+                q: queryParams?.q || undefined,
+                installment: queryParams?.installment || undefined,
+                status: queryParams?.status || undefined,
+              })}
               className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
               title="Editar"
             >
@@ -1325,7 +1353,18 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
             <button
               className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
               title="Excluir"
-              onClick={(e) => { e.stopPropagation(); confirm('Excluir este lançamento?') && router.delete(route('transactions.destroy', t.id))}}
+              onClick={(e) => { e.stopPropagation(); confirm('Excluir este lançamento?') && router.delete(
+                                                                                              route('transactions.destroy', {
+                                                                                                transaction: t.id,
+                                                                                                month: queryParams?.month || month,
+                                                                                                type: queryParams?.type || undefined,
+                                                                                                category_id: queryParams?.category_id || undefined,
+                                                                                                account_ids: queryParams?.account_ids?.length ? queryParams.accountIds : undefined,
+                                                                                                q: queryParams?.q || undefined,
+                                                                                                installment: queryParams?.installment || undefined,
+                                                                                                status: queryParams?.status || undefined,
+                                                                                              })
+                                                                                            )}}
             >
               <IconTrash />
             </button>
@@ -1338,7 +1377,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
 
 /* ---------- DESKTOP ROW (extraído) ---------- */
 
-function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails }) {
+function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpenDetails, queryParams }) {
   const tone = rowTone(t);
   const showNew = isNewTx(t, 24);
 
@@ -1452,7 +1491,16 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
           <Link
             onClick={(e) => e.stopPropagation()}
             className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-            href={route('transactions.edit', { transaction: t.id, month })}
+            href={route('transactions.edit', {
+              transaction: t.id,
+              month: queryParams?.month || month,
+              type: queryParams?.type || undefined,
+              category_id: queryParams?.category_id || undefined,
+              account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
+              q: queryParams?.q || undefined,
+              installment: queryParams?.installment || undefined,
+              status: queryParams?.status || undefined,
+            })}
             title="Editar"
           >
             <IconEdit />
@@ -1491,7 +1539,18 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
             onClick={(e) => {
               e.stopPropagation();
               confirm('Excluir este lançamento?') &&
-                router.delete(route('transactions.destroy', { transaction: t.id, month }));
+                router.delete(
+                  route('transactions.destroy', {
+                    transaction: t.id,
+                    month: queryParams?.month || month,
+                    type: queryParams?.type || undefined,
+                    category_id: queryParams?.category_id || undefined,
+                    account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
+                    q: queryParams?.q || undefined,
+                    installment: queryParams?.installment || undefined,
+                    status: queryParams?.status || undefined,
+                  })
+                );
             }}
           >
             <IconTrash />
