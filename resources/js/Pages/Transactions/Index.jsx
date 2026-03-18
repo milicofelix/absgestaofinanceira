@@ -1382,10 +1382,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
               </div>
 
               <div className="mt-0.5 text-xs text-gray-500 dark:text-slate-400">
-                {formatDateBR(t.purchase_date)} • {t.category?.name || '—'} •{' '}
-                {t.payment_method === 'transfer' && t.transfer_label
-                  ? t.transfer_label
-                  : (t.account?.name || '—')}
+                {formatDateBR(t.purchase_date)} • {t.category?.name || '—'}
               </div>
 
             </div>
@@ -1431,9 +1428,9 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
 
             <StatusBadge t={t} />
             {t.payment_method === 'transfer' && t.transfer_label && (
-              <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/25 dark:text-indigo-200">
+              <div className="mt-1 text-xs font-semibold text-indigo-700 dark:text-indigo-300">
                 {t.transfer_label}
-              </span>
+              </div>
             )}
           </div>
         </div>
