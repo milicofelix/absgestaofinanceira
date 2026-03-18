@@ -306,27 +306,6 @@ export default function Index({ transactions, filters, categories, accounts }) {
     return (list || []).find((a) => Number(a.id) === Number(id));
   }
 
-  // function canShowPayButton(t) {
-  //   if (t.is_cleared) return false;
-  //   if (String(t.type || '').toLowerCase() !== 'expense') return false;
-
-  //   const accFromTx = t.account;
-  //   const accFromList = getAccountById(accounts, t.account_id);
-
-  //   const acc =
-  //     accFromTx && (accFromTx.statement_close_day || accFromTx.closing_day) ? accFromTx : accFromList || accFromTx;
-
-  //   if (!acc) return false;
-
-  //   const isCreditCard = String(acc.type || '').toLowerCase() === 'credit_card';
-  //   if (!isCreditCard) return false;
-
-  //   const closingDay = acc.statement_close_day ?? acc.closing_day;
-  //   if (!closingDay) return false;
-
-  //   return isClosedForMonth(month, closingDay);
-  // }
-
   function canShowPayButton(t) {
     const accFromTx = t.account;
     const accFromList = getAccountById(accounts, t.account_id);
@@ -387,11 +366,19 @@ export default function Index({ transactions, filters, categories, accounts }) {
   // ✅ AGRUPAMENTO (front-only)
   // --------------------------
   const data = transactions?.data || [];
-  const normalRows = useMemo(() => data.filter((t) => !isInstallment(t)), [data]);
-  const installmentRows = useMemo(() => data.filter((t) => isInstallment(t)), [data]);
 
-  const showInstallmentHeader = installmentRows.length > 0; // mostra quando existir parcela
-  const headerTitle = 'Compras parceladas';
+  const normalRows = useMemo(
+    () => data.filter((t) => !isOldInstallment(t)),
+    [data],
+  );
+
+  const installmentRows = useMemo(
+    () => data.filter((t) => isOldInstallment(t)),
+    [data],
+  );
+
+  const showInstallmentHeader = installmentRows.length > 0;
+  const headerTitle = 'Compras parceladas anteriores';
 
   return (
     <AuthenticatedLayout
@@ -1054,6 +1041,21 @@ export default function Index({ transactions, filters, categories, accounts }) {
 
 function isInstallment(t) {
   return !!t?.installment_id;
+}
+
+function monthStart(yyyyMm) {
+  const v = String(yyyyMm || '').slice(0, 7);
+  if (!/^\d{4}-\d{2}$/.test(v)) return null;
+  return `${v}-01`;
+}
+
+function isOldInstallment(t) {
+  if (!t?.installment_id) return false;
+
+  const n = Number(t.installment_number || 0);
+
+  // somente parcelas > 1 entram no agrupamento
+  return n > 1;
 }
 
 // ✅ "Novo": prioriza created_at (se existir), fallback para date
