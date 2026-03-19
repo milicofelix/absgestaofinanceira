@@ -119,23 +119,35 @@ export default function Dashboard({
     return new Date(y, m1to12, 0).getDate();
   }
 
-  function buildClosingDate(selectedMonth, closingDay) {
+  function buildInvoiceClosingDate(selectedMonth, closingDay) {
     const [yy, mm] = String(selectedMonth || '').slice(0, 7).split('-').map(Number);
     if (!yy || !mm) return null;
 
-    const lastDay = daysInMonth(yy, mm);
-    const d = Math.min(Number(closingDay || 0), lastDay);
-    if (!d) return null;
+    const close = Number(closingDay || 0);
+    if (!close) return null;
 
-    return new Date(yy, mm - 1, d, 0, 0, 0, 0);
+    // competência 2026-03 => fechamento relevante é 2026-02
+    let prevYear = yy;
+    let prevMonth = mm - 1;
+
+    if (prevMonth < 1) {
+      prevMonth = 12;
+      prevYear -= 1;
+    }
+
+    const lastDay = daysInMonth(prevYear, prevMonth);
+    const d = Math.min(close, lastDay);
+
+    return new Date(prevYear, prevMonth - 1, d, 0, 0, 0, 0);
   }
 
-  function isClosedForMonth(selectedMonth, closingDay) {
-    const closingDate = buildClosingDate(selectedMonth, closingDay);
+  function isInvoiceClosedForMonth(selectedMonth, closingDay) {
+    const closingDate = buildInvoiceClosingDate(selectedMonth, closingDay);
     if (!closingDate) return false;
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+
     return today >= closingDate;
   }
 
@@ -146,7 +158,20 @@ export default function Dashboard({
     const closingDay = a?.statement_close_day;
     if (!closingDay) return false;
 
-    if (!isClosedForMonth(selectedMonth, closingDay)) return false;
+    if (!isInvoiceClosedForMonth(selectedMonth, closingDay)) return false;
+
+    return Number(a?.invoice_outstanding_amount || 0) > 0.00001;
+  }
+
+  function canShowAdvanceInvoiceButton(a, selectedMonth) {
+    const isCard = String(a?.type || '').toLowerCase() === 'credit_card';
+    if (!isCard) return false;
+
+    const closingDay = a?.statement_close_day;
+    if (!closingDay) return false;
+
+    // só antecipa antes do fechamento da fatura dessa competência
+    if (isInvoiceClosedForMonth(selectedMonth, closingDay)) return false;
 
     return Number(a?.invoice_outstanding_amount || 0) > 0.00001;
   }
@@ -951,7 +976,7 @@ export default function Dashboard({
               <ul className="space-y-4">
                 {visibleAccounts.map((a) => {
                   const isCard = String(a.type || '').toLowerCase() === 'credit_card';
-                  const canAdvanceInvoice = isCard && Number(a?.invoice_outstanding_amount || 0) > 0.00001;
+                  const canAdvanceInvoice = canShowAdvanceInvoiceButton(a, selectedMonth);
                   const canPayInvoice = canShowPayInvoiceButton(a, selectedMonth);
 
                   const balanceValue = Number(a.balance || 0);
