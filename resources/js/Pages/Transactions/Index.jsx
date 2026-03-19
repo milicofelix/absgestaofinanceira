@@ -1,4 +1,3 @@
-// resources/js/Pages/Transactions/Index.jsx
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, router } from '@inertiajs/react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -389,34 +388,37 @@ export default function Index({ transactions, filters, categories, accounts }) {
   // ✅ AGRUPAMENTO PARCELAS 
   // --------------------------
   const data = transactions?.data || [];
+  const shouldUseGroupedPreviousInstallments = accountIds.length === 1;
+
+  const sortedRows = useMemo(() => {
+  return [...data].sort((a, b) => {
+    const da = getDisplayDate(a, month, accounts);
+    const db = getDisplayDate(b, month, accounts);
+
+    if (da !== db) return db.localeCompare(da);
+    return Number(b.id || 0) - Number(a.id || 0);
+  });
+}, [data, month, accounts]);
 
   const normalRows = useMemo(() => {
-    return data
-      .filter((t) => !shouldGroupAsPreviousInstallment(t, month, accounts))
-      .slice()
-      .sort((a, b) => {
-        const da = getDisplayDate(a, month, accounts);
-        const db = getDisplayDate(b, month, accounts);
+    if (!shouldUseGroupedPreviousInstallments) {
+      return sortedRows;
+    }
 
-        if (da !== db) return db.localeCompare(da);
-        return Number(b.id || 0) - Number(a.id || 0);
-      });
-  }, [data, month, accounts]);
+    return sortedRows.filter((t) => !shouldGroupAsPreviousInstallment(t, month, accounts));
+  }, [sortedRows, shouldUseGroupedPreviousInstallments, month, accounts]);
 
   const installmentRows = useMemo(() => {
-    return data
-      .filter((t) => shouldGroupAsPreviousInstallment(t, month, accounts))
-      .slice()
-      .sort((a, b) => {
-        const da = String(a?.date || '').slice(0, 10);
-        const db = String(b?.date || '').slice(0, 10);
+    if (!shouldUseGroupedPreviousInstallments) {
+      return [];
+    }
 
-        if (da !== db) return db.localeCompare(da);
-        return Number(b.id || 0) - Number(a.id || 0);
-      });
-  }, [data, month, accounts]);
+    return sortedRows.filter((t) => shouldGroupAsPreviousInstallment(t, month, accounts));
+  }, [sortedRows, shouldUseGroupedPreviousInstallments, month, accounts]);
 
-  const showInstallmentHeader = installmentRows.length > 0;
+  const showInstallmentHeader =
+    shouldUseGroupedPreviousInstallments && installmentRows.length > 0;
+
   const headerTitle = 'Compras parceladas anteriores';
 
   return (
@@ -962,6 +964,7 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     canShowPayButton={canShowPayButton}
                     onOpenDetails={openDetails}
                     queryParams={queryParams}
+                    accounts={accounts}
                   />
                 ))}
 
@@ -982,7 +985,8 @@ export default function Index({ transactions, filters, categories, accounts }) {
                     markAsCleared={markAsCleared}
                     canShowPayButton={canShowPayButton}
                     onOpenDetails={openDetails} 
-                     queryParams={queryParams}
+                    queryParams={queryParams}
+                    accounts={accounts}
                   />
                 ))}
               </>
@@ -1500,7 +1504,7 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
                                                                                                 month: queryParams?.month || month,
                                                                                                 type: queryParams?.type || undefined,
                                                                                                 category_id: queryParams?.category_id || undefined,
-                                                                                                account_ids: queryParams?.account_ids?.length ? queryParams.accountIds : undefined,
+                                                                                                account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
                                                                                                 q: queryParams?.q || undefined,
                                                                                                 installment: queryParams?.installment || undefined,
                                                                                                 status: queryParams?.status || undefined,
@@ -1528,7 +1532,7 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
       onClick={() => onOpenDetails?.(t)}
     >
       <td className={['px-3 py-3 text-gray-700 dark:text-slate-200 whitespace-nowrap', tone.cell, tone.left].join(' ')}>
-        {formatDateBR(getDisplayDate(t, month, queryParams?.accounts || []))}
+        {formatDateBR(getDisplayDate(t, month, accounts || []))}
       </td>
 
       <td className={['px-3 py-3', tone.cell].join(' ')}>
