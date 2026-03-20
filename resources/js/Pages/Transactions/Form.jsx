@@ -1,12 +1,18 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
 import { Head, Link, useForm, router } from '@inertiajs/react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import MoneyInput from '@/Components/MoneyInput';
-import { useEffect, useMemo, useRef } from 'react';
 import Checkbox from '@/Components/Checkbox';
 import SmartDescriptionInput from '@/Components/SmartDescriptionInput';
 
 export default function Form({ mode, transaction, categories, accounts, return_filters = {} }) {
   const isCreate = mode === 'create';
+   // nfce import
+  // const [nfceImported, setNfceImported] = useState(null);
+  const [nfceUrl, setNfceUrl] = useState('');
+  const [nfceLoading, setNfceLoading] = useState(false);
+  const [nfceError, setNfceError] = useState('');
+  const [nfcePreview, setNfcePreview] = useState(null);
 
   const { data, setData, post, put, processing, errors } = useForm({
     type: transaction?.type ?? (return_filters?.type ?? 'expense'),
@@ -187,6 +193,73 @@ export default function Form({ mode, transaction, categories, accounts, return_f
     return post(route('transactions.store'));
   }
 
+  // async function importNfceFromUrl() {
+  //   if (formDisabled || mode !== 'create') return;
+
+  //   const url = String(nfceUrl || '').trim();
+
+  //   if (!url) {
+  //     setNfceError('Cole a URL da NFC-e para importar.');
+  //     return;
+  //   }
+
+  //   setNfceLoading(true);
+  //   setNfceError('');
+  //   setNfceImported(null);
+
+  //   try {
+  //     const csrfToken =
+  //       document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+  //     const response = await fetch(route('nfce.parse'), {
+  //       method: 'POST',
+  //       credentials: 'same-origin',
+  //       headers: {
+  //         Accept: 'application/json',
+  //         'Content-Type': 'application/json',
+  //         'X-Requested-With': 'XMLHttpRequest',
+  //         'X-CSRF-TOKEN': csrfToken,
+  //       },
+  //       body: JSON.stringify({ url }),
+  //     });
+
+  //     const payload = await response.json().catch(() => ({}));
+
+  //     if (!response.ok) {
+  //       throw new Error(payload?.message || 'Não foi possível ler a NFC-e.');
+  //     }
+
+  //     const parsed = payload?.data || payload || {};
+
+  //     if (parsed.total_amount != null) {
+  //       setData('amount', String(parsed.total_amount));
+  //     }
+
+  //     if (parsed.purchase_date) {
+  //       setData('date', String(parsed.purchase_date).slice(0, 10));
+  //     }
+
+  //     if (parsed.description) {
+  //       setData('description', parsed.description);
+  //     }
+
+  //     if (!isPayingWithCreditCard && parsed.payment_method) {
+  //       setData('payment_method', parsed.payment_method);
+  //     }
+
+  //     setNfceImported(parsed);
+  //   } catch (error) {
+  //     setNfceError(String(error?.message || 'Erro ao importar NFC-e.'));
+  //   } finally {
+  //     setNfceLoading(false);
+  //   }
+  // }
+
+  function applyImportedNfceCategory(categoryId) {
+    if (!categoryId || formDisabled) return;
+    setData('category_id', String(categoryId));
+  }
+
   function onChangeType(nextType) {
     if (formDisabled) return;
 
@@ -212,10 +285,98 @@ export default function Form({ mode, transaction, categories, accounts, return_f
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  const typeBadge =
-    data.type === 'income'
-      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200'
-      : 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200';
+  function getCsrfToken() {
+    return document
+      .querySelector('meta[name="csrf-token"]')
+      ?.getAttribute('content') || '';
+  }
+
+  function convertNfceDateToInput(value) {
+    if (!value) return '';
+    const m = String(value).match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (!m) return '';
+    return `${m[3]}-${m[2]}-${m[1]}`;
+  }
+
+  function mapPaymentMethod(value) {
+    const v = String(value || '').toLowerCase();
+
+    if (v.includes('crédito')) return 'credit_card';
+    if (v.includes('débito')) return 'debit_card';
+    if (v.includes('pix')) return 'pix';
+    if (v.includes('dinheiro')) return 'cash';
+    if (v.includes('transfer')) return 'transfer';
+
+    return 'other';
+  }
+
+  async function handlePreviewNfce() {
+    if (!nfceUrl.trim()) {
+      setNfceError('Cole a URL da NFC-e antes de importar.');
+      return;
+    }
+
+    try {
+      setNfceLoading(true);
+      setNfceError('');
+      setNfcePreview(null);
+
+      const response = await fetch(route('nfce.parse'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': getCsrfToken(),
+          Accept: 'application/json',
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          url: nfceUrl.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      // console.log('nfce result', result);
+
+      if (!response.ok) {
+        throw new Error(result?.message || 'Não foi possível ler a NFC-e.');
+      }
+
+      const parsed = result; 
+      // console.log('nfce data', parsed);
+
+      setNfcePreview(parsed);
+
+      if (parsed?.date) {
+        const inputDate = convertNfceDateToInput(parsed.date);
+        if (inputDate) setData('date', inputDate);
+      }
+
+      if (parsed?.total != null) {
+        setData('amount', String(parsed.total));
+      }
+
+      if (parsed?.payment_method) {
+        setData('payment_method', mapPaymentMethod(parsed.payment_method));
+      }
+
+      if (!data.description || data.description.trim() === '') {
+        setData(
+          'description',
+          String(parsed?.merchant_name || '').trim() || 'Compra importada por NFC-e'
+        );
+      }
+          } catch (err) {
+            setNfceError(String(err?.message || 'Erro ao importar NFC-e.'));
+          } finally {
+            setNfceLoading(false);
+          }
+      }
+
+      const typeBadge =
+      data.type === 'income'
+        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-200'
+        : 'bg-rose-50 text-rose-700 dark:bg-rose-900/25 dark:text-rose-200';
 
   return (
     <AuthenticatedLayout
@@ -266,6 +427,74 @@ export default function Form({ mode, transaction, categories, accounts, return_f
             )}
 
             <form onSubmit={submit} className="space-y-5">
+              {isCreate && data.type === 'expense' && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-900/40 dark:bg-sky-900/20">
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-sky-900 dark:text-sky-200">
+                        Importar compra por NFC-e
+                      </div>
+                      <div className="mt-1 text-xs text-sky-800 dark:text-sky-300">
+                        Cole a URL do QR Code da nota fiscal para preencher valor, data e forma de pagamento.
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="url"
+                        value={nfceUrl}
+                        onChange={(e) => setNfceUrl(e.target.value)}
+                        placeholder="Cole aqui a URL da NFC-e"
+                        className="w-full rounded-lg border-gray-300 bg-white text-sm focus:border-sky-500 focus:ring-sky-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={handlePreviewNfce}
+                        disabled={nfceLoading}
+                        className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
+                      >
+                        {nfceLoading ? 'Lendo...' : 'Importar'}
+                      </button>
+                    </div>
+
+                    {nfceError && (
+                      <div className="rounded-lg bg-rose-50 p-3 text-sm font-semibold text-rose-800 dark:bg-rose-900/25 dark:text-rose-200">
+                        {nfceError}
+                      </div>
+                    )}
+
+                   {nfcePreview && (
+                      <div className="rounded-lg bg-white p-3 text-sm text-gray-700 ring-1 ring-sky-200 dark:bg-slate-900 dark:text-slate-200 dark:ring-slate-800">
+                        <div className="font-semibold text-gray-900 dark:text-slate-100">
+                          Dados importados
+                        </div>
+
+                        <div className="mt-2 space-y-1">
+                          <div>
+                            <b>Estabelecimento:</b> {nfcePreview.merchant_name || '—'}
+                          </div>
+                          <div>
+                            <b>Data:</b> {nfcePreview.date || '—'}
+                          </div>
+                          <div>
+                            <b>Total:</b>{' '}
+                            {nfcePreview.total != null
+                              ? Number(nfcePreview.total).toLocaleString('pt-BR', {
+                                  style: 'currency',
+                                  currency: 'BRL',
+                                })
+                              : '—'}
+                          </div>
+                          <div>
+                            <b>Pagamento:</b> {nfcePreview.payment_method || '—'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               {/* Tipo */}
               <div>
                 <div className="flex items-center justify-between">
@@ -287,6 +516,114 @@ export default function Form({ mode, transaction, categories, accounts, return_f
 
                 {errors.type && <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.type}</div>}
               </div>
+
+              {/* Importação via NFC-e */}
+              {/* {isCreate && data.type === 'expense' && (
+                <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-4 dark:border-sky-900/40 dark:bg-sky-900/10">
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                        Importar compra por NFC-e
+                      </div>
+                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-400">
+                        Cole a URL aberta após ler o QR Code da nota fiscal para preencher valor, data e descrição.
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <input
+                        type="url"
+                        value={nfceUrl}
+                        onChange={(e) => setNfceUrl(e.target.value)}
+                        disabled={formDisabled || nfceLoading}
+                        placeholder="https://nfce.fazenda.sp.gov.br/..."
+                        className="w-full rounded-lg border-gray-300 bg-white text-sm focus:border-sky-500 focus:ring-sky-500 disabled:bg-gray-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-900"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={importNfceFromUrl}
+                        disabled={formDisabled || nfceLoading}
+                        className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-60"
+                      >
+                        {nfceLoading ? 'Importando...' : 'Importar NFC-e'}
+                      </button>
+                    </div>
+
+                    {nfceError && (
+                      <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 dark:bg-rose-900/20 dark:text-rose-200">
+                        {nfceError}
+                      </div>
+                    )}
+
+                    {nfceImported && (
+                      <div className="rounded-lg bg-white px-3 py-3 ring-1 ring-sky-200 dark:bg-slate-950 dark:ring-sky-900/30">
+                        <div className="text-xs font-bold uppercase tracking-wide text-sky-700 dark:text-sky-300">
+                          Dados importados
+                        </div>
+
+                        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <div className="text-sm text-gray-700 dark:text-slate-200">
+                            <span className="font-semibold">Estabelecimento:</span>{' '}
+                            {nfceImported.merchant_name || '—'}
+                          </div>
+
+                          <div className="text-sm text-gray-700 dark:text-slate-200">
+                            <span className="font-semibold">Data:</span>{' '}
+                            {nfceImported.purchase_date || '—'}
+                          </div>
+
+                          <div className="text-sm text-gray-700 dark:text-slate-200">
+                            <span className="font-semibold">Total:</span>{' '}
+                            {nfceImported.total_amount || '—'}
+                          </div>
+
+                          <div className="text-sm text-gray-700 dark:text-slate-200">
+                            <span className="font-semibold">Pagamento:</span>{' '}
+                            {nfceImported.payment_method_label || nfceImported.payment_method || '—'}
+                          </div>
+                        </div>
+
+                        {!!nfceImported.items?.length && (
+                          <div className="mt-3">
+                            <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-slate-400">
+                              Itens lidos
+                            </div>
+
+                            <div className="max-h-44 space-y-2 overflow-y-auto rounded-lg bg-gray-50 p-2 ring-1 ring-gray-200 dark:bg-slate-900 dark:ring-slate-800">
+                              {nfceImported.items.map((item, index) => (
+                                <div
+                                  key={`${item.code || item.description || 'item'}-${index}`}
+                                  className="rounded-lg bg-white px-3 py-2 text-sm ring-1 ring-gray-200 dark:bg-slate-950 dark:ring-slate-800"
+                                >
+                                  <div className="font-semibold text-gray-900 dark:text-slate-100">
+                                    {item.description || 'Item'}
+                                  </div>
+                                  <div className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                                    Qtde: {item.quantity || '—'} · Unit.: {item.unit_price || '—'} · Total: {item.total_price || '—'}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {!!nfceImported.suggested_category_id && (
+                          <div className="mt-3">
+                            <button
+                              type="button"
+                              onClick={() => applyImportedNfceCategory(nfceImported.suggested_category_id)}
+                              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700 hover:bg-sky-100 dark:border-sky-900/40 dark:bg-sky-900/20 dark:text-sky-200 dark:hover:bg-sky-900/30"
+                            >
+                              Usar categoria sugerida
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )} */}
 
                {/* ✅ Toggle: pagar com cartão de crédito */}
               {isCreate && data.type === 'expense' && (

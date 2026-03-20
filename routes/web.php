@@ -19,6 +19,7 @@ use App\Http\Controllers\CategoryBudgetDefaultController;
 use App\Http\Controllers\ThemeSettingsController;
 use App\Http\Controllers\CreditCardInvoiceController;
 use App\Http\Controllers\InvestmentController;
+use App\Http\Controllers\NfceController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -97,6 +98,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('/investments/{account}', [InvestmentController::class, 'show'])
         ->name('investments.show');
+
+    Route::post('/nfce/parse', [NfceController::class, 'parse'])
+        ->name('nfce.parse');
 
 });
 
