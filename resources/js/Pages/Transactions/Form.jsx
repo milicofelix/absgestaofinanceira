@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import MoneyInput from '@/Components/MoneyInput';
 import Checkbox from '@/Components/Checkbox';
 import SmartDescriptionInput from '@/Components/SmartDescriptionInput';
+import QrScanner from '@/Components/QrScanner';
 
 export default function Form({ mode, transaction, categories, accounts, return_filters = {} }) {
   const isCreate = mode === 'create';
@@ -13,6 +14,7 @@ export default function Form({ mode, transaction, categories, accounts, return_f
   const [nfceLoading, setNfceLoading] = useState(false);
   const [nfceError, setNfceError] = useState('');
   const [nfcePreview, setNfcePreview] = useState(null);
+  const [showQrScanner, setShowQrScanner] = useState(false);
 
   const { data, setData, post, put, processing, errors } = useForm({
     type: transaction?.type ?? (return_filters?.type ?? 'expense'),
@@ -193,71 +195,85 @@ export default function Form({ mode, transaction, categories, accounts, return_f
     return post(route('transactions.store'));
   }
 
-  // async function importNfceFromUrl() {
-  //   if (formDisabled || mode !== 'create') return;
+  async function importNfceFromUrl(scannedUrl = null) {
+    if (formDisabled || mode !== 'create') return;
 
-  //   const url = String(nfceUrl || '').trim();
+    const rawUrl = String(scannedUrl || nfceUrl || '').trim();
+    const url = normalizeNfceUrl(rawUrl);
 
-  //   if (!url) {
-  //     setNfceError('Cole a URL da NFC-e para importar.');
-  //     return;
-  //   }
+    if (!url) {
+      setNfceError('Cole a URL da NFC-e para importar.');
+      return;
+    }
 
-  //   setNfceLoading(true);
-  //   setNfceError('');
-  //   setNfceImported(null);
+    setNfceLoading(true);
+    setNfceError('');
+    setNfcePreview(null);
 
-  //   try {
-  //     const csrfToken =
-  //       document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    try {
+      const csrfToken =
+        document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
-  //     const response = await fetch(route('nfce.parse'), {
-  //       method: 'POST',
-  //       credentials: 'same-origin',
-  //       headers: {
-  //         Accept: 'application/json',
-  //         'Content-Type': 'application/json',
-  //         'X-Requested-With': 'XMLHttpRequest',
-  //         'X-CSRF-TOKEN': csrfToken,
-  //       },
-  //       body: JSON.stringify({ url }),
-  //     });
+      const response = await fetch(route('nfce.parse'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': csrfToken,
+        },
+        body: JSON.stringify({ url }),
+      });
 
-  //     const payload = await response.json().catch(() => ({}));
+      const payload = await response.json().catch(() => ({}));
 
-  //     if (!response.ok) {
-  //       throw new Error(payload?.message || 'Não foi possível ler a NFC-e.');
-  //     }
+      console.log('nfce result', payload);
 
-  //     const parsed = payload?.data || payload || {};
+      if (!response.ok) {
+        throw new Error(payload?.message || 'Não foi possível ler a NFC-e.');
+      }
 
-  //     if (parsed.total_amount != null) {
-  //       setData('amount', String(parsed.total_amount));
-  //     }
+      const parsed = payload?.data || payload || {};
 
-  //     if (parsed.purchase_date) {
-  //       setData('date', String(parsed.purchase_date).slice(0, 10));
-  //     }
+      if (parsed.total != null) {
+        setData('amount', String(parsed.total));
+      }
 
-  //     if (parsed.description) {
-  //       setData('description', parsed.description);
-  //     }
+      if (parsed.date) {
+        const inputDate = convertNfceDateToInput(parsed.date);
+        if (inputDate) setData('date', inputDate);
+      }
 
-  //     if (!isPayingWithCreditCard && parsed.payment_method) {
-  //       setData('payment_method', parsed.payment_method);
-  //     }
+      if (parsed.payment_method) {
+        setData('payment_method', mapPaymentMethod(parsed.payment_method));
+      }
 
-  //     setNfceImported(parsed);
-  //   } catch (error) {
-  //     setNfceError(String(error?.message || 'Erro ao importar NFC-e.'));
-  //   } finally {
-  //     setNfceLoading(false);
-  //   }
-  // }
+      if (parsed.merchant_name) {
+        setData('description', parsed.merchant_name);
+      } else if (!data.description || data.description.trim() === '') {
+        setData('description', 'Compra via NFC-e');
+      }
+
+      setNfcePreview(parsed);
+    } catch (error) {
+      setNfceError(String(error?.message || 'Erro ao importar NFC-e.'));
+    } finally {
+      setNfceLoading(false);
+    }
+  }
 
   function applyImportedNfceCategory(categoryId) {
     if (!categoryId || formDisabled) return;
     setData('category_id', String(categoryId));
+  }
+
+  function normalizeNfceUrl(raw) {
+    const value = String(raw || '').trim();
+    if (!value) return '';
+
+    // QR da NFC-e costuma vir com pipes no parâmetro p
+    return value.replace(/\|/g, '%7C');
   }
 
   function onChangeType(nextType) {
@@ -311,7 +327,10 @@ export default function Form({ mode, transaction, categories, accounts, return_f
   }
 
   async function handlePreviewNfce() {
-    if (!nfceUrl.trim()) {
+    const rawUrl = String(nfceUrl || '').trim();
+    const url = normalizeNfceUrl(rawUrl);
+
+    if (!url) {
       setNfceError('Cole a URL da NFC-e antes de importar.');
       return;
     }
@@ -327,23 +346,19 @@ export default function Form({ mode, transaction, categories, accounts, return_f
           'Content-Type': 'application/json',
           'X-CSRF-TOKEN': getCsrfToken(),
           Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         },
         credentials: 'same-origin',
-        body: JSON.stringify({
-          url: nfceUrl.trim(),
-        }),
+        body: JSON.stringify({ url }),
       });
 
-      const result = await response.json();
-
-      // console.log('nfce result', result);
+      const result = await response.json().catch(() => ({}));
 
       if (!response.ok) {
         throw new Error(result?.message || 'Não foi possível ler a NFC-e.');
       }
 
-      const parsed = result; 
-      // console.log('nfce data', parsed);
+      const parsed = result?.data || result || {};
 
       setNfcePreview(parsed);
 
@@ -366,12 +381,12 @@ export default function Form({ mode, transaction, categories, accounts, return_f
           String(parsed?.merchant_name || '').trim() || 'Compra importada por NFC-e'
         );
       }
-          } catch (err) {
-            setNfceError(String(err?.message || 'Erro ao importar NFC-e.'));
-          } finally {
-            setNfceLoading(false);
-          }
-      }
+    } catch (err) {
+      setNfceError(String(err?.message || 'Erro ao importar NFC-e.'));
+    } finally {
+      setNfceLoading(false);
+    }
+  }
 
       const typeBadge =
       data.type === 'income'
@@ -447,6 +462,15 @@ export default function Form({ mode, transaction, categories, accounts, return_f
                         placeholder="Cole aqui a URL da NFC-e"
                         className="w-full rounded-lg border-gray-300 bg-white text-sm focus:border-sky-500 focus:ring-sky-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100"
                       />
+                      <div className="sm:hidden">
+                        <button
+                          type="button"
+                          onClick={() => setShowQrScanner(true)}
+                          className="mt-2 w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+                        >
+                          📷 Ler QR Code
+                        </button>
+                      </div>
 
                       <button
                         type="button"
@@ -964,6 +988,20 @@ export default function Form({ mode, transaction, categories, accounts, return_f
                   Salvar
                 </button>
               </div>
+              {showQrScanner && (
+                <QrScanner
+                  onSuccess={(text) => {
+                    console.log('QR lido:', text);
+                    setNfceUrl(text);
+                    setShowQrScanner(false);
+
+                    setTimeout(() => {
+                      importNfceFromUrl(text);
+                    }, 150);
+                  }}
+                  onClose={() => setShowQrScanner(false)}
+                />
+              )}
             </form>
           </div>
 
