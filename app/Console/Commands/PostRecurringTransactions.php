@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 
 use App\Models\RecurringTransaction;
 use App\Models\Transaction;
+use App\Models\Account;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
@@ -38,12 +39,20 @@ class PostRecurringTransactions extends Command
           DB::transaction(function () use ($rec, $today, &$count) {
             // se já passou várias datas (ex: sistema ficou off), gera em loop até alcançar hoje
             while ($rec->is_active && $rec->next_run_date->lte($today)) {
+              $account = Account::query()
+                ->where('id', $rec->account_id)
+                ->where('user_id', $rec->user_id)
+                ->first();
 
               if ($rec->end_date && $rec->next_run_date->gt($rec->end_date)) {
                 $rec->is_active = false;
                 $rec->save();
                 break;
               }
+
+              $runDate = $rec->next_run_date->copy()->startOfDay();
+
+              $isCreditCard = strtolower((string) ($account->type ?? '')) === 'credit_card';
 
               Transaction::create([
                 'user_id' => $rec->user_id,
@@ -52,9 +61,16 @@ class PostRecurringTransactions extends Command
                 'type' => $rec->type,
                 'description' => $rec->description,
                 'amount' => $rec->amount,
-                'date' => $rec->next_run_date->toDateString(),
-                'competence_month' => $rec->next_run_date->format('Y-m'),
+
+                'date' => $runDate->toDateString(),
+                'purchase_date' => $runDate->toDateString(),
+
+                'payment_method' => $isCreditCard ? 'credit_card' : 'pix',
+                'competence_month' => $this->resolveCompetenceMonth($account, $runDate),
+
+                'is_cleared' => false,
                 'recurring_id' => $rec->id,
+                'idempotency_key' => sha1('recurring:' . $rec->id . ':' . $runDate->toDateString()),
               ]);
 
               $count++;
@@ -81,5 +97,28 @@ class PostRecurringTransactions extends Command
     ]);
 
     return self::SUCCESS;
+  }
+  private function resolveCompetenceMonth(?Account $account, Carbon $runDate): string
+  {
+    $isCreditCard = strtolower((string) ($account->type ?? '')) === 'credit_card';
+
+    if (!$isCreditCard) {
+      return $runDate->format('Y-m');
+    }
+
+    $closeDay = (int) ($account->statement_close_day ?? 0);
+
+    if ($closeDay <= 0) {
+      return $runDate->format('Y-m');
+    }
+
+    // Regra do ABS que você já está usando nos lançamentos normais:
+    // compra até o fechamento entra na competência do mês seguinte.
+    // compra após o fechamento entra na competência do mês subsequente.
+    if ((int) $runDate->day <= $closeDay) {
+      return $runDate->copy()->addMonth()->format('Y-m');
+    }
+
+    return $runDate->copy()->addMonthsNoOverflow(2)->format('Y-m');
   }
 }
