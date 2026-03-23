@@ -9,6 +9,10 @@ return new class extends Migration {
 
     private function dropFkIfExists(string $table, string $column): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
+
         $db = DB::getDatabaseName();
 
         $fkName = DB::table('information_schema.KEY_COLUMN_USAGE')
@@ -26,6 +30,10 @@ return new class extends Migration {
 
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            // SQLite não suporta esse tipo de alteração complexa
+            return;
+        }
         // drop FK (se existir) com nome real
         $this->dropFkIfExists('transactions', 'category_id');
 
@@ -41,6 +49,9 @@ return new class extends Migration {
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         // drop FK (se existir) com nome real
         $this->dropFkIfExists('transactions', 'category_id');
 

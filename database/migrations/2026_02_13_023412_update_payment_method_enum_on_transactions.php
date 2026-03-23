@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration {
     public function up(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         DB::table('transactions')
             ->where('payment_method', 'card')
             ->update(['payment_method' => 'credit_card']);

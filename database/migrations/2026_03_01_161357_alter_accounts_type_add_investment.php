@@ -6,7 +6,9 @@ use Illuminate\Support\Facades\DB;
 return new class extends Migration {
     public function up(): void
     {
-        // (Opcional) garanta que não exista valor "investimento" ou variações antigas
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         // DB::table('accounts')->where('type', 'investimento')->update(['type' => 'investment']);
 
         DB::statement("
@@ -23,6 +25,9 @@ return new class extends Migration {
 
     public function down(): void
     {
+        if (DB::getDriverName() === 'sqlite') {
+            return;
+        }
         // Se alguém tiver conta investment, precisamos converter para um tipo existente
         DB::table('accounts')
             ->where('type', 'investment')
