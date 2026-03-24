@@ -1,6 +1,5 @@
 <?php
 
-// app/Console/Commands/PostRecurringTransactions.php
 namespace App\Console\Commands;
 
 use App\Models\RecurringTransaction;
@@ -112,7 +111,6 @@ class PostRecurringTransactions extends Command
       return $runDate->format('Y-m');
     }
 
-    // Regra do ABS que você já está usando nos lançamentos normais:
     // compra até o fechamento entra na competência do mês seguinte.
     // compra após o fechamento entra na competência do mês subsequente.
     if ((int) $runDate->day <= $closeDay) {

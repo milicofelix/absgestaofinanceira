@@ -13,6 +13,10 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Carbon\Carbon;
 use App\Services\CreditCardPaymentService;
+use App\Services\Transactions\CompetenceMonthService;
+use App\Services\Transactions\IdempotencyKeyService;
+use App\Actions\Transactions\CreateTransactionAction;
+use App\Actions\Transactions\UpdateTransactionAction;
 
 class TransactionController extends Controller
 {
@@ -176,52 +180,32 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function store(StoreTransactionRequest $request)
+    public function store(StoreTransactionRequest $request, CreateTransactionAction $action)
     {
         $userId = $request->user()->id;
 
-        $categoryOk = Category::where('id', $request->integer('category_id'))->where('user_id', $userId)->exists();
-        $account = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->first();
-        abort_unless($categoryOk && $account, 422);
-
-        $dateYmd = $request->date('date')->format('Y-m-d');
-        $purchaseYmd = $dateYmd;
-        $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
-
-        $idemKey = $this->buildIdempotencyKey(
-            $userId,
-            (int) $account->id,
-            (string) $request->string('type'),
-            $purchaseYmd,
-            $request->input('amount'),
-            $request->input('description')
-        );
-
         try {
-            Transaction::create([
-                'user_id' => $userId,
-                'type' => $request->string('type'),
+            $transaction = $action->execute($userId, [
+                'type' => (string) $request->string('type'),
                 'amount' => $request->input('amount'),
-                'date' => $dateYmd,
-                'purchase_date' => $dateYmd,
-                'competence_month' => $competenceMonth,
+                'date' => $request->date('date')->format('Y-m-d'),
                 'description' => $request->input('description'),
                 'category_id' => $request->integer('category_id'),
-                'account_id' => $account->id,
+                'account_id' => $request->integer('account_id'),
                 'payment_method' => $request->input('payment_method'),
-                'idempotency_key' => $idemKey,
             ]);
         } catch (QueryException $e) {
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
                 return back()->withErrors([
-                    'description' => 'Parece um lançamento duplicado (mesma conta, tipo, data da compra e valor). Confira antes de salvar.',
+                    'description' => 'Já existe um lançamento idêntico para esta compra.',
                 ])->withInput();
             }
+
             throw $e;
         }
 
-       $params = array_filter([
-            'month' => $competenceMonth,
+        $params = array_filter([
+            'month' => $transaction->competence_month,
             'type' => $request->input('return_type'),
             'category_id' => $request->input('return_category_id'),
             'account_id' => $request->input('return_account_id'),
@@ -349,60 +333,35 @@ class TransactionController extends Controller
         ]);
     }
 
-    public function update(UpdateTransactionRequest $request, Transaction $transaction)
+    public function update(UpdateTransactionRequest $request, Transaction $transaction, UpdateTransactionAction $action)
     {
-        $userId = $request->user()->id;
-        abort_unless($transaction->user_id === $userId, 403);
-
-        $categoryOk = Category::where('id', $request->integer('category_id'))->where('user_id', $userId)->exists();
-        $account = Account::where('id', $request->integer('account_id'))->where('user_id', $userId)->first();
-        abort_unless($categoryOk && $account, 422);
-
-        $dateYmd = $request->date('date')->format('Y-m-d');
-
-        //  recalcula competência (pode mudar se trocar a conta ou a data)
-        $competenceMonth = $this->computeCompetenceMonth($account, $dateYmd);
-
-        // regra: se não for parcela, compra acompanha date
-        $purchaseYmd = $transaction->installment_id ? $transaction->purchase_date->format('Y-m-d') : $dateYmd;
-
-        $idemKey = $this->buildIdempotencyKey(
-            $userId,
-            (int) $account->id,
-            (string) $request->string('type'),
-            $purchaseYmd,
-            $request->input('amount'),
-            $request->input('description')
-        );
-
         try {
-            $transaction->update([
-                'type' => $request->string('type'),
-                'amount' => $request->input('amount'),
-                'date' => $dateYmd,
-                // ✅ regra simples:
-                // - se for lançamento normal (sem installment_id), atualiza purchase_date junto
-                // - se for parcela, não mexe (evita bagunçar histórico)
-                'purchase_date' => $transaction->installment_id ? $transaction->purchase_date : $dateYmd,
-                'competence_month' => $competenceMonth, // ✅ NOVO
-                'description' => $request->input('description'),
-                'category_id' => $request->integer('category_id'),
-                'account_id' => $account->id,
-                'payment_method' => $request->input('payment_method'),
-                'is_cleared' => $request->boolean('is_cleared'),
-                'idempotency_key' => $idemKey
-            ]);
+            $updatedTransaction = $action->execute(
+                $request->user()->id,
+                $transaction,
+                [
+                    'type' => (string) $request->string('type'),
+                    'amount' => $request->input('amount'),
+                    'date' => $request->date('date')->format('Y-m-d'),
+                    'description' => $request->input('description'),
+                    'category_id' => $request->integer('category_id'),
+                    'account_id' => $request->integer('account_id'),
+                    'payment_method' => $request->input('payment_method'),
+                    'is_cleared' => $request->boolean('is_cleared'),
+                ]
+            );
         } catch (QueryException $e) {
             if ((int) ($e->errorInfo[1] ?? 0) === 1062) {
                 return back()->withErrors([
                     'description' => 'Esse ajuste deixaria o lançamento duplicado (mesma conta, tipo, data da compra e valor).',
                 ])->withInput();
             }
+
             throw $e;
         }
 
         $params = array_filter([
-            'month' => $competenceMonth,
+            'month' => $updatedTransaction->competence_month,
             'type' => $request->input('return_type'),
             'category_id' => $request->input('return_category_id'),
             'account_id' => $request->input('return_account_id'),
@@ -429,6 +388,32 @@ class TransactionController extends Controller
     public function destroy(Transaction $transaction, Request $request)
     {
         abort_unless($transaction->user_id === $request->user()->id, 403);
+
+       $transaction->loadMissing('account');
+
+        $isCreditCardPurchase =
+            ($transaction->account->type ?? null) === 'credit_card'
+            && !$transaction->is_transfer
+            && $transaction->type === 'expense';
+
+        if ($isCreditCardPurchase) {
+            $month = $transaction->competence_month ?: $transaction->date->format('Y-m');
+
+            $hasInvoicePaymentOrAdvance = \App\Models\Transaction::query()
+                ->where('user_id', $transaction->user_id)
+                ->where('account_id', $transaction->account_id)
+                ->where('type', 'income')
+                ->where('is_transfer', true)
+                ->where('competence_month', $month)
+                ->exists();
+
+            if ($transaction->is_cleared || !empty($transaction->paid_bank_account_id) || $hasInvoicePaymentOrAdvance) {
+                return back()->with('error',
+                    'Não é possível excluir esta compra do cartão porque a fatura já possui pagamento/antecipação. ' .
+                    'Para evitar distorção financeira, edite ou registre um estorno/reembolso em vez de excluir.'
+                );
+            }
+        }
 
         $fallbackMonth = $transaction->competence_month ?: $transaction->date->format('Y-m');
 
@@ -461,47 +446,7 @@ class TransactionController extends Controller
 
     private function computeCompetenceMonth(Account $account, string $dateYmd): string
     {
-        $purchase = Carbon::createFromFormat('Y-m-d', $dateYmd, config('app.timezone'))->startOfDay();
-
-        // Não é cartão de crédito ou não tem fechamento -> competência é o mês da data
-        if (($account->type ?? null) !== 'credit_card' || empty($account->statement_close_day)) {
-            return $purchase->format('Y-m');
-        }
-
-        $closeDay = max(1, min(31, (int) $account->statement_close_day));
-
-        // Se não tiver due_day, mantém o comportamento antigo (vencimento no mês seguinte ao fechamento)
-        $dueDayRaw = (int) ($account->due_day ?? 0);
-        if ($dueDayRaw <= 0) {
-            $closingThisMonth = $purchase->copy()->day(min($closeDay, $purchase->daysInMonth))->startOfDay();
-            $statementMonth = $purchase->lessThanOrEqualTo($closingThisMonth)
-                ? $purchase->copy()
-                : $purchase->copy()->addMonthNoOverflow();
-
-            return $statementMonth->copy()->addMonthNoOverflow()->format('Y-m');
-        }
-
-        $dueDay = max(1, min(31, $dueDayRaw));
-
-        // Data de fechamento no mês da compra (ajusta para último dia do mês quando necessário)
-        $closingThisMonth = $purchase->copy()->day(min($closeDay, $purchase->daysInMonth))->startOfDay();
-
-        // 1) statementMonth = mês em que a fatura FECHA
-        // Se comprou até o dia de fechamento (inclusive), fecha no mesmo mês; senão, fecha no próximo.
-        $statementMonth = $purchase->lessThanOrEqualTo($closingThisMonth)
-            ? $purchase->copy()
-            : $purchase->copy()->addMonthNoOverflow();
-
-        // 2) competenceMonth = mês em que a fatura VENCE/PAGA
-        // Regra:
-        // - se due_day > close_day => vence no mesmo mês do fechamento
-        // - se due_day <= close_day => vence no mês seguinte ao fechamento
-        $dueMonth = $statementMonth->copy()->startOfMonth();
-        if ($dueDay <= $closeDay) {
-            $dueMonth->addMonthNoOverflow();
-        }
-
-        return $dueMonth->format('Y-m');
+        return app(CompetenceMonthService::class)->compute($account, $dateYmd);
     }
 
     public function markPaid(MarkPaidRequest $request, Transaction $transaction, CreditCardPaymentService $svc)
@@ -528,32 +473,27 @@ class TransactionController extends Controller
         return back()->with('success', 'Transação marcada como paga.');
     }
 
-    private function normalizeDesc(?string $s): string
-    {
-        $s = (string)($s ?? '');
-        $s = mb_strtolower($s);
-        $s = preg_replace('/\s+/', ' ', trim($s));
-        // remove acentos
-        $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
-        // remove caracteres “ruidosos”
-        $s = preg_replace('/[^a-z0-9 \-_.]/', '', $s);
-        return trim($s);
-    }
+    // private function normalizeDesc(?string $s): string
+    // {
+    //     $s = (string)($s ?? '');
+    //     $s = mb_strtolower($s);
+    //     $s = preg_replace('/\s+/', ' ', trim($s));
+    //     // remove acentos
+    //     $s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s) ?: $s;
+    //     // remove caracteres “ruidosos”
+    //     $s = preg_replace('/[^a-z0-9 \-_.]/', '', $s);
+    //     return trim($s);
+    // }
 
-    private function amountToCents($amount): int
-    {
-        // robusto pra "1234.56" e floats
-        return (int) round(((float) $amount) * 100);
-    }
+    // private function amountToCents($amount): int
+    // {
+    //     // robusto pra "1234.56" e floats
+    //     return (int) round(((float) $amount) * 100);
+    // }
 
     private function buildIdempotencyKey(int $userId, int $accountId, string $type, string $purchaseDateYmd, $amount, ?string $description): string
     {
-        $desc = $this->normalizeDesc($description);
-        $cents = $this->amountToCents($amount);
-
-        // payload “humano” + hash curto (evita estourar tamanho)
-        $raw = "{$userId}|{$accountId}|{$type}|{$purchaseDateYmd}|{$cents}|{$desc}";
-        return substr(hash('sha256', $raw), 0, 64);
+        return IdempotencyKeyService::build($userId, $accountId, $type, $purchaseDateYmd, $amount, $description);
     }
 
     public function descriptionSuggestions(Request $request)

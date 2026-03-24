@@ -1453,30 +1453,50 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
           </div>
 
           <div className="mt-2 flex justify-end gap-2">
-            <Link
-              onClick={(e) => e.stopPropagation()}
-              href={route('transactions.edit', {
-                transaction: t.id,
-                month: queryParams?.month || month,
-                type: queryParams?.type || undefined,
-                category_id: queryParams?.category_id || undefined,
-                account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
-                q: queryParams?.q || undefined,
-                installment: queryParams?.installment || undefined,
-                status: queryParams?.status || undefined,
-              })}
-              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-              title="Editar"
-            >
-              <IconEdit />
-            </Link>
-
+            {cannotEditTransaction(t) ? (
+              <button
+                type="button"
+                disabled
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-gray-100 px-2.5 py-1.5 text-xs font-semibold text-gray-400 cursor-not-allowed dark:border-slate-800 dark:bg-slate-800 dark:text-slate-500"
+                title={getEditDisabledReason(t)}
+              >
+                <IconEdit />
+              </button>
+            ) : (
+              <Link
+                onClick={(e) => e.stopPropagation()}
+                href={route('transactions.edit', {
+                  transaction: t.id,
+                  month: queryParams?.month || month,
+                  type: queryParams?.type || undefined,
+                  category_id: queryParams?.category_id || undefined,
+                  account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
+                  q: queryParams?.q || undefined,
+                  installment: queryParams?.installment || undefined,
+                  status: queryParams?.status || undefined,
+                })}
+                className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+                title="Editar"
+              >
+                <IconEdit />
+              </Link>
+            )}
             {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
               <button
-                className="inline-flex items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
-                title="Cancelar parcelamento"
+                disabled={cannotCancelInstallment(t)}
+                className={[
+                  'inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
+                  cannotCancelInstallment(t)
+                    ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-500'
+                    : 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30',
+                ].join(' ')}
+                title={getCancelInstallmentDisabledReason(t)}
                 onClick={(e) => {
                   e.stopPropagation();
+
+                  if (cannotCancelInstallment(t)) return;
+
                   if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
                   router.post(route('installments.cancel', t.installment_id));
                 }}
@@ -1484,32 +1504,34 @@ function MobileCard({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
                 <IconBlock />
               </button>
             )}
-
-            {canShowPayButton(t) && (
-              <button
-                className="inline-flex items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
-                title="Marcar como pago"
-                onClick={(e) => {e.stopPropagation(); markAsCleared(t)}}
-              >
-                ✓
-              </button>
-            )}
-
             <button
-              className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
-              title="Excluir"
-              onClick={(e) => { e.stopPropagation(); confirm('Excluir este lançamento?') && router.delete(
-                                                                                              route('transactions.destroy', {
-                                                                                                transaction: t.id,
-                                                                                                month: queryParams?.month || month,
-                                                                                                type: queryParams?.type || undefined,
-                                                                                                category_id: queryParams?.category_id || undefined,
-                                                                                                account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
-                                                                                                q: queryParams?.q || undefined,
-                                                                                                installment: queryParams?.installment || undefined,
-                                                                                                status: queryParams?.status || undefined,
-                                                                                              })
-                                                                                            )}}
+              disabled={cannotDeleteTransaction(t)}
+              className={[
+                'inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-xs font-semibold',
+                cannotDeleteTransaction(t)
+                  ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-500'
+                  : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30',
+              ].join(' ')}
+              title={getDeleteDisabledReason(t)}
+              onClick={(e) => {
+                e.stopPropagation();
+
+                if (cannotDeleteTransaction(t)) return;
+
+                confirm('Excluir este lançamento?') &&
+                  router.delete(
+                    route('transactions.destroy', {
+                      transaction: t.id,
+                      month: queryParams?.month || month,
+                      type: queryParams?.type || undefined,
+                      category_id: queryParams?.category_id || undefined,
+                      account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
+                      q: queryParams?.q || undefined,
+                      installment: queryParams?.installment || undefined,
+                      status: queryParams?.status || undefined,
+                    })
+                  );
+              }}
             >
               <IconTrash />
             </button>
@@ -1633,30 +1655,50 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
         ].join(' ')}
       >
         <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-          <Link
-            onClick={(e) => e.stopPropagation()}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
-            href={route('transactions.edit', {
-              transaction: t.id,
-              month: queryParams?.month || month,
-              type: queryParams?.type || undefined,
-              category_id: queryParams?.category_id || undefined,
-              account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
-              q: queryParams?.q || undefined,
-              installment: queryParams?.installment || undefined,
-              status: queryParams?.status || undefined,
-            })}
-            title="Editar"
-          >
-            <IconEdit />
-          </Link>
-
+         {cannotEditTransaction(t) ? (
+            <button
+              type="button"
+              disabled
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed dark:border-slate-800 dark:bg-slate-800 dark:text-slate-500"
+              title={getEditDisabledReason(t)}
+            >
+              <IconEdit />
+            </button>
+          ) : (
+            <Link
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+              href={route('transactions.edit', {
+                transaction: t.id,
+                month: queryParams?.month || month,
+                type: queryParams?.type || undefined,
+                category_id: queryParams?.category_id || undefined,
+                account_ids: queryParams?.account_ids?.length ? queryParams.account_ids : undefined,
+                q: queryParams?.q || undefined,
+                installment: queryParams?.installment || undefined,
+                status: queryParams?.status || undefined,
+              })}
+              title="Editar"
+            >
+              <IconEdit />
+            </Link>
+          )}
           {t.installment_id && t.installment_number === 1 && t.installment?.is_active && (
             <button
-              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30"
-              title="Cancelar parcelamento"
+              disabled={cannotCancelInstallment(t)}
+              className={[
+                'inline-flex h-9 w-9 items-center justify-center rounded-lg border',
+                cannotCancelInstallment(t)
+                  ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-500'
+                  : 'border-amber-200 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30',
+              ].join(' ')}
+              title={getCancelInstallmentDisabledReason(t)}
               onClick={(e) => {
                 e.stopPropagation();
+
+                if (cannotCancelInstallment(t)) return;
+
                 if (!confirm('Cancelar este parcelamento? As parcelas futuras não pagas serão removidas.')) return;
                 router.post(route('installments.cancel', t.installment_id));
               }}
@@ -1664,7 +1706,6 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
               <IconBlock />
             </button>
           )}
-
           {canShowPayButton(t) && (
             <button
               className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30"
@@ -1679,10 +1720,19 @@ function DesktopRow({ t, month, rowTone, markAsCleared, canShowPayButton, onOpen
           )}
 
           <button
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
-            title="Excluir"
+            disabled={cannotDeleteTransaction(t)}
+            className={[
+              'inline-flex h-9 w-9 items-center justify-center rounded-lg border',
+              cannotDeleteTransaction(t)
+                ? 'cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400 dark:border-slate-800 dark:bg-slate-800 dark:text-slate-500'
+                : 'border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30',
+            ].join(' ')}
+            title={getDeleteDisabledReason(t)}
             onClick={(e) => {
               e.stopPropagation();
+
+              if (cannotDeleteTransaction(t)) return;
+
               confirm('Excluir este lançamento?') &&
                 router.delete(
                   route('transactions.destroy', {
@@ -1832,4 +1882,57 @@ function IconClockMini({ className = '' }) {
       <path d="M12 7v5l3 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+
+function isCreditCardExpense(t) {
+  return (
+    String(t?.account?.type || '').toLowerCase() === 'credit_card' &&
+    String(t?.type || '').toLowerCase() === 'expense' &&
+    !t?.is_transfer
+  );
+}
+
+function isLockedCreditCardTransaction(t) {
+  return isCreditCardExpense(t) && (Boolean(t?.is_cleared) || Boolean(t?.paid_bank_account_id));
+}
+
+function cannotEditTransaction(t) {
+  return isLockedCreditCardTransaction(t);
+}
+
+function cannotDeleteTransaction(t) {
+  return isLockedCreditCardTransaction(t);
+}
+
+function cannotCancelInstallment(t) {
+  // só faz sentido cancelar se for parcelamento ativo e na 1ª parcela
+  if (!t?.installment_id) return false;
+  if (Number(t?.installment_number || 0) !== 1) return false;
+  if (!t?.installment?.is_active) return false;
+
+  return isLockedCreditCardTransaction(t);
+}
+
+function getEditDisabledReason(t) {
+  if (cannotEditTransaction(t)) {
+    return 'Não é possível editar uma compra de cartão após pagamento/baixa da fatura.';
+  }
+
+  return 'Editar';
+}
+
+function getDeleteDisabledReason(t) {
+  if (cannotDeleteTransaction(t)) {
+    return 'Não é possível excluir uma compra de cartão após pagamento/baixa da fatura.';
+  }
+
+  return 'Excluir';
+}
+
+function getCancelInstallmentDisabledReason(t) {
+  if (cannotCancelInstallment(t)) {
+    return 'Não é possível cancelar o parcelamento após pagamento/baixa da fatura.';
+  }
+
+  return 'Cancelar parcelamento';
 }
