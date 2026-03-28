@@ -34,6 +34,7 @@ class DashboardController extends Controller
         $baseMonthReal = Transaction::query()
             ->where('user_id', $userId)
             ->where('is_transfer', false)
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->where(function ($q1) use ($month, $start, $end) {
                 $q1->where('competence_month', $month)
                    ->orWhere(function ($q2) use ($start, $end) {
@@ -116,11 +117,13 @@ class DashboardController extends Controller
         // =========================
         $accountsRaw = Account::query()
             ->where('user_id', $userId)
+            ->where('type', '!=', 'investment')
             ->orderBy('name')
             ->get(['id', 'name', 'type', 'initial_balance', 'statement_close_day', 'credit_limit']);
 
         $beforeAgg = Transaction::query()
             ->where('user_id', $userId)
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->where(function ($q) use ($month, $start) {
                 $q->where('competence_month', '<', $month)
                   ->orWhere(function ($q2) use ($start) {
@@ -137,6 +140,7 @@ class DashboardController extends Controller
 
         $monthAgg = Transaction::query()
             ->where('user_id', $userId)
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->where(function ($q) use ($month, $start, $end) {
                 $q->where('competence_month', $month)
                   ->orWhere(function ($q2) use ($start, $end) {
@@ -154,6 +158,7 @@ class DashboardController extends Controller
         $invoiceGrossAgg = Transaction::query()
             ->where('user_id', $userId)
             ->where('is_transfer', false)
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->where(function ($q) use ($month, $start, $end) {
                 $q->where('competence_month', $month)
                   ->orWhere(function ($q2) use ($start, $end) {
@@ -172,6 +177,7 @@ class DashboardController extends Controller
             ->where('user_id', $userId)
             ->where('type', 'income')
             ->where('is_transfer', true)
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->where('competence_month', $month)
             ->selectRaw('account_id')
             ->selectRaw('COALESCE(SUM(amount),0) as total')
@@ -183,6 +189,7 @@ class DashboardController extends Controller
             ->where('user_id', $userId)
             ->where('type', 'expense')
             ->where('is_transfer', false)
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->where(function ($q) use ($month, $start, $end) {
                 $q->where('competence_month', $month)
                   ->orWhere(function ($q2) use ($start, $end) {
@@ -198,6 +205,7 @@ class DashboardController extends Controller
 
         $cardLimitUsageAgg = Transaction::query()
             ->where('user_id', $userId)
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->selectRaw('account_id')
             ->selectRaw("
                 COALESCE(SUM(
@@ -233,6 +241,7 @@ class DashboardController extends Controller
             ->where('user_id', $userId)
             ->where('type', 'expense')
             ->where('is_transfer', false)
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->where(function ($q) use ($previousMonth, $previousStart, $previousEnd) {
                 $q->where('competence_month', $previousMonth)
                   ->orWhere(function ($q2) use ($previousStart, $previousEnd) {
@@ -354,6 +363,7 @@ class DashboardController extends Controller
                 ->where('user_id', $userId)
                 ->where('type', $txType)
                 ->where('is_transfer', false)
+                ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
                 ->where(function ($q1) use ($month, $end) {
                     $q1->where('competence_month', '<=', $month)
                        ->orWhere(function ($q2) use ($end) {
@@ -444,6 +454,7 @@ class DashboardController extends Controller
             ->where('user_id', $userId)
             ->where('is_transfer', false)
             ->where('type', 'expense')
+            ->whereHas('account', fn ($a) => $a->where('type', '!=', 'investment'))
             ->where(function ($q1) use ($month, $start, $end) {
                 $q1->where('competence_month', $month)
                    ->orWhere(function ($q2) use ($start, $end) {
@@ -517,6 +528,7 @@ class DashboardController extends Controller
 
         $accountsFilter = Account::query()
             ->where('user_id', $userId)
+            ->where('type', '!=', 'investment')
             ->orderBy('name')
             ->get(['id', 'name', 'type', 'statement_close_day']);
 

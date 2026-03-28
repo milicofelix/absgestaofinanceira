@@ -17,6 +17,7 @@ use App\Services\Transactions\CompetenceMonthService;
 use App\Services\Transactions\IdempotencyKeyService;
 use App\Actions\Transactions\CreateTransactionAction;
 use App\Actions\Transactions\UpdateTransactionAction;
+use App\Support\Transactions\TransactionIndexRedirectParams;
 
 class TransactionController extends Controller
 {
@@ -204,25 +205,10 @@ class TransactionController extends Controller
             throw $e;
         }
 
-        $params = array_filter([
-            'month' => $transaction->competence_month,
-            'type' => $request->input('return_type'),
-            'category_id' => $request->input('return_category_id'),
-            'account_id' => $request->input('return_account_id'),
-            'q' => $request->input('return_q'),
-            'installment' => $request->input('return_installment'),
-            'status' => $request->input('return_status'),
-        ], fn ($value) => $value !== null && $value !== '');
-
-        $accountIds = collect((array) $request->input('return_account_ids', []))
-            ->filter(fn ($id) => is_numeric($id))
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
-
-        if (!empty($accountIds)) {
-            $params['account_ids'] = $accountIds;
-        }
+       $params = TransactionIndexRedirectParams::fromRequest(
+            $request,
+            $transaction->competence_month
+        );
 
         return redirect()
             ->route('transactions.index', $params)
@@ -360,25 +346,10 @@ class TransactionController extends Controller
             throw $e;
         }
 
-        $params = array_filter([
-            'month' => $updatedTransaction->competence_month,
-            'type' => $request->input('return_type'),
-            'category_id' => $request->input('return_category_id'),
-            'account_id' => $request->input('return_account_id'),
-            'q' => $request->input('return_q'),
-            'installment' => $request->input('return_installment'),
-            'status' => $request->input('return_status'),
-        ], fn ($value) => $value !== null && $value !== '');
-
-        $accountIds = collect((array) $request->input('return_account_ids', []))
-            ->filter(fn ($id) => is_numeric($id))
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
-
-        if (!empty($accountIds)) {
-            $params['account_ids'] = $accountIds;
-        }
+       $params = TransactionIndexRedirectParams::fromRequest(
+            $request,
+            $updatedTransaction->competence_month
+        );
 
         return redirect()
             ->route('transactions.index', $params)
@@ -419,25 +390,10 @@ class TransactionController extends Controller
 
         $transaction->delete();
 
-        $params = array_filter([
-            'month' => $request->query('month') ?: $fallbackMonth,
-            'type' => $request->query('type'),
-            'category_id' => $request->query('category_id'),
-            'account_id' => $request->query('account_id'),
-            'q' => $request->query('q'),
-            'installment' => $request->query('installment'),
-            'status' => $request->query('status'),
-        ], fn ($value) => $value !== null && $value !== '');
-
-        $accountIds = collect((array) $request->query('account_ids', []))
-            ->filter(fn ($id) => is_numeric($id))
-            ->map(fn ($id) => (int) $id)
-            ->values()
-            ->all();
-
-        if (!empty($accountIds)) {
-            $params['account_ids'] = $accountIds;
-        }
+       $params = TransactionIndexRedirectParams::fromRequest(
+            $request,
+            $request->query('month') ?: $fallbackMonth
+        );
 
         return redirect()
             ->route('transactions.index', $params)
