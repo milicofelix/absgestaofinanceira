@@ -19,7 +19,7 @@ class StoreAccountRequest extends FormRequest
             'initial_balance' => ['nullable', 'numeric'],
 
             'statement_close_day' => [
-                'nullable','integer','min:1','max:28',
+                'nullable','integer','min:1','max:31',
                 Rule::requiredIf(fn() => $this->input('type') === 'credit_card'),
             ],
 
@@ -66,7 +66,7 @@ class StoreAccountRequest extends FormRequest
             'statement_close_day.required' => 'Informe o dia de fechamento da fatura.',
             'statement_close_day.integer' => 'O dia de fechamento da fatura deve ser um número inteiro.',
             'statement_close_day.min' => 'O dia de fechamento da fatura deve ser no mínimo 1.',
-            'statement_close_day.max' => 'O dia de fechamento da fatura deve ser no máximo 28.',
+            'statement_close_day.max' => 'O dia de fechamento da fatura deve estar entre 1 e 31.',
             'statement_close_month.integer' => 'O mês de fechamento deve ser um número inteiro.',
             'statement_close_month.min' => 'O mês de fechamento deve ser entre 1 e 12.',
             'statement_close_month.max' => 'O mês de fechamento deve ser entre 1 e 12.',

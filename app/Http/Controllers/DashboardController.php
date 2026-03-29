@@ -499,7 +499,7 @@ class DashboardController extends Controller
         $warning  = 0;
 
         foreach ($effectiveBudgets as $b) {
-            $limit = (float) ($b->amount ?? 0);
+            $limit = (float) ($b['amount'] ?? 0);
             if ($limit <= 0) continue;
 
             $spent = (float) ($spentByCategory[$b['category_id']] ?? 0);
