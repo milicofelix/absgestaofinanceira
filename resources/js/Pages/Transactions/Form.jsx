@@ -18,7 +18,10 @@ export default function Form({ mode, transaction, categories, accounts, return_f
 
   const { data, setData, post, put, processing, errors } = useForm({
     type: transaction?.type ?? (return_filters?.type ?? 'expense'),
-    amount: transaction?.amount ?? '',
+    amount:
+    transaction?.amount !== null && transaction?.amount !== undefined
+      ? Number(transaction.amount).toFixed(2)
+      : '',
     date: transaction?.date ?? todayLocalISO(),
     description: transaction?.description ?? '',
     category_id: transaction?.category_id ?? (return_filters?.category_id ?? categories?.[0]?.id ?? ''),
@@ -985,7 +988,7 @@ export default function Form({ mode, transaction, categories, accounts, return_f
                   disabled={processing || formDisabled}
                   className="inline-flex items-center rounded-lg bg-emerald-600 px-5 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 disabled:opacity-60"
                 >
-                  Salvar
+                  {mode === 'edit' ? 'Atualizar' : 'Salvar'}
                 </button>
               </div>
               {showQrScanner && (
