@@ -12,7 +12,7 @@ return new class extends Migration {
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
 
             $table->string('name', 80);
-            $table->enum('type', ['cash', 'bank', 'credit_card', 'other'])->default('bank');
+            $table->enum('type', ['cash', 'bank', 'credit_card', 'other', 'investment'])->default('bank');
             $table->decimal('initial_balance', 12, 2)->default(0);
 
             $table->timestamps();
