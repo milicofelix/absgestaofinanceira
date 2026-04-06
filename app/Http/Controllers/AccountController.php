@@ -26,6 +26,9 @@ class AccountController extends Controller
                 'yield_enabled',
                 'due_day', 
                 'credit_limit',
+                'last_yield_date',
+                'yield_cap_amount',
+                'above_cap_cdi_percent',
                 ]);
 
         return Inertia::render('Accounts/Index', [
@@ -66,6 +69,12 @@ class AccountController extends Controller
         $data['cdi_percent'] = $request->filled('cdi_percent')
             ? (float) $request->input('cdi_percent')
             : 100;
+        
+        // $data['yield_enabled'] = $data['yield_enabled'] ?? false;
+        // $data['cdi_percent'] = $data['cdi_percent'] ?? 100;
+        $data['yield_cap_amount'] = $data['yield_cap_amount'] ?? null;
+        $data['above_cap_cdi_percent'] = $data['above_cap_cdi_percent'] ?? null;
+
 
         // se não for investment, limpa campos
         if ($data['type'] !== 'investment') {
@@ -92,6 +101,7 @@ class AccountController extends Controller
                 'id','name','type','initial_balance',
                 'statement_close_day', 'due_day', 'statement_close_month',
                 'yield_enabled','cdi_percent','credit_limit',
+                'yield_cap_amount', 'above_cap_cdi_percent',
             ]),
         ]);
     }
@@ -116,6 +126,12 @@ class AccountController extends Controller
             'cdi_percent' => $request->filled('cdi_percent')
                 ? (float) $request->input('cdi_percent')
                 : 100,
+            'yield_cap_amount' => $request->filled('yield_cap_amount')
+                ? (float) $request->input('yield_cap_amount')
+                : null,
+            'above_cap_cdi_percent' => $request->filled('above_cap_cdi_percent')
+                ? (float) $request->input('above_cap_cdi_percent')
+                : null,
         ];
 
         if ($type !== 'investment') {

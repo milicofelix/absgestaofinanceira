@@ -179,7 +179,7 @@ class DashboardIndexTest extends TestCase
 
         $response->assertInertia(fn (Assert $page) => $page
             ->component('Dashboard')
-            ->where('filters.account_id', (string) $accountA->id)
+            ->where('filters.account_id', $accountA->id)
             ->where('income', 1000)
         );
     }

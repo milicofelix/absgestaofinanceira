@@ -13,7 +13,9 @@ export default function Form({ mode, account }) {
     statement_close_month: account?.statement_close_month ?? null,
     // investimento
     yield_enabled: !!(account?.yield_enabled ?? false),
-    cdi_percent: account?.cdi_percent ?? 100,
+    cdi_percent: normalizePercentInput(account?.cdi_percent ?? 100),
+    yield_cap_amount: String(account?.yield_cap_amount ?? ''),
+    above_cap_cdi_percent: normalizePercentInput(account?.above_cap_cdi_percent ?? ''),
     credit_limit: String(account?.credit_limit ?? ''),
   });
 
@@ -35,6 +37,15 @@ export default function Form({ mode, account }) {
     e.preventDefault();
     if (mode === 'create') post(route('accounts.store'));
     else put(route('accounts.update', account.id));
+  }
+
+  function normalizePercentInput(value) {
+    if (value === null || value === undefined || value === '') return '';
+
+    const num = Number(value);
+    if (Number.isNaN(num)) return '';
+
+    return Number.isInteger(num) ? String(num) : String(num);
   }
 
   return (
@@ -161,11 +172,12 @@ export default function Form({ mode, account }) {
                       Configuração avançada
                     </summary>
 
-                    <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
-                          Percentual do CDI
-                        </label>
+                   <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                        Percentual do CDI
+                      </label>
+                      <div className="relative mt-1">
                         <input
                           type="number"
                           step="0.01"
@@ -175,18 +187,77 @@ export default function Form({ mode, account }) {
                           value={data.cdi_percent}
                           onChange={(e) => setData('cdi_percent', e.target.value === '' ? '' : Number(e.target.value))}
                         />
-                        {errors.cdi_percent && (
-                          <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.cdi_percent}</div>
-                        )}
+                        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-semibold text-gray-500 dark:text-slate-400">
+                          %
+                        </span>
+                      </div>
+                      {errors.cdi_percent && (
+                        <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.cdi_percent}</div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                        Faixa com rendimento maior
+                      </label>
+
+                      <div className="mt-1">
+                        <MoneyInput
+                          value={data.yield_cap_amount}
+                          onValueChange={(value) => setData('yield_cap_amount', value)}
+                        />
                       </div>
 
-                      <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800">
-                        Ex.: <b>100%</b> = rende igual ao CDI.
-                        <div className="mt-2 text-gray-500 dark:text-slate-400">
-                          Só altere esse campo se você realmente souber qual percentual usar.
-                        </div>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                        Ex.: até R$ 5.000,00 render 115% do CDI.
+                      </p>
+
+                      {errors.yield_cap_amount && (
+                        <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.yield_cap_amount}</div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200">
+                        Percentual acima da faixa
+                      </label>
+                      <div className="relative mt-1">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="300"
+                          className="mt-1 w-full rounded-lg border-gray-300 bg-white text-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+                          value={data.above_cap_cdi_percent}
+                          onChange={(e) => setData('above_cap_cdi_percent', e.target.value === '' ? '' : Number(e.target.value))}
+                        />
+                        <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm font-semibold text-gray-500 dark:text-slate-400">
+                          %
+                        </span>
+                      </div>
+                      <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">
+                        Ex.: acima de R$ 5.000,00 render 100% do CDI.
+                      </p>
+                      {errors.above_cap_cdi_percent && (
+                        <div className="mt-1 text-sm text-rose-600 dark:text-rose-300">{errors.above_cap_cdi_percent}</div>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl bg-gray-50 p-3 text-xs text-gray-600 ring-1 ring-gray-200 dark:bg-slate-950 dark:text-slate-300 dark:ring-slate-800">
+                      <div>
+                        <b>Como funciona:</b>
+                      </div>
+                      <div className="mt-2">
+                        O campo <b>Percentual do CDI</b> vale para a faixa principal.
+                      </div>
+                      <div className="mt-1">
+                        Se a faixa com rendimento maior for preenchida, o excedente passa a usar o percentual informado em <b>Percentual acima da faixa</b>.
+                      </div>
+                      <div className="mt-1 text-gray-500 dark:text-slate-400">
+                        Se esses campos ficarem vazios, o sistema pode usar a configuração global padrão.
                       </div>
                     </div>
+                  </div>
                   </details>
                 </div>
               )}

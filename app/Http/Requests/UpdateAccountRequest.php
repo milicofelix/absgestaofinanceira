@@ -39,6 +39,17 @@ class UpdateAccountRequest extends FormRequest
                 'numeric',
                 'min:0',
             ],
+            'yield_cap_amount' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
+            'above_cap_cdi_percent' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:300',
+            ],
         ];
     }
 
