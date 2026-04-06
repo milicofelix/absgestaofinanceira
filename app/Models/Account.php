@@ -23,6 +23,8 @@ class Account extends Model
         'cdi_percent',
         'last_yield_date',
         'credit_limit',
+        'yield_cap_amount',
+        'above_cap_cdi_percent',
         ];
 
     protected $casts = [
@@ -31,6 +33,8 @@ class Account extends Model
         'cdi_percent' => 'decimal:2',
         'credit_limit' => 'decimal:2',
         'last_yield_date' => 'date',
+        'yield_cap_amount' => 'decimal:2',
+        'above_cap_cdi_percent' => 'decimal:2',
     ];
 
     public function user(): BelongsTo

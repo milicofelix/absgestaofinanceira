@@ -91,9 +91,7 @@ class ApplyInvestmentYield extends Command
                             return;
                         }
 
-                        $factor = ((float)($acc->cdi_percent ?? 100)) / 100.0;
-                        $taxaEfetiva = $cdi * $factor; // % ao dia
-                        $rendimento = $saldo * ($taxaEfetiva / 100.0);
+                        $rendimento = $this->calculateTieredYield($acc, $saldo, $cdi);
 
                         // ignora migalhas
                         if ($rendimento >= 0.01) {
@@ -113,7 +111,7 @@ class ApplyInvestmentYield extends Command
                                 'date' => $day->toDateString(),
                                 'purchase_date' => $day->toDateString(),
                                 'competence_month' => $day->format('Y-m'),
-                                'description' => 'Simulação de rendimento CDI ('.$cdiPercentLabel.'%)',
+                                'description' => $this->buildYieldDescription($acc),
                                 'payment_method' => 'other',
                                 'is_cleared' => true,
                                 'cleared_at' => $day->toDateString().' 00:00:00',
@@ -196,5 +194,87 @@ class ApplyInvestmentYield extends Command
             ->first();
 
         return $initial + (float)($agg->inc ?? 0) - (float)($agg->exp ?? 0);
+    }
+
+    private function calculateTieredYield(Account $acc, float $saldo, float $cdiDailyPercent): float
+    {
+        if ($saldo <= 0) {
+            return 0.0;
+        }
+
+        // Regra principal da conta
+        $basePercent = (float) ($acc->cdi_percent ?? 100);
+
+        // Nova regra opcional de faixa
+        $capAmount = $this->resolveYieldCapAmount($acc); // ex: 5000.00
+        $aboveCapPercent = $this->resolveAboveCapCdiPercent($acc); // ex: 100.00
+
+        // Se não houver faixa configurada, mantém comportamento antigo
+        if ($capAmount <= 0 || $saldo <= $capAmount) {
+            return $this->calculateYieldPortion($saldo, $cdiDailyPercent, $basePercent);
+        }
+
+        $tier1Amount = min($saldo, $capAmount);
+        $tier2Amount = max(0, $saldo - $capAmount);
+
+        $tier1Yield = $this->calculateYieldPortion($tier1Amount, $cdiDailyPercent, $basePercent);
+        $tier2Yield = $this->calculateYieldPortion($tier2Amount, $cdiDailyPercent, $aboveCapPercent);
+
+        return $tier1Yield + $tier2Yield;
+    }
+
+    private function calculateYieldPortion(float $amount, float $cdiDailyPercent, float $cdiPercentFactor): float
+    {
+        if ($amount <= 0 || $cdiPercentFactor <= 0) {
+            return 0.0;
+        }
+
+        $factor = $cdiPercentFactor / 100.0;
+        $taxaEfetiva = $cdiDailyPercent * $factor; // % ao dia
+
+        return $amount * ($taxaEfetiva / 100.0);
+    }
+
+    private function resolveYieldCapAmount(Account $acc): float
+    {
+        // prioridade: campo da conta; fallback: config fixa
+        if (isset($acc->yield_cap_amount) && $acc->yield_cap_amount !== null) {
+            return (float) $acc->yield_cap_amount;
+        }
+
+        return (float) config('investments.default_yield_cap_amount', 0);
+    }
+
+    private function resolveAboveCapCdiPercent(Account $acc): float
+    {
+        // prioridade: campo da conta; fallback: config fixa
+        if (isset($acc->above_cap_cdi_percent) && $acc->above_cap_cdi_percent !== null) {
+            return (float) $acc->above_cap_cdi_percent;
+        }
+
+        return (float) config('investments.default_above_cap_cdi_percent', 100);
+    }
+
+    private function buildYieldDescription(Account $acc): string
+    {
+        $basePercent = (float) ($acc->cdi_percent ?? 100);
+        $capAmount = $this->resolveYieldCapAmount($acc);
+        $aboveCapPercent = $this->resolveAboveCapCdiPercent($acc);
+
+        $baseLabel = fmod($basePercent, 1.0) === 0.0
+            ? number_format($basePercent, 0, ',', '.')
+            : number_format($basePercent, 2, ',', '.');
+
+        if ($capAmount <= 0) {
+            return 'Simulação de rendimento CDI ('.$baseLabel.'%)';
+        }
+
+        $capLabel = number_format($capAmount, 2, ',', '.');
+
+        $aboveLabel = fmod($aboveCapPercent, 1.0) === 0.0
+            ? number_format($aboveCapPercent, 0, ',', '.')
+            : number_format($aboveCapPercent, 2, ',', '.');
+
+        return "Simulação de rendimento CDI (até R$ {$capLabel}: {$baseLabel}% | acima: {$aboveLabel}%)";
     }
 }
